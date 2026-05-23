@@ -4,6 +4,11 @@ name: release
 # Release when a `v*` tag is pushed. Archive names match the
 # [package.metadata.binstall] template in adler-cli/Cargo.toml, so
 # `cargo binstall adler-cli` picks them up.
+#
+# Two-stage layout: `create-release` makes (or reuses) the Release once;
+# then the matrix uploads artefacts into it. Running creation inside the
+# matrix races — five jobs simultaneously call `gh release create` and all
+# but one fail with "release not found" during their upload poll.
 
 on:
   push:
@@ -14,8 +19,28 @@ permissions:
   contents: write
 
 jobs:
+  create-release:
+    name: create release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create or reuse the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "release $TAG already exists, reusing"
+          else
+            gh release create "$TAG" \
+              --title "$TAG" \
+              --generate-notes \
+              --verify-tag
+          fi
+
   upload:
     name: ${{ matrix.target }}
+    needs: create-release
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
