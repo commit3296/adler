@@ -45,17 +45,17 @@ open = "5"
 # Pinned: scraper ≥0.24 uses let-chains in source, which the environment's
 # clippy (0.1.86) rejects even though rustc 1.94 accepts them. 0.23.1 is the
 # newest release that checks cleanly. (Same constraint as wiremock below.)
-scraper = "=0.23.1"
+scraper = "=0.27.0"
 
 # Dev-deps
 # Pin wiremock below 0.6.5: that release ships `if let && let` chains in
 # source without declaring edition 2024, so it fails to build on Rust 1.94.
-wiremock = "=0.6.4"
+wiremock = "=0.6.5"
 insta = { version = "1", features = ["yaml", "filters"] }
 assert_cmd = "2"
 predicates = "3"
 tempfile = "3"
-criterion = { version = "0.5", features = ["async_tokio"] }
+criterion = { version = "0.7", features = ["async_tokio"] }
 proptest = "1"
 
 [workspace.lints.rust]
