@@ -1,0 +1,39 @@
+name: Feature request
+description: Suggest a new capability or a non-trivial improvement
+title: "[feat] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Concrete problems > vague ideas. The clearer the use case, the more
+        likely this gets picked up. For new sites, please use the Site
+        request template instead.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: The concrete situation you hit that prompted the idea.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behaviour
+      description: What you'd like Adler to do. Commands, flags, output snippets welcome.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What you tried or thought about before opening this.
+    validations:
+      required: false
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+      description: Links to similar tools, related issues, prior art, etc.
+    validations:
+      required: false
