@@ -4,6 +4,8 @@
 
 <p align="center">
   <a href="https://github.com/commit3296/adler/actions/workflows/ci.yml"><img src="https://github.com/commit3296/adler/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://crates.io/crates/adler-cli"><img src="https://img.shields.io/crates/v/adler-cli.svg" alt="crates.io"></a>
+  <a href="https://docs.rs/adler-core"><img src="https://docs.rs/adler-core/badge.svg" alt="docs.rs"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
 </p>
 
@@ -27,18 +29,30 @@ cross-site correlation, written in Rust.
 
 ## Install
 
-Adler isn't on crates.io yet and the first release isn't tagged, so build
-from source:
+From crates.io (compiles locally, ~1–2 min):
+
+```bash
+cargo install adler-cli
+```
+
+Pre-built binary from the GitHub release (instant, no compile):
+
+```bash
+cargo binstall adler-cli            # https://github.com/cargo-bins/cargo-binstall
+```
+
+From source:
 
 ```bash
 git clone https://github.com/commit3296/adler.git
 cd adler
-cargo install --path adler-cli      # installs the `adler` binary
+cargo install --path adler-cli
 ```
 
-Requires Rust ≥ 1.85. Once `v0.1.0` is tagged you'll also be able to use
-`cargo install adler-cli` (from crates.io) or `cargo binstall adler-cli`
-(pre-built binaries from the GitHub release).
+Requires Rust ≥ 1.85. The installed binary is `adler`. The library
+([`adler-core`](https://crates.io/crates/adler-core)) is published separately
+for embedding the engine in your own tools — see the
+[*Library*](#library) section below.
 
 ## Build & run
 
