@@ -23,6 +23,35 @@ All four must pass; CI enforces them on every push.
 - New public items in `adler-core` need `///` docs;
   `RUSTDOCFLAGS=-D warnings cargo doc` must stay clean.
 
+## Commit messages
+
+We follow [Conventional Commits](https://www.conventionalcommits.org):
+
+```
+<type>(<optional scope>): <imperative subject>
+
+<optional body explaining WHY, not what>
+```
+
+Common `<type>`: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`, `ci`,
+`perf`, `revert`. `<scope>` is the touched area, e.g. `tui`, `core`, `cli`,
+`registry`.
+
+- Subject in the imperative ("add X", not "added X") and ≤ 72 chars.
+- Body explains the *why* (a hidden constraint, an incident, a tradeoff).
+  The diff already shows the *what*.
+- One concern per commit — don't bundle a refactor with a feature.
+- No emoji. No `Co-Authored-By` trailer unless the contributor explicitly
+  wants it.
+
+Examples:
+
+```
+feat(tui): jump to next found account with n / N
+fix(core): treat 429 with no Retry-After as a transient ban
+docs(contributing): document commit-message conventions
+```
+
 ## Dependency version pins (read before bumping)
 
 `Cargo.toml` pins `scraper = "=0.23.1"` and `wiremock = "=0.6.4"`. These are
