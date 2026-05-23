@@ -51,7 +51,10 @@ jobs:
           - target: aarch64-unknown-linux-gnu
             os: ubuntu-latest
           - target: x86_64-apple-darwin
-            os: macos-13
+            # macos-13 was deprecated 2025-09-22 and is effectively
+            # unavailable in queues; `macos-15-intel` is GitHub's official
+            # x86_64 Intel migration target (good through ~Fall 2027).
+            os: macos-15-intel
           - target: aarch64-apple-darwin
             os: macos-14
           - target: x86_64-pc-windows-msvc
