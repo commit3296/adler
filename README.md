@@ -2,6 +2,11 @@
   <img src="banner.png" alt="Adler" />
 </p>
 
+<p align="center">
+  <a href="https://github.com/commit3296/adler/actions/workflows/ci.yml"><img src="https://github.com/commit3296/adler/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
+</p>
+
 # Adler
 
 > *Named for Irene Adler — "the Woman", the one who outwitted Sherlock Holmes.
@@ -19,6 +24,21 @@ cross-site correlation, written in Rust.
 | ------------- | ---- | ------------------------------------------- |
 | `adler-core` | lib  | Detection engine, site registry, executor. |
 | `adler-cli`  | bin  | `adler` command-line interface.            |
+
+## Install
+
+Adler isn't on crates.io yet and the first release isn't tagged, so build
+from source:
+
+```bash
+git clone https://github.com/commit3296/adler.git
+cd adler
+cargo install --path adler-cli      # installs the `adler` binary
+```
+
+Requires Rust ≥ 1.85. Once `v0.1.0` is tagged you'll also be able to use
+`cargo install adler-cli` (from crates.io) or `cargo binstall adler-cli`
+(pre-built binaries from the GitHub release).
 
 ## Build & run
 
