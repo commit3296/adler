@@ -21,8 +21,8 @@ tokio = { version = "1", default-features = false, features = [
     "sync",
     "signal",
 ] }
-reqwest = { version = "0.12", default-features = false, features = [
-    "rustls-tls",
+reqwest = { version = "0.13", default-features = false, features = [
+    "rustls",
     "http2",
     "json",
     "gzip",
@@ -42,15 +42,10 @@ fastrand = "2"
 ratatui = "0.30"
 crossterm = "0.29"
 open = "5"
-# Pinned: scraper ≥0.24 uses let-chains in source, which the environment's
-# clippy (0.1.86) rejects even though rustc 1.94 accepts them. 0.23.1 is the
-# newest release that checks cleanly. (Same constraint as wiremock below.)
-scraper = "=0.27.0"
+scraper = "0.27"
 
 # Dev-deps
-# Pin wiremock below 0.6.5: that release ships `if let && let` chains in
-# source without declaring edition 2024, so it fails to build on Rust 1.94.
-wiremock = "=0.6.5"
+wiremock = "0.6"
 insta = { version = "1", features = ["yaml", "filters"] }
 assert_cmd = "2"
 predicates = "3"

@@ -52,19 +52,6 @@ fix(core): treat 429 with no Retry-After as a transient ban
 docs(contributing): document commit-message conventions
 ```
 
-## Dependency version pins (read before bumping)
-
-`Cargo.toml` pins `scraper = "=0.23.1"` and `wiremock = "=0.6.4"`. These are
-**not** upstream bugs — newer releases use `let`-chains in their source, which
-requires a toolchain where Clippy understands them. The development
-environment these were built in shipped Clippy 0.1.86 alongside rustc 1.94, so
-`cargo clippy` rejected the newer crates even though `cargo build` accepted
-them.
-
-On a matching toolchain (Clippy ≥ 1.88) the pins can be relaxed. Before
-bumping either crate, confirm `cargo clippy --workspace --all-targets --
--D warnings` still passes — that's the check the pins protect.
-
 ## Adding or fixing a site
 
 Growing the registry is the highest-leverage contribution. The flow is meant
