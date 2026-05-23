@@ -124,7 +124,7 @@ mod tests {
     #[test]
     fn rejects_disallowed_characters() {
         for bad in [
-            " alice", "alice ", "ali ce", "a/b", "a?b", "a#b", "ali@ce", "юзер",
+            " alice", "alice ", "ali ce", "a/b", "a?b", "a#b", "ali@ce", "café",
         ] {
             assert!(Username::new(bad).is_err(), "{bad:?} should be rejected");
         }
