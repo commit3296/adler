@@ -1,0 +1,126 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/commit3296/adler/blob/main/docs/sites.schema.json",
+  "title": "Adler site registry",
+  "description": "Schema for adler-core/data/sites.json. Field-level validation for editors and CI; deeper invariants (CSS-selector validity, case-insensitive duplicate names) are enforced by the Rust loader.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["sites"],
+  "properties": {
+    "_comment": {
+      "type": "string",
+      "description": "Free-text provenance/attribution note. Ignored by the loader."
+    },
+    "sites": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/site" }
+    }
+  },
+  "$defs": {
+    "site": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "url", "signals"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Human-readable site name. Doubles as the case-insensitive --only/--exclude filter key; must be unique."
+        },
+        "url": {
+          "type": "string",
+          "pattern": "^https?://.*\\{username\\}",
+          "description": "URL template. Must start with http(s):// and contain the {username} placeholder. Prefer a stable API/feed endpoint over a bot-protected canonical page (see CONTRIBUTING.md)."
+        },
+        "signals": {
+          "type": "array",
+          "minItems": 1,
+          "description": "Detection signals. Aggregation is negative-priority: any NotFound vote wins over Found; no votes -> Uncertain.",
+          "items": { "$ref": "#/$defs/signal" }
+        },
+        "known_present": {
+          "type": "string",
+          "minLength": 1,
+          "description": "A username known to exist on this site. Used by `adler --doctor` to verify the positive case."
+        },
+        "known_absent": {
+          "type": "string",
+          "minLength": 1,
+          "description": "A username known not to exist. Optional; the doctor generates a random nonsense username when omitted."
+        },
+        "extract": {
+          "type": "array",
+          "description": "Optional CSS-selector rules for --enrich profile extraction.",
+          "items": { "$ref": "#/$defs/extractor" }
+        },
+        "tags": {
+          "type": "array",
+          "description": "Free-form classification tags for --tag subset scans (e.g. \"social\", \"dev\", \"region:ru\"). Conventionally lowercase.",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "signal": {
+      "type": "object",
+      "required": ["kind"],
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "required": ["kind", "codes"],
+          "properties": {
+            "kind": { "const": "status_found" },
+            "codes": { "$ref": "#/$defs/statusCodes" }
+          }
+        },
+        {
+          "additionalProperties": false,
+          "required": ["kind", "codes"],
+          "properties": {
+            "kind": { "const": "status_not_found" },
+            "codes": { "$ref": "#/$defs/statusCodes" }
+          }
+        },
+        {
+          "additionalProperties": false,
+          "required": ["kind", "text"],
+          "properties": {
+            "kind": { "const": "body_present" },
+            "text": { "type": "string", "minLength": 1 }
+          }
+        },
+        {
+          "additionalProperties": false,
+          "required": ["kind", "text"],
+          "properties": {
+            "kind": { "const": "body_absent" },
+            "text": { "type": "string", "minLength": 1 }
+          }
+        },
+        {
+          "additionalProperties": false,
+          "required": ["kind", "fragment"],
+          "properties": {
+            "kind": { "const": "redirect_absent" },
+            "fragment": { "type": "string", "minLength": 1 }
+          }
+        }
+      ]
+    },
+    "statusCodes": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "integer", "minimum": 100, "maximum": 599 }
+    },
+    "extractor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["field", "selector"],
+      "properties": {
+        "field": { "type": "string", "minLength": 1 },
+        "selector": { "type": "string", "minLength": 1 },
+        "attr": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

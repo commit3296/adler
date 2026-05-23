@@ -1,0 +1,91 @@
+[workspace]
+resolver = "3"
+members = ["adler-core", "adler-cli"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+license = "MIT"
+repository = "https://github.com/commit3296/adler"
+homepage = "https://github.com/commit3296/adler"
+readme = "README.md"
+
+[workspace.dependencies]
+# Async runtime + HTTP — not yet used in Phase 0, kept here so member crates
+# pull a single pinned version once we wire detection in Phase 1.
+tokio = { version = "1", default-features = false, features = [
+    "macros",
+    "rt-multi-thread",
+    "time",
+    "sync",
+    "signal",
+] }
+reqwest = { version = "0.12", default-features = false, features = [
+    "rustls-tls",
+    "http2",
+    "json",
+    "gzip",
+    "brotli",
+    "socks",
+] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+clap = { version = "4", features = ["derive", "env", "wrap_help"] }
+clap_complete = "4"
+anyhow = "1"
+indicatif = "0.18"
+fastrand = "2"
+ratatui = "0.30"
+crossterm = "0.29"
+open = "5"
+# Pinned: scraper ≥0.24 uses let-chains in source, which the environment's
+# clippy (0.1.86) rejects even though rustc 1.94 accepts them. 0.23.1 is the
+# newest release that checks cleanly. (Same constraint as wiremock below.)
+scraper = "=0.23.1"
+
+# Dev-deps
+# Pin wiremock below 0.6.5: that release ships `if let && let` chains in
+# source without declaring edition 2024, so it fails to build on Rust 1.94.
+wiremock = "=0.6.4"
+insta = { version = "1", features = ["yaml", "filters"] }
+assert_cmd = "2"
+predicates = "3"
+tempfile = "3"
+criterion = { version = "0.5", features = ["async_tokio"] }
+proptest = "1"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_docs = "warn"
+unreachable_pub = "warn"
+rust_2018_idioms = { level = "warn", priority = -1 }
+
+[workspace.lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+# Practical allows — clippy's pedantic/nursery sets have known noisy lints.
+module_name_repetitions = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+must_use_candidate = "allow"
+multiple_crate_versions = "allow"
+# nursery: notorious for false positives, often suggests const fn for bodies
+# that depend on non-const stdlib methods (e.g. `String::as_str`).
+missing_const_for_fn = "allow"
+# nursery: contradicts the built-in `unreachable_pub` lint for items inside
+# crate-private modules. We use `pub(crate)` deliberately to mark
+# internal-but-cross-module visibility.
+redundant_pub_crate = "allow"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = "symbols"
+panic = "abort"
+
+[profile.dev]
+debug = "line-tables-only"

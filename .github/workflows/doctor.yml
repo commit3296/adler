@@ -1,0 +1,90 @@
+name: doctor
+
+# Nightly health check of the bundled site registry. Runs `adler --doctor`
+# over every site against the live network and classifies failures:
+#
+#   structural — known-present user reported NotFound, or a random user
+#                reported Found ("too permissive"). These usually mean the
+#                site redesigned and the detection signature rotted.
+#   transient  — reported Uncertain (rate limit, Cloudflare challenge, or a
+#                network blip — common from CI datacenter IPs).
+#
+# The job goes red only on structural failures, so routine CI-IP rate
+# limiting doesn't cause nightly noise. The full report is uploaded as an
+# artifact and written to the run summary either way.
+
+on:
+  schedule:
+    - cron: "0 4 * * *" # 04:00 UTC nightly
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: doctor
+  cancel-in-progress: true
+
+jobs:
+  doctor:
+    name: registry health check
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build release binary
+        run: cargo build --release -p adler-cli
+
+      - name: Run doctor over all sites
+        run: |
+          # A ban should surface as a failure, not be retried; rotate UAs to
+          # cut down on trivial blocking; never touch the cache.
+          set +e
+          ./target/release/adler --doctor \
+            --no-cache --max-retries 0 --rotate-ua --timeout 10 \
+            > report.txt 2> doctor.log
+          echo "doctor exit code: $?"
+          tail -n 1 report.txt || true
+
+      - name: Classify and summarise
+        run: |
+          structural=$(grep -cE "reported NotFound|too permissive" report.txt || true)
+          transient=$(grep -c "reported Uncertain" report.txt || true)
+          tally=$(grep -E "site\(s\) checked" report.txt | tail -n 1)
+          {
+            echo "# Registry doctor report"
+            echo
+            echo "- ${tally:-no tally line found}"
+            echo "- **structural** failures (likely signature rot): **${structural}**"
+            echo "- transient failures (likely rate-limit / network): ${transient}"
+            echo
+            echo "## Structural failures"
+            echo '```'
+            grep -B1 -E "reported NotFound|too permissive" report.txt || echo "(none)"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "STRUCTURAL=${structural}" >> "$GITHUB_ENV"
+
+      - name: Upload full report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: doctor-report
+          path: |
+            report.txt
+            doctor.log
+          retention-days: 14
+
+      - name: Fail on structural breakage
+        run: |
+          if [ "${STRUCTURAL:-0}" -gt 0 ]; then
+            echo "::error::${STRUCTURAL} site(s) have structural detection failures — see the run summary"
+            exit 1
+          fi
+          echo "no structural failures; transient bans (if any) ignored"

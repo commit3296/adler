@@ -1,0 +1,34 @@
+# Build artifacts
+/target/
+**/*.rs.bk
+Cargo.lock.bak
+
+# IDE / editor
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Env / secrets
+.env
+.env.local
+*.pem
+*.key
+
+# Local databases / caches
+*.db
+*.db-journal
+*.sqlite
+*.sqlite-journal
+.cache/
+
+# Logs
+*.log
+
+# Claude working agreement (local only)
+CLAUDE.md
+.claude/
+
+# Python bytecode from scripts/
+__pycache__/

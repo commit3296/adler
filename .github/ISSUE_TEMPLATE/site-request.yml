@@ -1,0 +1,53 @@
+name: Site request
+description: Request a new site for the Adler registry (or report a broken one)
+title: "[site] "
+labels: ["site"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks! The more of this you can fill in, the faster it can be added.
+        If you're comfortable opening a PR yourself, see
+        [CONTRIBUTING.md → Adding or fixing a site](../blob/main/CONTRIBUTING.md#adding-or-fixing-a-site).
+  - type: input
+    id: name
+    attributes:
+      label: Site name
+      placeholder: e.g. Example
+    validations:
+      required: true
+  - type: input
+    id: profile_url
+    attributes:
+      label: Profile URL pattern
+      description: The public profile URL with the username shown as {username}.
+      placeholder: https://example.com/{username}
+    validations:
+      required: true
+  - type: input
+    id: existing
+    attributes:
+      label: A username that DOES exist there
+      description: Used to verify the positive case (`known_present`).
+      placeholder: e.g. torvalds
+    validations:
+      required: true
+  - type: textarea
+    id: not_found
+    attributes:
+      label: What does a NON-existent profile do?
+      description: >
+        e.g. "returns HTTP 404", or "200 with the text 'User not found'", or
+        "redirects to /login". This is what detection keys off. If you don't
+        know, leave blank — `adler --doctor --fix` can often derive it.
+    validations:
+      required: false
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+      description: >
+        Anything else — e.g. the site is behind Cloudflare and needs an
+        API/feed endpoint, or it rate-limits aggressively.
+    validations:
+      required: false
