@@ -1,0 +1,7996 @@
+{
+  "_comment": "Site registry for Adler.\nGenerated from the Sherlock project's data.json (MIT-licensed,\nsherlock-project/sherlock) by scripts/import_sherlock.py.\nDetections are imported unverified — run `adler --doctor` to\nvalidate signatures. Hand-edit freely; re-running the importer\noverwrites this file.",
+  "sites": [
+    {
+      "name": "1337x",
+      "url": "https://www.1337x.to/user/{username}/",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "<title>Error something went wrong.</title>"
+        },
+        {
+          "kind": "body_absent",
+          "text": "<head><title>404 Not Found</title></head>"
+        }
+      ],
+      "known_present": "FitGirl"
+    },
+    {
+      "name": "2Dimensions",
+      "url": "https://2Dimensions.com/a/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "7Cups",
+      "url": "https://www.7cups.com/@{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "9GAG",
+      "url": "https://www.9gag.com/u/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "About.me",
+      "url": "https://about.me/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "Academia.edu",
+      "url": "https://independent.academia.edu/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "addons.wago.io",
+      "url": "https://addons.wago.io/user/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "AdmireMe.Vip",
+      "url": "https://admireme.vip/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "Page Not Found"
+        }
+      ],
+      "known_present": "DemiDevil"
+    },
+    {
+      "name": "Airbit",
+      "url": "https://airbit.com/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "airbit"
+    },
+    {
+      "name": "Airliners",
+      "url": "https://www.airliners.net/user/{username}/profile/photos",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "yushinlin"
+    },
+    {
+      "name": "akniga",
+      "url": "https://akniga.org/profile/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "AllMyLinks",
+      "url": "https://allmylinks.com/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "Page not found"
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "AniWorld",
+      "url": "https://aniworld.to/user/profil/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "Dieses Profil ist nicht verfügbar"
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "Aparat",
+      "url": "https://www.aparat.com/api/fa/v1/user/user/information/username/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "jadi"
+    },
+    {
+      "name": "APClips",
+      "url": "https://apclips.com/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "Amateur Porn Content Creators"
+        }
+      ],
+      "known_present": "onlybbyraq"
+    },
+    {
+      "name": "Apple Developer",
+      "url": "https://developer.apple.com/forums/profile/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "lio24d"
+    },
+    {
+      "name": "Archive of Our Own",
+      "url": "https://archiveofourown.org/users/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "test"
+    },
+    {
+      "name": "Arduino Forum",
+      "url": "https://forum.arduino.cc/u/{username}/summary",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "system"
+    },
+    {
+      "name": "ArtStation",
+      "url": "https://www.artstation.com/users/{username}.json",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "Blue",
+      "tags": [
+        "art"
+      ]
+    },
+    {
+      "name": "Asciinema",
+      "url": "https://asciinema.org/~{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "red"
+    },
+    {
+      "name": "Ask Fedora",
+      "url": "https://ask.fedoraproject.org/u/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "red"
+    },
+    {
+      "name": "Atcoder",
+      "url": "https://atcoder.jp/users/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "ksun48",
+      "tags": [
+        "region:jp"
+      ]
+    },
+    {
+      "name": "Audiojungle",
+      "url": "https://audiojungle.net/user/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "Autofrage",
+      "url": "https://www.autofrage.net/nutzer/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "autofrage"
+    },
+    {
+      "name": "AWS Skills Profile",
+      "url": "https://skillsprofile.skillbuilder.aws/user/{username}/",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "shareProfileAccepted\":false"
+        }
+      ],
+      "known_present": "mayank04pant"
+    },
+    {
+      "name": "BabyRu",
+      "url": "https://www.baby.ru/u/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "Страница, которую вы искали, не найдена"
+        },
+        {
+          "kind": "body_absent",
+          "text": "Доступ с вашего IP-адреса временно ограничен"
+        }
+      ],
+      "known_present": "example",
+      "tags": [
+        "region:ru"
+      ]
+    },
+    {
+      "name": "Bandcamp",
+      "url": "https://www.bandcamp.com/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue",
+      "tags": [
+        "music"
+      ]
+    },
+    {
+      "name": "Behance",
+      "url": "https://www.behance.net/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue",
+      "tags": [
+        "art"
+      ]
+    },
+    {
+      "name": "Bezuzyteczna",
+      "url": "https://bezuzyteczna.pl/uzytkownicy/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "Jackson",
+      "tags": [
+        "region:pl"
+      ]
+    },
+    {
+      "name": "BiggerPockets",
+      "url": "https://www.biggerpockets.com/users/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "BioHacking",
+      "url": "https://forum.dangerousthings.com/u/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "BitBucket",
+      "url": "https://bitbucket.org/{username}/",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "white",
+      "tags": [
+        "dev"
+      ]
+    },
+    {
+      "name": "Bitwarden Forum",
+      "url": "https://community.bitwarden.com/u/{username}/summary",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "Blipfoto",
+      "url": "https://www.blipfoto.com/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "Blitz Tactics",
+      "url": "https://blitztactics.com/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "That page doesn't exist"
+        }
+      ],
+      "known_present": "Lance5500"
+    },
+    {
+      "name": "Blogger",
+      "url": "https://{username}.blogspot.com",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue",
+      "tags": [
+        "blog"
+      ]
+    },
+    {
+      "name": "Bluesky",
+      "url": "https://public.api.bsky.app/xrpc/app.bsky.actor.getProfile?actor={username}.bsky.social",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "mcuban"
+    },
+    {
+      "name": "BongaCams",
+      "url": "https://pt.bongacams.com/profile/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "asuna-black"
+    },
+    {
+      "name": "Bookcrossing",
+      "url": "https://www.bookcrossing.com/mybookshelf/{username}/",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "BraveCommunity",
+      "url": "https://community.brave.com/u/{username}/",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "BreachSta.rs Forum",
+      "url": "https://breachsta.rs/profile/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "<title>Error - BreachStars</title>"
+        }
+      ],
+      "known_present": "Sleepybubble"
+    },
+    {
+      "name": "BugCrowd",
+      "url": "https://bugcrowd.com/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "ppfeister"
+    },
+    {
+      "name": "BuyMeACoffee",
+      "url": "https://www.buymeacoffee.com/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "red"
+    },
+    {
+      "name": "BuzzFeed",
+      "url": "https://buzzfeed.com/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "Caddy Community",
+      "url": "https://caddy.community/u/{username}/summary",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "taako_magnusen"
+    },
+    {
+      "name": "Car Talk Community",
+      "url": "https://community.cartalk.com/u/{username}/summary",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "always_fixing"
+    },
+    {
+      "name": "Career.habr",
+      "url": "https://career.habr.com/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "<h1>Ошибка 404</h1>"
+        }
+      ],
+      "known_present": "blue",
+      "tags": [
+        "region:ru"
+      ]
+    },
+    {
+      "name": "Carrd",
+      "url": "https://{username}.carrd.co/",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "CashApp",
+      "url": "https://cash.app/${username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "hotdiggitydog"
+    },
+    {
+      "name": "Cfx.re Forum",
+      "url": "https://forum.cfx.re/u/{username}/summary",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "hightowerlssd"
+    },
+    {
+      "name": "CGTrader",
+      "url": "https://www.cgtrader.com/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "Championat",
+      "url": "https://www.championat.com/user/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "Chaos",
+      "url": "https://chaos.social/@{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "ordnung"
+    },
+    {
+      "name": "chaos.social",
+      "url": "https://chaos.social/@{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "rixx"
+    },
+    {
+      "name": "Chatujme.cz",
+      "url": "https://profil.chatujme.cz/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "Neexistujicí profil"
+        }
+      ],
+      "known_present": "david",
+      "tags": [
+        "region:cz"
+      ]
+    },
+    {
+      "name": "ChaturBate",
+      "url": "https://chaturbate.com/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "cute18cute"
+    },
+    {
+      "name": "Choice Community",
+      "url": "https://choice.community/u/{username}/summary",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "gordon"
+    },
+    {
+      "name": "Chollometro",
+      "url": "https://www.chollometro.com/profile/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "Clapper",
+      "url": "https://clapperapp.com/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "CloudflareCommunity",
+      "url": "https://community.cloudflare.com/u/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "Clubhouse",
+      "url": "https://www.clubhouse.com/@{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "waniathar"
+    },
+    {
+      "name": "CNET",
+      "url": "https://www.cnet.com/profiles/{username}/",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "melliott"
+    },
+    {
+      "name": "Code Snippet Wiki",
+      "url": "https://codesnippets.fandom.com/wiki/User:{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "This user has not filled out their profile page yet"
+        }
+      ],
+      "known_present": "bob"
+    },
+    {
+      "name": "Codeberg",
+      "url": "https://codeberg.org/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "Codecademy",
+      "url": "https://www.codecademy.com/profiles/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "This profile could not be found"
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "Codeforces",
+      "url": "https://codeforces.com/api/user.info?handles={username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "tourist"
+    },
+    {
+      "name": "Codepen",
+      "url": "https://codepen.io/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue",
+      "tags": [
+        "dev"
+      ]
+    },
+    {
+      "name": "Coders Rank",
+      "url": "https://profile.codersrank.io/user/{username}/",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "not a registered member"
+        }
+      ],
+      "known_present": "rootkit7628"
+    },
+    {
+      "name": "Coderwall",
+      "url": "https://coderwall.com/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "hacker"
+    },
+    {
+      "name": "CodeSandbox",
+      "url": "https://codesandbox.io/api/v1/users/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "Could not find user with username"
+        }
+      ],
+      "known_present": "icyjoseph"
+    },
+    {
+      "name": "Codewars",
+      "url": "https://www.codewars.com/users/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "example",
+      "tags": [
+        "dev"
+      ]
+    },
+    {
+      "name": "Coinvote",
+      "url": "https://coinvote.cc/profile/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "ColourLovers",
+      "url": "https://www.colourlovers.com/lover/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "Coroflot",
+      "url": "https://www.coroflot.com/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "couchsurfing",
+      "url": "https://www.couchsurfing.com/people/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "Cplusplus",
+      "url": "https://cplusplus.com/user/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "<title>404 Page Not Found</title>"
+        }
+      ],
+      "known_present": "mbozzi"
+    },
+    {
+      "name": "Cracked Forum",
+      "url": "https://cracked.ax/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "Blue"
+    },
+    {
+      "name": "Credly",
+      "url": "https://www.credly.com/users/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "credly"
+    },
+    {
+      "name": "Crevado",
+      "url": "https://{username}.crevado.com",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "Crowdin",
+      "url": "https://crowdin.com/profile/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "Cryptomator Forum",
+      "url": "https://community.cryptomator.org/u/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "michael"
+    },
+    {
+      "name": "CTAN",
+      "url": "https://ctan.org/author/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "briggs"
+    },
+    {
+      "name": "Cults3D",
+      "url": "https://cults3d.com/en/users/{username}/creations",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "Oh dear, this page is not working!"
+        }
+      ],
+      "known_present": "brown"
+    },
+    {
+      "name": "CurseForge",
+      "url": "https://www.curseforge.com/members/{username}/projects",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "CyberDefenders",
+      "url": "https://cyberdefenders.org/p/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "mlohn"
+    },
+    {
+      "name": "d3RU",
+      "url": "https://d3.ru/user/{username}/posts",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue",
+      "tags": [
+        "region:ru"
+      ]
+    },
+    {
+      "name": "dailykos",
+      "url": "https://www.dailykos.com/signup/check_nickname?nickname={username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "{\"result\":true,\"message\":null}"
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "datingRU",
+      "url": "http://dating.ru/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue",
+      "tags": [
+        "region:ru"
+      ]
+    },
+    {
+      "name": "dcinside",
+      "url": "https://gallog.dcinside.com/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "anrbrb"
+    },
+    {
+      "name": "Dealabs",
+      "url": "https://www.dealabs.com/profile/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "La page que vous essayez"
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "DEV Community",
+      "url": "https://dev.to/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "DeviantArt",
+      "url": "https://www.deviantart.com/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "Llama Not Found"
+        }
+      ],
+      "known_present": "blue",
+      "tags": [
+        "art"
+      ]
+    },
+    {
+      "name": "DigitalSpy",
+      "url": "https://forums.digitalspy.com/profile/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "The page you were looking for could not be found."
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "Discogs",
+      "url": "https://www.discogs.com/user/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "Discord.bio",
+      "url": "https://discords.com/api-v2/bio/details/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "<title>Server Error (500)</title>"
+        }
+      ],
+      "known_present": "robert"
+    },
+    {
+      "name": "Discuss.Elastic.co",
+      "url": "https://discuss.elastic.co/u/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "Diskusjon.no",
+      "url": "https://www.diskusjon.no/?app=core&module=system&controller=ajax&do=usernameExists&input={username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "{\"result\":\"ok\"}"
+        }
+      ],
+      "known_present": "blue",
+      "tags": [
+        "region:no"
+      ]
+    },
+    {
+      "name": "Disqus",
+      "url": "https://disqus.com/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "DMOJ",
+      "url": "https://dmoj.ca/user/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "No such user"
+        }
+      ],
+      "known_present": "junferno"
+    },
+    {
+      "name": "Docker Hub",
+      "url": "https://hub.docker.com/v2/users/{username}/",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue",
+      "tags": [
+        "dev"
+      ]
+    },
+    {
+      "name": "Dribbble",
+      "url": "https://dribbble.com/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "Whoops, that page is gone."
+        }
+      ],
+      "known_present": "blue",
+      "tags": [
+        "art"
+      ]
+    },
+    {
+      "name": "drive2",
+      "url": "https://www.drive2.ru/users/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue",
+      "tags": [
+        "region:ru"
+      ]
+    },
+    {
+      "name": "Duolingo",
+      "url": "https://www.duolingo.com/2017-06-30/users?username={username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "{\"users\":[]}"
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "eGPU",
+      "url": "https://egpu.io/forums/profile/{username}/",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "eintracht",
+      "url": "https://community.eintracht.de/fans/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue",
+      "tags": [
+        "region:de"
+      ]
+    },
+    {
+      "name": "Eintracht Frankfurt Forum",
+      "url": "https://community.eintracht.de/fans/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "mmammu",
+      "tags": [
+        "region:de"
+      ]
+    },
+    {
+      "name": "Empretienda AR",
+      "url": "https://{username}.empretienda.com.ar",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "camalote"
+    },
+    {
+      "name": "Envato Forum",
+      "url": "https://forums.envato.com/u/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "enabled"
+    },
+    {
+      "name": "Erome",
+      "url": "https://www.erome.com/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "bob"
+    },
+    {
+      "name": "exophase",
+      "url": "https://www.exophase.com/user/{username}/",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "Exposure",
+      "url": "https://{username}.exposure.co/",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "jonasjacobsson"
+    },
+    {
+      "name": "EyeEm",
+      "url": "https://www.eyeem.com/u/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "F3.cool",
+      "url": "https://f3.cool/{username}/",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "Fameswap",
+      "url": "https://fameswap.com/user/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "fameswap"
+    },
+    {
+      "name": "Fandom",
+      "url": "https://www.fandom.com/u/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "Jungypoo"
+    },
+    {
+      "name": "Finanzfrage",
+      "url": "https://www.finanzfrage.net/nutzer/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "finanzfrage"
+    },
+    {
+      "name": "fixya",
+      "url": "https://www.fixya.com/users/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "adam"
+    },
+    {
+      "name": "fl",
+      "url": "https://www.fl.ru/users/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue",
+      "tags": [
+        "region:ru"
+      ]
+    },
+    {
+      "name": "Flickr",
+      "url": "https://www.flickr.com/people/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue",
+      "tags": [
+        "photo"
+      ]
+    },
+    {
+      "name": "Flipboard",
+      "url": "https://flipboard.com/@{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "Football",
+      "url": "https://www.rusfootball.info/user/{username}/",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "Пользователь с таким именем не найден"
+        }
+      ],
+      "known_present": "solo87"
+    },
+    {
+      "name": "FortniteTracker",
+      "url": "https://fortnitetracker.com/profile/all/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "Forum Ophilia",
+      "url": "https://www.forumophilia.com/profile.php?mode=viewprofile&u={username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "that user does not exist"
+        }
+      ],
+      "known_present": "bob"
+    },
+    {
+      "name": "forum_guns",
+      "url": "https://forum.guns.ru/forummisc/blog/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "action=https://forum.guns.ru/forummisc/blog/search"
+        }
+      ],
+      "known_present": "red",
+      "tags": [
+        "region:ru"
+      ]
+    },
+    {
+      "name": "Fosstodon",
+      "url": "https://fosstodon.org/@{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "Framapiaf",
+      "url": "https://framapiaf.org/@{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "pylapp"
+    },
+    {
+      "name": "freecodecamp",
+      "url": "https://api.freecodecamp.org/api/users/get-public-profile?username={username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "naveennamani"
+    },
+    {
+      "name": "Freelancer",
+      "url": "https://www.freelancer.com/api/users/0.1/users?usernames%5B%5D={username}&compact=true",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "\"users\":{}"
+        }
+      ],
+      "known_present": "red0xff"
+    },
+    {
+      "name": "Freesound",
+      "url": "https://freesound.org/people/{username}/",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "furaffinity",
+      "url": "https://www.furaffinity.net/user/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "This user cannot be found."
+        }
+      ],
+      "known_present": "jesus"
+    },
+    {
+      "name": "GaiaOnline",
+      "url": "https://www.gaiaonline.com/profiles/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "No user ID specified or user does not exist"
+        }
+      ],
+      "known_present": "adam"
+    },
+    {
+      "name": "GameFAQs",
+      "url": "https://gamefaqs.gamespot.com/community/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "Gamespot",
+      "url": "https://www.gamespot.com/profile/{username}/",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "Genius (Artists)",
+      "url": "https://genius.com/artists/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "genius"
+    },
+    {
+      "name": "Genius (Users)",
+      "url": "https://genius.com/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "genius"
+    },
+    {
+      "name": "geocaching",
+      "url": "https://www.geocaching.com/p/default.aspx?u={username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "Gesundheitsfrage",
+      "url": "https://www.gesundheitsfrage.net/nutzer/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "gutefrage"
+    },
+    {
+      "name": "GetMyUni",
+      "url": "https://www.getmyuni.com/user/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "Upneet.Grover17"
+    },
+    {
+      "name": "Giant Bomb",
+      "url": "https://www.giantbomb.com/profile/{username}/",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "bob"
+    },
+    {
+      "name": "Giphy",
+      "url": "https://giphy.com/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "<title> GIFs - Find &amp; Share on GIPHY</title>"
+        }
+      ],
+      "known_present": "red"
+    },
+    {
+      "name": "GitBook",
+      "url": "https://{username}.gitbook.io/",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "gitbook"
+    },
+    {
+      "name": "Gitea",
+      "url": "https://gitea.com/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "xorm"
+    },
+    {
+      "name": "Gitee",
+      "url": "https://gitee.com/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "wizzer"
+    },
+    {
+      "name": "GitHub",
+      "url": "https://www.github.com/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue",
+      "extract": [
+        {
+          "field": "name",
+          "selector": "span.vcard-fullname"
+        },
+        {
+          "field": "bio",
+          "selector": "div.user-profile-bio"
+        },
+        {
+          "field": "avatar",
+          "selector": "img.avatar-user",
+          "attr": "src"
+        }
+      ],
+      "tags": [
+        "dev"
+      ]
+    },
+    {
+      "name": "GitLab",
+      "url": "https://gitlab.com/api/v4/users?username={username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "[]"
+        }
+      ],
+      "known_present": "blue",
+      "tags": [
+        "dev"
+      ]
+    },
+    {
+      "name": "GoodReads",
+      "url": "https://www.goodreads.com/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "Google Play",
+      "url": "https://play.google.com/store/apps/developer?id={username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "the requested URL was not found on this server"
+        }
+      ],
+      "known_present": "GitHub"
+    },
+    {
+      "name": "Gradle",
+      "url": "https://plugins.gradle.org/u/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "jetbrains"
+    },
+    {
+      "name": "Gravatar",
+      "url": "http://en.gravatar.com/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "Gumroad",
+      "url": "https://www.gumroad.com/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "Page not found (404) - Gumroad"
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "Gutefrage",
+      "url": "https://www.gutefrage.net/nutzer/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "gutefrage"
+    },
+    {
+      "name": "habr",
+      "url": "https://habr.com/ru/users/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue",
+      "tags": [
+        "region:ru"
+      ]
+    },
+    {
+      "name": "Hackaday",
+      "url": "https://hackaday.io/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "adam"
+    },
+    {
+      "name": "HackenProof (Hackers)",
+      "url": "https://hackenproof.com/hackers/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "Page not found"
+        }
+      ],
+      "known_present": "blazezaria"
+    },
+    {
+      "name": "HackerEarth",
+      "url": "https://hackerearth.com/@{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "naveennamani877"
+    },
+    {
+      "name": "HackerNews",
+      "url": "https://news.ycombinator.com/user?id={username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "No such user."
+        },
+        {
+          "kind": "body_absent",
+          "text": "Sorry."
+        }
+      ],
+      "known_present": "blue",
+      "tags": [
+        "dev"
+      ]
+    },
+    {
+      "name": "HackerOne",
+      "url": "https://hackerone.com/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "Page not found"
+        }
+      ],
+      "known_present": "stok",
+      "tags": [
+        "dev"
+      ]
+    },
+    {
+      "name": "HackerRank",
+      "url": "https://hackerrank.com/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "Something went wrong"
+        }
+      ],
+      "known_present": "satznova"
+    },
+    {
+      "name": "HackerSploit",
+      "url": "https://forum.hackersploit.org/u/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "hackersploit"
+    },
+    {
+      "name": "HackMD",
+      "url": "https://hackmd.io/@{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "hackster",
+      "url": "https://www.hackster.io/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "HackTheBox",
+      "url": "https://forum.hackthebox.com/u/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "angar"
+    },
+    {
+      "name": "Harvard Scholar",
+      "url": "https://scholar.harvard.edu/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "ousmanekane"
+    },
+    {
+      "name": "Heavy-R",
+      "url": "https://www.heavy-r.com/user/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "Channel not found"
+        }
+      ],
+      "known_present": "kilroy222"
+    },
+    {
+      "name": "Hive Blog",
+      "url": "https://hive.blog/@{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "<title>User Not Found - Hive</title>"
+        }
+      ],
+      "known_present": "mango-juice"
+    },
+    {
+      "name": "HotUKdeals",
+      "url": "https://www.hotukdeals.com/profile/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "Blue"
+    },
+    {
+      "name": "Houzz",
+      "url": "https://houzz.com/user/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "HubPages",
+      "url": "https://hubpages.com/@{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "HudsonRock",
+      "url": "https://cavalier.hudsonrock.com/api/json/v2/osint-tools/search-by-username?username={username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "This username is not associated"
+        }
+      ],
+      "known_present": "testadmin"
+    },
+    {
+      "name": "Hugging Face",
+      "url": "https://huggingface.co/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "Pasanlaksitha"
+    },
+    {
+      "name": "hunting",
+      "url": "https://www.hunting.ru/forum/members/?username={username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "Указанный пользователь не найден. Пожалуйста, введите другое имя."
+        }
+      ],
+      "known_present": "red",
+      "tags": [
+        "region:ru"
+      ]
+    },
+    {
+      "name": "Icons8 Community",
+      "url": "https://community.icons8.com/u/{username}/summary",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "thefourCraft"
+    },
+    {
+      "name": "IFTTT",
+      "url": "https://www.ifttt.com/p/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "Ifunny",
+      "url": "https://ifunny.co/user/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "agua"
+    },
+    {
+      "name": "Image Fap",
+      "url": "https://www.imagefap.com/profile/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "Not found"
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "ImgUp.cz",
+      "url": "https://imgup.cz/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "adam",
+      "tags": [
+        "region:cz"
+      ]
+    },
+    {
+      "name": "Imgur",
+      "url": "https://api.imgur.com/account/v1/accounts/{username}?client_id=546c25a59c58ad7",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "imood",
+      "url": "https://www.imood.com/users/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "Instagram",
+      "url": "https://imginn.com/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "instagram",
+      "tags": [
+        "bot-protected",
+        "social"
+      ]
+    },
+    {
+      "name": "Instapaper",
+      "url": "https://www.instapaper.com/p/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "john"
+    },
+    {
+      "name": "Instructables",
+      "url": "https://www.instructables.com/json-api/showAuthorExists?screenName={username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "Intigriti",
+      "url": "https://api.intigriti.com/user/public/profile/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "Ionic Forum",
+      "url": "https://forum.ionicframework.com/u/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "theblue222"
+    },
+    {
+      "name": "irecommend",
+      "url": "https://irecommend.ru/users/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue",
+      "tags": [
+        "region:ru"
+      ]
+    },
+    {
+      "name": "Issuu",
+      "url": "https://issuu.com/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "jenny"
+    },
+    {
+      "name": "Itch.io",
+      "url": "https://{username}.itch.io/",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "Itemfix",
+      "url": "https://www.itemfix.com/c/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "<title>ItemFix - Channel: </title>"
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "jbzd.com.pl",
+      "url": "https://jbzd.com.pl/uzytkownik/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue",
+      "tags": [
+        "region:pl"
+      ]
+    },
+    {
+      "name": "Jellyfin Weblate",
+      "url": "https://translate.jellyfin.org/user/{username}/",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "EraYaN"
+    },
+    {
+      "name": "jeuxvideo",
+      "url": "https://www.jeuxvideo.com/profil/{username}?mode=infos",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "adam"
+    },
+    {
+      "name": "Jimdo",
+      "url": "https://{username}.jimdosite.com",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "jenny"
+    },
+    {
+      "name": "Joplin Forum",
+      "url": "https://discourse.joplinapp.org/u/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "laurent"
+    },
+    {
+      "name": "Jupyter Community Forum",
+      "url": "https://discourse.jupyter.org/u/{username}/summary",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "Oops! That page doesn’t exist or is private."
+        }
+      ],
+      "known_present": "choldgraf"
+    },
+    {
+      "name": "kaskus",
+      "url": "https://www.kaskus.co.id/api/users?username={username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "l0mbart",
+      "tags": [
+        "region:id"
+      ]
+    },
+    {
+      "name": "Keybase",
+      "url": "https://keybase.io/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue",
+      "tags": [
+        "dev"
+      ]
+    },
+    {
+      "name": "Kick",
+      "url": "https://kick.com/api/v2/channels/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "Kik",
+      "url": "https://ws2.kik.com/user/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "The page you requested was not found"
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "Kongregate",
+      "url": "https://www.kongregate.com/accounts/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "kwork",
+      "url": "https://kwork.ru/user/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue",
+      "tags": [
+        "region:ru"
+      ]
+    },
+    {
+      "name": "Laracast",
+      "url": "https://laracasts.com/@{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "user1"
+    },
+    {
+      "name": "last.fm",
+      "url": "https://last.fm/user/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue",
+      "tags": [
+        "music"
+      ]
+    },
+    {
+      "name": "Launchpad",
+      "url": "https://launchpad.net/~{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "leasehackr",
+      "url": "https://forum.leasehackr.com/u/{username}/summary/",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "adam"
+    },
+    {
+      "name": "LeetCode",
+      "url": "https://leetcode.com/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue",
+      "tags": [
+        "dev"
+      ]
+    },
+    {
+      "name": "LemmyWorld",
+      "url": "https://lemmy.world/u/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "<h1>Error!</h1>"
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "Letterboxd",
+      "url": "https://letterboxd.com/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "Sorry, we can’t find the page you’ve requested."
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "LibraryThing",
+      "url": "https://www.librarything.com/profile/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "<p>Error: This user doesn't exist</p>"
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "Lichess",
+      "url": "https://lichess.org/@/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "john"
+    },
+    {
+      "name": "LinkedIn",
+      "url": "https://linkedin.com/in/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "paulpfeister"
+    },
+    {
+      "name": "Linktree",
+      "url": "https://linktr.ee/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "\"statusCode\":404"
+        }
+      ],
+      "known_present": "anne"
+    },
+    {
+      "name": "LinuxFR.org",
+      "url": "https://linuxfr.org/users/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "pylapp"
+    },
+    {
+      "name": "LiveJournal",
+      "url": "https://{username}.livejournal.com",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue",
+      "tags": [
+        "region:ru"
+      ]
+    },
+    {
+      "name": "livelib",
+      "url": "https://www.livelib.ru/reader/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue",
+      "tags": [
+        "region:ru"
+      ]
+    },
+    {
+      "name": "Lobsters",
+      "url": "https://lobste.rs/u/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "jcs"
+    },
+    {
+      "name": "LOR",
+      "url": "https://www.linux.org.ru/people/{username}/profile",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "red",
+      "tags": [
+        "region:ru"
+      ]
+    },
+    {
+      "name": "LottieFiles",
+      "url": "https://lottiefiles.com/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "lottiefiles"
+    },
+    {
+      "name": "Mamot",
+      "url": "https://mamot.fr/@{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "anciensEnssat",
+      "tags": [
+        "region:fr"
+      ]
+    },
+    {
+      "name": "mastodon.cloud",
+      "url": "https://mastodon.cloud/@{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "TheAdmin"
+    },
+    {
+      "name": "mastodon.social",
+      "url": "https://mastodon.social/@{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "Gargron"
+    },
+    {
+      "name": "mastodon.xyz",
+      "url": "https://mastodon.xyz/@{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "TheKinrar"
+    },
+    {
+      "name": "Medium",
+      "url": "https://medium.com/feed/@{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "<body"
+        }
+      ],
+      "known_present": "blue",
+      "tags": [
+        "blog"
+      ]
+    },
+    {
+      "name": "Memrise",
+      "url": "https://www.memrise.com/user/{username}/",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "minds",
+      "url": "https://www.minds.com/api/v3/register/validate?username={username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "\"valid\":true"
+        }
+      ],
+      "known_present": "john"
+    },
+    {
+      "name": "Minecraft",
+      "url": "https://api.mojang.com/users/profiles/minecraft/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "Couldn't find any profile with name"
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "MixCloud",
+      "url": "https://api.mixcloud.com/{username}/",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "jenny",
+      "tags": [
+        "music"
+      ]
+    },
+    {
+      "name": "MMORPG Forum",
+      "url": "https://forums.mmorpg.com/profile/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "goku"
+    },
+    {
+      "name": "moikrug",
+      "url": "https://moikrug.ru/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue",
+      "tags": [
+        "region:ru"
+      ]
+    },
+    {
+      "name": "Monkeytype",
+      "url": "https://api.monkeytype.com/users/{username}/profile",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "rocket"
+    },
+    {
+      "name": "Motherless",
+      "url": "https://motherless.com/m/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "no longer a member"
+        }
+      ],
+      "known_present": "hacker"
+    },
+    {
+      "name": "Motorradfrage",
+      "url": "https://www.motorradfrage.net/nutzer/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "gutefrage"
+    },
+    {
+      "name": "mstdn.io",
+      "url": "https://mstdn.io/@{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "mstdn.social",
+      "url": "https://mstdn.social/@{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "MagicLike"
+    },
+    {
+      "name": "MuseScore",
+      "url": "https://musescore.com/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "arrangeme"
+    },
+    {
+      "name": "MyAnimeList",
+      "url": "https://myanimelist.net/profile/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "Mydealz",
+      "url": "https://www.mydealz.de/profile/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue",
+      "tags": [
+        "region:de"
+      ]
+    },
+    {
+      "name": "Mydramalist",
+      "url": "https://www.mydramalist.com/profile/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "The requested page was not found"
+        }
+      ],
+      "known_present": "elhadidy12398"
+    },
+    {
+      "name": "MyMiniFactory",
+      "url": "https://www.myminifactory.com/users/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "Myspace",
+      "url": "https://myspace.com/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "n8n Community",
+      "url": "https://community.n8n.io/u/{username}/summary",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "n8n"
+    },
+    {
+      "name": "nairaland.com",
+      "url": "https://www.nairaland.com/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "red"
+    },
+    {
+      "name": "namuwiki",
+      "url": "https://namu.wiki/w/%EC%82%AC%EC%9A%A9%EC%9E%90:{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "namu"
+    },
+    {
+      "name": "NationStates Nation",
+      "url": "https://nationstates.net/nation={username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "Was this your nation? It may have ceased to exist due to inactivity, but can rise again!"
+        }
+      ],
+      "known_present": "the_holy_principality_of_saint_mark"
+    },
+    {
+      "name": "NationStates Region",
+      "url": "https://nationstates.net/region={username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "does not exist."
+        }
+      ],
+      "known_present": "the_west_pacific"
+    },
+    {
+      "name": "Naver",
+      "url": "https://blog.naver.com/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue",
+      "tags": [
+        "region:kr"
+      ]
+    },
+    {
+      "name": "Newgrounds",
+      "url": "https://{username}.newgrounds.com",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "Nextcloud Forum",
+      "url": "https://help.nextcloud.com/u/{username}/summary",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "NICommunityForum",
+      "url": "https://community.native-instruments.com/profile/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "The page you were looking for could not be found."
+        }
+      ],
+      "known_present": "jambert"
+    },
+    {
+      "name": "Nightbot",
+      "url": "https://api.nightbot.tv/1/channels/t/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "green"
+    },
+    {
+      "name": "NintendoLife",
+      "url": "https://www.nintendolife.com/users/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "goku"
+    },
+    {
+      "name": "NitroType",
+      "url": "https://www.nitrotype.com/racer/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "<title>Nitro Type | Competitive Typing Game | Race Your Friends</title>"
+        }
+      ],
+      "known_present": "jianclash"
+    },
+    {
+      "name": "nnRU",
+      "url": "https://{username}.www.nn.ru/",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue",
+      "tags": [
+        "region:ru"
+      ]
+    },
+    {
+      "name": "NotABug.org",
+      "url": "https://notabug.org/{username}/followers",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "red"
+    },
+    {
+      "name": "note",
+      "url": "https://note.com/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "Nothing Community",
+      "url": "https://nothing.community/u/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "Carl"
+    },
+    {
+      "name": "npm",
+      "url": "https://www.npmjs.com/~{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "kennethsweezy",
+      "tags": [
+        "dev"
+      ]
+    },
+    {
+      "name": "Nyaa.si",
+      "url": "https://nyaa.si/user/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "ObservableHQ",
+      "url": "https://observablehq.com/@{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "Page not found"
+        }
+      ],
+      "known_present": "mbostock"
+    },
+    {
+      "name": "Odysee",
+      "url": "https://odysee.com/@{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "<link rel=\"canonical\" content=\"odysee.com\"/>"
+        }
+      ],
+      "known_present": "Odysee"
+    },
+    {
+      "name": "omg.lol",
+      "url": "https://api.omg.lol/address/{username}/availability",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "\"available\": true"
+        }
+      ],
+      "known_present": "adam"
+    },
+    {
+      "name": "Open Collective",
+      "url": "https://opencollective.com/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "sindresorhus"
+    },
+    {
+      "name": "OpenGameArt",
+      "url": "https://opengameart.org/users/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "ski"
+    },
+    {
+      "name": "Opensource",
+      "url": "https://opensource.com/users/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "red"
+    },
+    {
+      "name": "OpenStreetMap",
+      "url": "https://www.openstreetmap.org/user/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "osu!",
+      "url": "https://osu.ppy.sh/users/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "OurDJTalk",
+      "url": "https://ourdjtalk.com/members?username={username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "The specified member cannot be found"
+        }
+      ],
+      "known_present": "steve"
+    },
+    {
+      "name": "Outgress",
+      "url": "https://outgress.com/agents/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "Outgress - Error"
+        }
+      ],
+      "known_present": "pylapp"
+    },
+    {
+      "name": "Pastebin",
+      "url": "https://pastebin.com/u/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "Not Found (#404)"
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "Patched",
+      "url": "https://patched.sh/User/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "The member you specified is either invalid or doesn't exist."
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "Patreon",
+      "url": "https://www.patreon.com/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue",
+      "tags": [
+        "creator"
+      ]
+    },
+    {
+      "name": "PCGamer",
+      "url": "https://forums.pcgamer.com/members/?username={username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "The specified member cannot be found. Please enter a member's entire name."
+        }
+      ],
+      "known_present": "admin"
+    },
+    {
+      "name": "PentesterLab",
+      "url": "https://pentesterlab.com/profile/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "0day"
+    },
+    {
+      "name": "Pepperdeals",
+      "url": "https://www.pepperdeals.se/profile/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "Mark",
+      "tags": [
+        "region:se"
+      ]
+    },
+    {
+      "name": "PepperealsUS",
+      "url": "https://www.pepperdeals.com/profile/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "Stepan"
+    },
+    {
+      "name": "PepperNL",
+      "url": "https://nl.pepper.com/profile/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "Dynaw"
+    },
+    {
+      "name": "PepperPL",
+      "url": "https://www.pepper.pl/profile/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "FireChicken",
+      "tags": [
+        "region:pl"
+      ]
+    },
+    {
+      "name": "Periscope",
+      "url": "https://www.periscope.tv/{username}/",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "phpRU",
+      "url": "https://php.ru/forum/members/?username={username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "Указанный пользователь не найден. Пожалуйста, введите другое имя."
+        }
+      ],
+      "known_present": "apple",
+      "tags": [
+        "region:ru"
+      ]
+    },
+    {
+      "name": "pikabu",
+      "url": "https://pikabu.ru/@{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue",
+      "tags": [
+        "region:ru"
+      ]
+    },
+    {
+      "name": "Pinkbike",
+      "url": "https://www.pinkbike.com/u/{username}/",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "Pinterest",
+      "url": "https://www.pinterest.com/oembed.json?url=https://www.pinterest.com/{username}/",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue",
+      "tags": [
+        "photo"
+      ]
+    },
+    {
+      "name": "pixelfed.social",
+      "url": "https://pixelfed.social/{username}/",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "pylapp"
+    },
+    {
+      "name": "Platzi",
+      "url": "https://platzi.com/p/{username}/",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "freddier"
+    },
+    {
+      "name": "PlayStore",
+      "url": "https://play.google.com/store/apps/developer?id={username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "Facebook"
+    },
+    {
+      "name": "Playstrategy",
+      "url": "https://playstrategy.org/@/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "oruro"
+    },
+    {
+      "name": "Plurk",
+      "url": "https://www.plurk.com/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "User Not Found!"
+        }
+      ],
+      "known_present": "plurkoffice"
+    },
+    {
+      "name": "PocketStars",
+      "url": "https://pocketstars.com/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "Join Your Favorite Adult Stars"
+        }
+      ],
+      "known_present": "hacker"
+    },
+    {
+      "name": "Pokemon Showdown",
+      "url": "https://pokemonshowdown.com/users/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "Polarsteps",
+      "url": "https://api.polarsteps.com/users/byusername/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "james"
+    },
+    {
+      "name": "Polygon",
+      "url": "https://www.polygon.com/users/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "swiftstickler"
+    },
+    {
+      "name": "Pornhub",
+      "url": "https://pornhub.com/users/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "pr0gramm",
+      "url": "https://pr0gramm.com/api/profile/info?name={username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "cha0s"
+    },
+    {
+      "name": "Preisjaeger",
+      "url": "https://www.preisjaeger.at/profile/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "Stefan"
+    },
+    {
+      "name": "ProductHunt",
+      "url": "https://www.producthunt.com/@{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "jenny"
+    },
+    {
+      "name": "programming.dev",
+      "url": "https://programming.dev/u/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "Error!"
+        }
+      ],
+      "known_present": "pylapp"
+    },
+    {
+      "name": "Promodescuentos",
+      "url": "https://www.promodescuentos.com/profile/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "PromoDJ",
+      "url": "http://promodj.com/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "Pronouns.page",
+      "url": "https://pronouns.page/@{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "andrea"
+    },
+    {
+      "name": "Pychess",
+      "url": "https://www.pychess.org/@/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "404"
+        }
+      ],
+      "known_present": "gbtami"
+    },
+    {
+      "name": "PyPi",
+      "url": "https://pypi.org/_includes/administer-user-include/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "Blue",
+      "tags": [
+        "dev"
+      ]
+    },
+    {
+      "name": "Python.org Discussions",
+      "url": "https://discuss.python.org/u/{username}/summary",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "Oops! That page doesn’t exist or is private."
+        }
+      ],
+      "known_present": "pablogsal"
+    },
+    {
+      "name": "Rajce.net",
+      "url": "https://{username}.rajce.idnes.cz/",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue",
+      "tags": [
+        "region:cz"
+      ]
+    },
+    {
+      "name": "Rate Your Music",
+      "url": "https://rateyourmusic.com/~{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "Rclone Forum",
+      "url": "https://forum.rclone.org/u/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "ncw"
+    },
+    {
+      "name": "Realmeye",
+      "url": "https://www.realmeye.com/player/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "Sorry, but we either:"
+        }
+      ],
+      "known_present": "rotmg"
+    },
+    {
+      "name": "Redbubble",
+      "url": "https://www.redbubble.com/people/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "Reddit",
+      "url": "https://www.reddit.com/user/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "Sorry, nobody on Reddit goes by that name."
+        }
+      ],
+      "known_present": "blue",
+      "tags": [
+        "social"
+      ]
+    },
+    {
+      "name": "RedTube",
+      "url": "https://www.redtube.com/users/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "hacker"
+    },
+    {
+      "name": "Reisefrage",
+      "url": "https://www.reisefrage.net/nutzer/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "reisefrage"
+    },
+    {
+      "name": "Replit.com",
+      "url": "https://replit.com/@{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "ReverbNation",
+      "url": "https://www.reverbnation.com/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "Sorry, we couldn't find that page"
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "Roblox",
+      "url": "https://www.roblox.com/user.aspx?username={username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "bluewolfekiller"
+    },
+    {
+      "name": "Ruby Forums",
+      "url": "https://ruby-forum.com/u/{username}/summary",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "Oops! That page doesn’t exist or is private."
+        }
+      ],
+      "known_present": "rishard"
+    },
+    {
+      "name": "RubyGems",
+      "url": "https://rubygems.org/profiles/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "Rumble",
+      "url": "https://rumble.com/user/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "John"
+    },
+    {
+      "name": "RuneScape",
+      "url": "https://apps.runescape.com/runemetrics/profile/profile?user={username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "{\"error\":\"NO_PROFILE\",\"loggedIn\":\"false\"}"
+        }
+      ],
+      "known_present": "L33"
+    },
+    {
+      "name": "satsisRU",
+      "url": "https://satsis.info/user/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "red"
+    },
+    {
+      "name": "Sbazar.cz",
+      "url": "https://www.sbazar.cz/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue",
+      "tags": [
+        "region:cz"
+      ]
+    },
+    {
+      "name": "Scratch",
+      "url": "https://scratch.mit.edu/users/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "griffpatch"
+    },
+    {
+      "name": "SEOForum",
+      "url": "https://seoforum.com/@{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "ko"
+    },
+    {
+      "name": "sessionize",
+      "url": "https://sessionize.com/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "jason-mayes"
+    },
+    {
+      "name": "ShitpostBot5000",
+      "url": "https://www.shitpostbot.com/user/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "Signal",
+      "url": "https://community.signalusers.org/u/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "Oops! That page doesn’t exist or is private."
+        }
+      ],
+      "known_present": "jlund"
+    },
+    {
+      "name": "Sketchfab",
+      "url": "https://sketchfab.com/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "Slack",
+      "url": "https://{username}.slack.com",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "Slant",
+      "url": "https://www.slant.co/users/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "Slashdot",
+      "url": "https://slashdot.org/~{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "user you requested does not exist"
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "Slides",
+      "url": "https://slides.com/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            204
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "SmugMug",
+      "url": "https://{username}.smugmug.com",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "winchester"
+    },
+    {
+      "name": "Smule",
+      "url": "https://www.smule.com/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "Smule | Page Not Found (404)"
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "Snapchat",
+      "url": "https://www.snapchat.com/add/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "teamsnapchat",
+      "tags": [
+        "bot-protected",
+        "social"
+      ]
+    },
+    {
+      "name": "social.tchncs.de",
+      "url": "https://social.tchncs.de/@{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "Milan",
+      "tags": [
+        "region:de"
+      ]
+    },
+    {
+      "name": "SOOP",
+      "url": "https://api-channel.sooplive.co.kr/v1.1/channel/{username}/station",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "udkn",
+      "tags": [
+        "region:kr"
+      ]
+    },
+    {
+      "name": "SoundCloud",
+      "url": "https://soundcloud.com/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue",
+      "tags": [
+        "music"
+      ]
+    },
+    {
+      "name": "SourceForge",
+      "url": "https://sourceforge.net/u/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "SoylentNews",
+      "url": "https://soylentnews.org/~{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "The user you requested does not exist, no matter how much you wish this might be the case."
+        }
+      ],
+      "known_present": "adam"
+    },
+    {
+      "name": "SpaceHey",
+      "url": "https://spacehey.com/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "Not Found (Error 404) | SpaceHey"
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "SpeakerDeck",
+      "url": "https://speakerdeck.com/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "pylapp"
+    },
+    {
+      "name": "Speedrun.com",
+      "url": "https://speedrun.com/users/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "example",
+      "tags": [
+        "gaming"
+      ]
+    },
+    {
+      "name": "Spells8",
+      "url": "https://forum.spells8.com/u/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "susurrus"
+    },
+    {
+      "name": "spletnik",
+      "url": "https://spletnik.ru/user/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue",
+      "tags": [
+        "region:ru"
+      ]
+    },
+    {
+      "name": "Splits.io",
+      "url": "https://splits.io/users/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "cambosteve"
+    },
+    {
+      "name": "Sporcle",
+      "url": "https://www.sporcle.com/user/{username}/people",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "Sportlerfrage",
+      "url": "https://www.sportlerfrage.net/nutzer/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "sportlerfrage"
+    },
+    {
+      "name": "SportsRU",
+      "url": "https://www.sports.ru/profile/{username}/",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue",
+      "tags": [
+        "region:ru"
+      ]
+    },
+    {
+      "name": "Star Citizen",
+      "url": "https://robertsspaceindustries.com/citizens/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "404"
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "Status Cafe",
+      "url": "https://status.cafe/users/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "Page Not Found"
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "Steam Community (Group)",
+      "url": "https://steamcommunity.com/groups/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "No group could be retrieved for the given URL"
+        }
+      ],
+      "known_present": "blue",
+      "tags": [
+        "gaming"
+      ]
+    },
+    {
+      "name": "Steam Community (User)",
+      "url": "https://steamcommunity.com/id/{username}/",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "The specified profile could not be found"
+        }
+      ],
+      "known_present": "blue",
+      "tags": [
+        "gaming"
+      ]
+    },
+    {
+      "name": "Strava",
+      "url": "https://www.strava.com/athletes/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "SublimeForum",
+      "url": "https://forum.sublimetext.com/u/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "Substack",
+      "url": "https://{username}.substack.com/",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "green"
+    },
+    {
+      "name": "SWAPD",
+      "url": "https://swapd.co/u/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "swapd"
+    },
+    {
+      "name": "Telegram",
+      "url": "https://t.me/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "<title>Telegram Messenger</title>"
+        },
+        {
+          "kind": "body_absent",
+          "text": "If you have <strong>Telegram</strong>, you can contact <a class=\"tgme_username_link\" href=\"tg://resolve?domain="
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "Tellonym.me",
+      "url": "https://tellonym.me/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "Tenor",
+      "url": "https://tenor.com/users/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "red"
+    },
+    {
+      "name": "Terraria Forums",
+      "url": "https://forums.terraria.org/index.php?search/42798315/&c[users]={username}&o=relevance",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "The following members could not be found"
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "TETR.IO",
+      "url": "https://ch.tetr.io/api/users/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "No such user!"
+        }
+      ],
+      "known_present": "osk"
+    },
+    {
+      "name": "ThemeForest",
+      "url": "https://themeforest.net/user/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "user"
+    },
+    {
+      "name": "TheMovieDB",
+      "url": "https://www.themoviedb.org/u/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "Tiendanube",
+      "url": "https://{username}.mitiendanube.com/",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "TikTok",
+      "url": "https://www.tiktok.com/@{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "\"statusCode\":10221"
+        },
+        {
+          "kind": "body_absent",
+          "text": "Govt. of India decided to block 59 apps"
+        }
+      ],
+      "known_present": "charlidamelio",
+      "tags": [
+        "bot-protected",
+        "social"
+      ]
+    },
+    {
+      "name": "tistory",
+      "url": "https://{username}.tistory.com/",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "notice"
+    },
+    {
+      "name": "TnAFlix",
+      "url": "https://www.tnaflix.com/profile/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "hacker"
+    },
+    {
+      "name": "Topcoder",
+      "url": "https://api.topcoder.com/v5/members/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "USER"
+    },
+    {
+      "name": "Topmate",
+      "url": "https://topmate.io/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "toster",
+      "url": "https://www.toster.ru/user/{username}/answers",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "adam",
+      "tags": [
+        "region:ru"
+      ]
+    },
+    {
+      "name": "TradingView",
+      "url": "https://www.tradingview.com/u/{username}/",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "Trakt",
+      "url": "https://www.trakt.tv/users/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "TRAKTRAIN",
+      "url": "https://traktrain.com/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "traktrain"
+    },
+    {
+      "name": "TrashboxRU",
+      "url": "https://trashbox.ru/users/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue",
+      "tags": [
+        "region:ru"
+      ]
+    },
+    {
+      "name": "Trawelling",
+      "url": "https://traewelling.de/@{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "lassestolley",
+      "tags": [
+        "region:de"
+      ]
+    },
+    {
+      "name": "Trello",
+      "url": "https://trello.com/1/Members/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "model not found"
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "tumblr",
+      "url": "https://{username}.tumblr.com/",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "goku",
+      "tags": [
+        "social"
+      ]
+    },
+    {
+      "name": "Tuna",
+      "url": "https://tuna.voicemod.net/user/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "bob"
+    },
+    {
+      "name": "Tweakers",
+      "url": "https://tweakers.net/gallery/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "femme"
+    },
+    {
+      "name": "Twitch",
+      "url": "https://www.twitch.tv/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "content='Twitch is the world&#39;s leading video platform and community for gamers.'"
+        }
+      ],
+      "known_present": "xqc",
+      "tags": [
+        "gaming"
+      ]
+    },
+    {
+      "name": "Twitter",
+      "url": "https://nitter.privacydev.net/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "<div class=\"error-panel\"><span>User "
+        },
+        {
+          "kind": "body_absent",
+          "text": "<title>429 Too Many Requests</title>"
+        }
+      ],
+      "known_present": "blue",
+      "tags": [
+        "bot-protected",
+        "social"
+      ]
+    },
+    {
+      "name": "Typeracer",
+      "url": "https://data.typeracer.com/pit/profile?user={username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "Profile Not Found"
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "uid",
+      "url": "http://uid.me/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "Ultimate-Guitar",
+      "url": "https://ultimate-guitar.com/u/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "Unsplash",
+      "url": "https://unsplash.com/@{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "jenny"
+    },
+    {
+      "name": "Untappd",
+      "url": "https://untappd.com/user/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "untappd"
+    },
+    {
+      "name": "Valorant Forums",
+      "url": "https://valorantforums.com/u/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "The page you requested could not be found."
+        }
+      ],
+      "known_present": "Wolves"
+    },
+    {
+      "name": "Velog",
+      "url": "https://velog.io/@{username}/posts",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "qlgks1"
+    },
+    {
+      "name": "Venmo",
+      "url": "https://test1.venmo.com/u/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "Venmo | Page Not Found"
+        }
+      ],
+      "known_present": "jenny"
+    },
+    {
+      "name": "Vero",
+      "url": "https://vero.co/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "Not Found"
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "Vimeo",
+      "url": "https://vimeo.com/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue",
+      "tags": [
+        "video"
+      ]
+    },
+    {
+      "name": "VirusTotal",
+      "url": "https://www.virustotal.com/ui/users/{username}/avatar",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "Vjudge",
+      "url": "https://VJudge.net/user/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "tokitsukaze"
+    },
+    {
+      "name": "VLR",
+      "url": "https://www.vlr.gg/user/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "optms"
+    },
+    {
+      "name": "VSCO",
+      "url": "https://vsco.co/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "Wakatime",
+      "url": "https://wakatime.com/@{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "Warframe Market",
+      "url": "https://api.warframe.market/v2/user/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "kaiallalone"
+    },
+    {
+      "name": "Warrior Forum",
+      "url": "https://www.warriorforum.com/members/{username}.html",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "Wattpad",
+      "url": "https://www.wattpad.com/api/v3/users/{username}/",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "Dogstho7951"
+    },
+    {
+      "name": "WebNode",
+      "url": "https://{username}.webnode.cz/",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "radkabalcarova",
+      "tags": [
+        "region:cz"
+      ]
+    },
+    {
+      "name": "Weebly",
+      "url": "https://{username}.weebly.com/",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "WICG Forum",
+      "url": "https://discourse.wicg.io/u/{username}/summary",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "stefano"
+    },
+    {
+      "name": "Wikidot",
+      "url": "http://www.wikidot.com/user:info/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "User does not exist."
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "Wikipedia",
+      "url": "https://en.wikipedia.org/wiki/Special:CentralAuth/{username}?uselang=qqx",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "centralauth-admin-nonexistent:"
+        }
+      ],
+      "known_present": "Hoadlck"
+    },
+    {
+      "name": "Windy",
+      "url": "https://community.windy.com/user/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "Wix",
+      "url": "https://{username}.wix.com",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "support"
+    },
+    {
+      "name": "WolframalphaForum",
+      "url": "https://community.wolfram.com/web/{username}/home",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "unico"
+    },
+    {
+      "name": "Wordnik",
+      "url": "https://www.wordnik.com/users/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "Page Not Found"
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "Wowhead",
+      "url": "https://wowhead.com/user={username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "write.as",
+      "url": "https://write.as/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "pylapp"
+    },
+    {
+      "name": "Wykop",
+      "url": "https://www.wykop.pl/ludzie/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue",
+      "tags": [
+        "region:pl"
+      ]
+    },
+    {
+      "name": "Xbox Gamertag",
+      "url": "https://xboxgamertag.com/search/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "red"
+    },
+    {
+      "name": "xHamster",
+      "url": "https://xhamster.com/users/{username}?old_browser=true",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "Xvideos",
+      "url": "https://xvideos.com/profiles/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "YandexMusic",
+      "url": "https://music.yandex/users/{username}/playlists",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "Ошибка 404"
+        },
+        {
+          "kind": "body_absent",
+          "text": "<meta name=\"description\" content=\"Открывайте новую музыку каждый день."
+        },
+        {
+          "kind": "body_absent",
+          "text": "<input type=\"submit\" class=\"CheckboxCaptcha-Button\""
+        }
+      ],
+      "known_present": "ya.playlist",
+      "tags": [
+        "region:ru"
+      ]
+    },
+    {
+      "name": "YouNow",
+      "url": "https://api.younow.com/php/api/broadcast/info/user={username}/",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "No users found"
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "YouPic",
+      "url": "https://youpic.com/photographer/{username}/",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "YouPorn",
+      "url": "https://youporn.com/uservids/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
+      "name": "YouTube",
+      "url": "https://www.youtube.com/@{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "youtube",
+      "tags": [
+        "video"
+      ]
+    },
+    {
+      "name": "znanylekarz.pl",
+      "url": "https://www.znanylekarz.pl/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "janusz-nowak",
+      "tags": [
+        "region:pl"
+      ]
+    }
+  ]
+}

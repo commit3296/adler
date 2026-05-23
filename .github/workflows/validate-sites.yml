@@ -1,0 +1,116 @@
+name: validate-sites
+
+# Runs on pull requests that touch the site registry (or its schema/importer).
+# Two gates with different strictness:
+#
+#   HARD (blocks the PR) — deterministic, no network:
+#     * JSON Schema validation of data/sites.json
+#     * the Rust loader's own invariants (unique names, valid CSS selectors,
+#       url template placeholder/scheme) via `adler --list-sites`
+#
+#   ADVISORY (never blocks) — live network, runs from a GitHub datacenter IP:
+#     * `adler --doctor` over only the added/changed sites, posted to the run
+#       summary. Bot-protected sites legitimately come back Uncertain from CI
+#       IPs (see the nightly doctor workflow), so this informs review rather
+#       than gating it.
+
+on:
+  pull_request:
+    paths:
+      - "adler-core/data/sites.json"
+      - "docs/sites.schema.json"
+      - "scripts/import_sherlock.py"
+      - "scripts/changed_sites.py"
+      - ".github/workflows/validate-sites.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validate-sites-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: registry validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # need the base commit to diff the registry
+
+      - name: Validate against JSON Schema (hard)
+        run: |
+          python3 -m pip install --quiet jsonschema
+          python3 - <<'PY'
+          import json, sys, jsonschema
+          schema = json.load(open("docs/sites.schema.json"))
+          data = json.load(open("adler-core/data/sites.json"))
+          errs = sorted(jsonschema.Draft202012Validator(schema).iter_errors(data),
+                        key=lambda e: list(e.path))
+          if errs:
+              for e in errs[:25]:
+                  loc = "/".join(str(p) for p in e.path) or "(root)"
+                  print(f"::error::sites.json {loc}: {e.message}")
+              sys.exit(1)
+          print(f"schema OK: {len(data['sites'])} sites")
+          PY
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build release binary
+        run: cargo build --release -p adler-cli
+
+      - name: Loader invariants (hard)
+        # Loading the embedded registry runs Registry/Site::validate: unique
+        # names, parseable CSS selectors, url placeholder + scheme. Any failure
+        # aborts here with a non-zero exit.
+        run: ./target/release/adler --list-sites > /dev/null
+
+      - name: Determine changed sites
+        id: diff
+        run: |
+          base="${{ github.event.pull_request.base.sha }}"
+          git show "$base:adler-core/data/sites.json" > /tmp/base_sites.json 2>/dev/null \
+            || echo '{"sites":[]}' > /tmp/base_sites.json
+          python3 scripts/changed_sites.py /tmp/base_sites.json adler-core/data/sites.json \
+            > /tmp/changed.txt || true
+          count=$(grep -c . /tmp/changed.txt || true)
+          echo "count=${count}" >> "$GITHUB_OUTPUT"
+          echo "Changed/added sites: ${count}"
+          cat /tmp/changed.txt || true
+
+      - name: Doctor changed sites (advisory)
+        if: steps.diff.outputs.count != '0'
+        run: |
+          set +e
+          : > /tmp/doc.txt
+          while IFS= read -r name; do
+            [ -z "$name" ] && continue
+            ./target/release/adler --doctor --only "$name" \
+              --no-cache --max-retries 0 --rotate-ua --timeout 12 >> /tmp/doc.txt 2>/dev/null
+          done < /tmp/changed.txt
+          structural=$(grep -cE "reported NotFound|too permissive" /tmp/doc.txt || true)
+          transient=$(grep -c "reported Uncertain" /tmp/doc.txt || true)
+          {
+            echo "# Doctor on changed sites (advisory)"
+            echo
+            echo "Runs from a GitHub datacenter IP, so bot-protected sites may show"
+            echo "Uncertain even when the signature is correct — use this to inform"
+            echo "review, not as a pass/fail gate."
+            echo
+            echo "- structural concerns (known_present NotFound / too permissive): **${structural}**"
+            echo "- transient (Uncertain — likely CI-IP block): ${transient}"
+            echo
+            echo '```'
+            cat /tmp/doc.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "${structural:-0}" -gt 0 ]; then
+            echo "::warning::${structural} changed site(s) look structurally off — please double-check the signature (this does not block the PR)"
+          fi
+          exit 0
