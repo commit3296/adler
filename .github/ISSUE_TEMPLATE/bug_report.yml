@@ -1,0 +1,66 @@
+name: Bug report
+description: Something Adler does that it shouldn't, or fails to do
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. Please include enough for a maintainer to
+        reproduce — bare "doesn't work" reports are hard to act on.
+  - type: input
+    id: version
+    attributes:
+      label: Adler version
+      description: Output of `adler --version` (or commit hash).
+      placeholder: e.g. adler 0.1.0
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: OS / terminal
+      description: e.g. Ubuntu 24.04 + alacritty, macOS 14 + iTerm2, Windows 11 + Windows Terminal.
+      placeholder: Ubuntu 24.04, alacritty
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: The exact command(s) you ran.
+      placeholder: |
+        $ adler --only github torvalds
+        $ ...
+      render: bash
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behaviour
+      description: What happened, including any error output.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: >
+        Re-run with `ADLER_LOG=adler=debug` and paste the relevant output here.
+      render: text
+    validations:
+      required: false
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+      description: Anything else — proxy in use, custom `--sites`, etc.
+    validations:
+      required: false
