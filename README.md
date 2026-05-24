@@ -118,7 +118,7 @@ Two backends are supported, picked at the CLI:
 | Flag | What it does | Cost | Requirements |
 |---|---|---|---|
 | `--browser-backend local` | Launches headless Chrome on your machine via [`chromiumoxide`](https://crates.io/crates/chromiumoxide) | Free | Chrome / Chromium installed locally |
-| `--browser-backend browserbase` | Opens a remote session on [Browserbase](https://browserbase.com) and connects over the CDP WebSocket | Pay per session-minute (≈ $0.05/min) | `ADLER_BROWSERBASE_API_KEY` and `ADLER_BROWSERBASE_PROJECT_ID` env vars |
+| `--browser-backend browserbase` | Opens a remote session on [Browserbase](https://browserbase.com) and connects over the CDP WebSocket | Pay per session-minute (≈ $0.05/min) | `ADLER_BROWSERBASE_API_KEY` and `ADLER_BROWSERBASE_PROJECT_ID` env vars. **Known issue:** chromiumoxide 0.9's `Browser::connect` races on remote target creation — Browserbase sessions open without an initial tab, so we can't reuse one, and creating one panics. Use `local` until either chromiumoxide ships a fix or we swap the CDP client. |
 
 Both reuse a single browser instance across all routed fetches for the
 scan, so cost / setup overhead is one-time.

@@ -14,6 +14,9 @@ readme.workspace = true
 
 [dependencies]
 async-trait.workspace = true
+# Only present to unify the feature flags on the transitive
+# async-tungstenite that chromiumoxide uses — we never call it directly.
+async-tungstenite.workspace = true
 chromiumoxide.workspace = true
 fastrand.workspace = true
 futures.workspace = true
