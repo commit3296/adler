@@ -1,96 +1,128 @@
 # Adler — roadmap
 
-OSINT username search across many sites. Successor to Sherlock, written in
-Rust. Goals: higher recall and lower false-positive rate than a single-shot
-status check, data-driven and self-healing site signatures, modern terminal
-UX. This file is intentionally short — the README is the primary docs entry
-point, this is the engineering roadmap.
+OSINT username search across many sites. Successor to Sherlock, written
+in Rust. Goals: higher recall and lower false-positive rate than a
+single-shot status check, data-driven and self-healing site signatures,
+modern terminal UX.
+
+> **Where to read what.** The
+> [README](README.md) is the user-facing entry point. The
+> [CHANGELOG](CHANGELOG.md) is the source of truth for what shipped, by
+> version. This file is the forward-looking *roadmap* — what we're
+> aiming at next, and a brief retrospective of the major shipped
+> milestones so readers can see the trajectory.
 
 ---
 
-## Phase 0 — Bootstrap ✓
+## Now (v0.3.x line)
 
-Workspace (`adler-core` lib + `adler-cli` bin), workspace-level lints
-(clippy pedantic + nursery, `-D warnings`), CI (fmt / clippy / test /
-doctest), `tracing` (`ADLER_LOG`), error model (`thiserror`, crate-level
-`Error` enum), MIT license.
+- Workspace: `adler-core` (library) + `adler-cli` (binary `adler`),
+  both published on [crates.io](https://crates.io/crates/adler-cli);
+  prebuilt binaries for five platforms attached to every GitHub
+  Release; `cargo binstall adler-cli` works.
+- 411-site embedded registry, multi-signal detection
+  (status / body / redirect), `--doctor` health check with
+  `--fix` signature derivation (now browser-aware for
+  bot-protected sites), per-site `request_headers`, and a
+  defensive multi-`known_present` doctor.
+- Two browser backends for `bot-protected` sites
+  (Instagram, X/Twitter): `LocalBackend` (`chromiumoxide`,
+  free) and `BrowserbaseBackend` (cloud, residential IPs). The
+  Browserbase path drives CDP through an in-tree async client
+  (`adler-core/src/browser/cdp.rs`) because both maintained Rust
+  CDP libraries deadlock against remote-attach sessions.
+- Fully automated release pipeline: `release-plz` reads
+  Conventional Commits on `main`, opens a Release PR with bumps
+  and CHANGELOG entry; on merge, the matching GitHub App publishes
+  both crates to crates.io and creates a `v<X.Y.Z>` GitHub Release;
+  the binary upload workflow auto-triggers on the release event.
+- Current detection rate (2026-05-25, 411 sites): **67.9%
+  datacenter**, **72.3% US residential**. See README for the full
+  breakdown of what doesn't detect and why.
 
-## Phase 1 — MVP ✓
+## Next
 
-Multi-signal HTTP detection (status / body marker / redirect marker),
-concurrent executor over `tokio::JoinSet`, per-host minimum-interval
-throttle, retry with exponential backoff + jitter (transient bans only),
-global deadline (sites still in flight produce `Uncertain`), embedded
-registry of ~417 sites generated from Sherlock by
-`scripts/import_sherlock.py`. CLI: `--format text|json|ndjson`,
-`--only`/`--exclude`, `--timeout`/`--concurrency`/`--deadline`/`--sites`,
-progress bar, exit codes. Unit + integration tests (`wiremock`,
-`assert_cmd`, `insta` snapshots) plus a criterion microbench.
+In rough priority order. None of these are blocking anything that
+shipped — they're the candidates we'd pick from when allocating the
+next chunk of work.
 
-## Phase 2 — Reliability ✓
+### Registry hygiene
 
-- **Ensemble:** `Vec<Signal>` per site, negative-priority aggregation —
-  any `NotFound` vote wins over `Found`; no votes → `Uncertain`. Symmetric
-  body / status / redirect signals.
-- **Self-healing:** `adler --doctor` probes `known_present` + a random
-  nonsense username and reports broken signatures. `--doctor --fix` diffs
-  the responses and prints a ready-to-paste signature. Nightly CI job.
-- **Ban awareness:** 429 / `Retry-After` / Cloudflare detection;
-  bot-protected sites tagged so users can `--exclude-tag bot-protected`
-  for a fast clean run.
-- **Cache:** keyed by site × username under `$XDG_CACHE_HOME/adler/`.
+- **Refresh the ~80 stale `known_present` entries** still using
+  Sherlock's placeholder `"blue"` or other long-dead usernames.
+  [Issue #4](https://github.com/commit3296/adler/issues/4) tracks
+  the original 17-site batch; the latest doctor pass found 66 more
+  on `"blue"` alone. Pure contributor task: one site = one OVERRIDE
+  entry in `scripts/import_sherlock.py` + a `sites.json` edit.
+- **Periodic registry validation in CI**: nightly `--doctor`
+  workflow already exists; we should make it produce a PR with
+  a `KNOWN_BROKEN` suggestion for sites that fail repeatedly.
 
-## Phase 3 — Profile enrichment & correlation ✓ (partial)
+### Detection coverage
 
-- `--enrich`: optional per-site CSS-selector extractors (name / bio /
-  avatar).
-- `--correlate`: cross-site profile field correlation across found
-  accounts.
-- `--format html`: self-contained HTML report including avatars.
+- **More enrichment extractors** (CSS-selector rules under
+  `extract:`) for the long tail of sites where `--enrich` currently
+  returns an empty profile.
+- **Site-specific signal authoring** for the ~30 sites that fail
+  doctor with non-`"blue"` known_present — typically a real account
+  whose detection rule needs tweaking, not a missing user.
 
-## Phase 4 — UX ✓
+### Honest limits (investigated, deferred)
 
-- **Live TUI** (`--tui`): scan streams in over a channel while you browse;
-  rounded panels, master-detail split on wide terminals (≥90 cols),
-  default `found + uncertain` filter (`f` cycles through the others),
-  `/` incremental search, `o` open in browser, `y`/`Y` copy via OSC 52,
-  `n`/`N` jump to next/prev found account, `Enter` toggle detail,
-  `?` help overlay. Theme-adaptive contrast.
-- **Batch mode:** `--input users.txt` (one username per line).
-- **Watch mode:** `adler --watch [--interval N]` — fresh scan, diff the
-  found set against the last snapshot, report new / removed accounts.
-- **Explainability:** `--explain` prints which signal(s) produced each
-  verdict.
-- **Output formats:** text / json / ndjson / html / csv.
+These were tested during the v0.3.x development; the conclusion is
+that they're structurally unscrapable for our anonymous-OSINT use
+case until something changes upstream. Documented so a future
+contributor doesn't re-tread the same ground:
 
-## Phase 5 — Validation & honest limits
+- **Reddit** — 403s any unauthenticated request to its JSON or
+  canonical user endpoints from datacenter, Browserbase, and most
+  residential IPs since the 2023 API restriction. Only path forward
+  is OAuth, which defeats the anonymous use case.
+- **TikTok**, **Pinterest** — JS-rendered SPAs whose initial
+  document is a 400–1700 KB script bootstrap; user data never
+  hydrates into the DOM for headless browsers (verified with up to
+  15 s post-load wait through Browserbase). Probably needs full
+  browser fingerprint spoofing plus realistic user interaction.
+- **Threads** — public profile pages exist for a handful of
+  Meta-special-cased accounts (e.g. `@zuck`); every normal username
+  redirects to a login wall. Indistinguishable from a missing user.
 
-- 232 tests; `cargo clippy --workspace --all-targets -- -D warnings`,
-  `cargo test --workspace --doc`, and `cargo fmt --all --check` all
-  clean.
-- `--doctor` ran end-to-end across the bundled registry; the importer's
-  `KNOWN_BROKEN` set excludes sites whose Sherlock signature was found to
-  be too-permissive (200 for any username) or too-restrictive (homepage
-  chrome treated as a `NotFound` marker).
-- **Not yet validated:** detection accuracy at scale from a residential
-  IP. Empirically, a datacenter SOCKS proxy does **not** reduce bans on
-  bot-protected sites (Instagram, X / Twitter, TikTok, Facebook, Threads,
-  Snapchat, Weibo are tagged `bot-protected`); reliable detection there
-  needs a residential IP or a browser backend, both deferred.
+### Infra polish
 
-## Pending / future
+- **`scripts/bench-vs-sherlock.sh`** — real-network benchmark
+  comparing Adler against Sherlock on a fixed username set; the
+  in-process `cargo bench` only measures executor overhead. See
+  [issue #8](https://github.com/commit3296/adler/issues/8).
+- **`adler --doctor --fix --apply`** — currently `--fix` only
+  prints a suggested signature; an `--apply` flag could patch
+  `sites.json` directly (still gated on a contributor review of
+  the resulting PR).
+- **TUI polish** — colour-blind palette toggle, alternate
+  master-detail layout for narrow terminals, persistent saved
+  filters.
 
-- Browser backend (Playwright via Browserbase) for `bot-protected` sites.
-- Real benchmark vs Sherlock on 50+ live sites with a clean network.
-- First GitHub Release with pre-built binaries (the `release.yml`
-  workflow is wired up; tag `v0.1.0` to trigger it).
-- crates.io publish (`adler-core` then `adler-cli`).
-- More enrichment extractors as the registry curation matures.
+---
 
-## Quality bar (current)
+## Quality bar (current, enforced by CI)
 
 `cargo build --workspace --all-targets`,
 `cargo clippy --workspace --all-targets -- -D warnings`,
 `cargo test --workspace --all-targets`,
 `cargo test --workspace --doc`,
-`cargo fmt --all --check` — all must pass; CI enforces.
+`cargo fmt --all --check` — all must pass; release-plz blocks the
+Release PR on the same gates.
+
+## History (one line each)
+
+- **v0.3.0** (2026-05-24) — multi-`known_present` defensive
+  doctor; mock-CDP test harness; closed Phase 5 *honest limits*
+  follow-ups.
+- **v0.2.1** (2026-05-24) — Instagram `known_present` fix
+  surfaced by smoke-testing v0.2.0.
+- **v0.2.0** (2026-05-24) — browser backend (local +
+  Browserbase) for `bot-protected` sites; in-tree raw async CDP
+  client; Twitter via `x.com` canonical + react-testid; Instagram
+  via `web_profile_info` JSON; per-site `request_headers`.
+- **v0.1.0** (2026-05-23) — initial public release. Phases 0–4
+  complete (workspace, MVP detection, reliability,
+  enrichment + correlation, UX). 411-site registry.
