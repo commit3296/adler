@@ -96,6 +96,72 @@ mix of:
 Run the same check yourself: `adler --doctor` (uses your current IP) or
 `adler --doctor --proxy <url>` (via your own proxy).
 
+## Browser backend (optional)
+
+A handful of sites — currently Instagram, Twitter, TikTok, and Snapchat
+(`adler --list-tags` shows the live count) — serve a JavaScript login
+wall or a Cloudflare challenge to a plain HTTP request. They're tagged
+`bot-protected` in the registry and, on the raw HTTP path, will *always*
+return `Uncertain` because the response looks identical for an existing
+account and a missing one.
+
+With `--browser-backend` Adler routes those sites (and *only* those —
+everything else stays on the fast HTTP path) through a real headless
+Chrome that runs JS, accepts cookies, and returns the final post-render
+DOM. The same detection signals then apply, and a verdict becomes
+possible.
+
+Two backends are supported, picked at the CLI:
+
+| Flag | What it does | Cost | Requirements |
+|---|---|---|---|
+| `--browser-backend local` | Launches headless Chrome on your machine via [`chromiumoxide`](https://crates.io/crates/chromiumoxide) | Free | Chrome / Chromium installed locally |
+| `--browser-backend browserbase` | Opens a remote session on [Browserbase](https://browserbase.com) and connects over the CDP WebSocket | Pay per session-minute (≈ $0.05/min) | `ADLER_BROWSERBASE_API_KEY` and `ADLER_BROWSERBASE_PROJECT_ID` env vars |
+
+Both reuse a single browser instance across all routed fetches for the
+scan, so cost / setup overhead is one-time.
+
+### Examples
+
+```bash
+# Use local Chrome — pairs cleanly with --proxy (passed through as
+# --proxy-server to the child process).
+adler --browser-backend local --proxy socks5h://USER:PASS@HOST:PORT alice
+
+# Cloud session with residential / mobile IP and anti-fingerprint baked in.
+export ADLER_BROWSERBASE_API_KEY=bb_live_...
+export ADLER_BROWSERBASE_PROJECT_ID=...
+adler --browser-backend browserbase alice
+
+# Cap the number of browser-routed probes (default 50). Once exceeded,
+# remaining bot-protected sites return Uncertain(browser_budget_exceeded).
+adler --browser-backend browserbase --browser-budget 10 alice
+
+# Disable for one run even if the env / a shell alias has it on.
+adler --no-browser alice
+```
+
+### Guardrails
+
+- **Per-scan budget** — `--browser-budget N` caps how many browser
+  fetches a single scan may consume. Default is 50, ≈ 5× the
+  `bot-protected` subset of the registry, so the cap only ever fires if
+  a flag is misconfigured.
+- **No surprise routing** — only sites tagged `bot-protected` are sent
+  through the browser. Everything else is unaffected. Use
+  `adler --list-tags` to see what's tagged.
+- **Privacy** — the `browserbase` backend sends the URLs you scan to a
+  third-party US-based service. The `local` backend doesn't leave your
+  machine (modulo whatever proxy you've configured Chrome to use).
+
+### Trade-offs vs. raw HTTP
+
+Browser fetches are inherently 5–10× slower than raw HTTP and (for
+`browserbase`) cost real money. They're the only way to detect
+accounts on the bot-protected subset, but on the rest of the registry
+they would add latency for no recall gain — which is why routing is
+opt-in and tag-driven, not blanket.
+
 ## Usage
 
 ```bash

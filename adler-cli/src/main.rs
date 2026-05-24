@@ -1139,6 +1139,10 @@ async fn build_browser_backend(
             let backend = LocalBackend::launch(cfg)
                 .await
                 .context("launching local browser backend (is Chrome installed?)")?;
+            eprintln!(
+                "adler: launched local Chrome for bot-protected sites (budget: {})",
+                cli.browser_budget
+            );
             Ok(Some(Arc::new(backend) as Arc<dyn BrowserBackend>))
         }
         BrowserBackendChoice::Browserbase => {
@@ -1159,6 +1163,13 @@ async fn build_browser_backend(
             let backend = BrowserbaseBackend::connect(cfg)
                 .await
                 .context("opening Browserbase session")?;
+            // Cost reality check, on stderr so it survives stdout redirects.
+            // Stays terse so it doesn't drown the progress bar.
+            eprintln!(
+                "adler: opened Browserbase session (id={}) — sites tagged bot-protected will route through it, billed per session-minute. Budget: {}.",
+                backend.session_id(),
+                cli.browser_budget,
+            );
             Ok(Some(Arc::new(backend) as Arc<dyn BrowserBackend>))
         }
     }
