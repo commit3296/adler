@@ -139,8 +139,13 @@ CCTLD_REGION: dict[str, str] = {
 # `bot-protected` so users can `--exclude bot-protected` for a fast clean run
 # and know these need a residential IP / browser backend to detect reliably.
 BOT_PROTECTED: set[str] = {
-    "instagram", "twitter", "x", "tiktok", "facebook", "threads",
-    "snapchat", "weibo",
+    # Verified via `--doctor` through a US-residential pool on 2026-05-24:
+    # these still serve a JS / login wall to a plain HTTP request even with
+    # a clean IP, so they need a browser backend to detect reliably.
+    "instagram", "twitter", "x", "facebook", "threads", "weibo",
+    # Previously listed: "snapchat", "tiktok". The same 2026-05-24
+    # validation showed both detect cleanly on raw HTTP through residential —
+    # they're no longer "bot-protected" in our sense.
 }
 
 # Platforms that are region-bound even on a .com/.net domain.

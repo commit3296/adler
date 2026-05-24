@@ -98,12 +98,14 @@ Run the same check yourself: `adler --doctor` (uses your current IP) or
 
 ## Browser backend (optional)
 
-A handful of sites — currently Instagram, Twitter, TikTok, and Snapchat
-(`adler --list-tags` shows the live count) — serve a JavaScript login
-wall or a Cloudflare challenge to a plain HTTP request. They're tagged
-`bot-protected` in the registry and, on the raw HTTP path, will *always*
-return `Uncertain` because the response looks identical for an existing
-account and a missing one.
+A small subset of sites — currently **Instagram and Twitter**
+(`adler --list-tags` shows the live count; the tag was validated and
+narrowed against the residential pool on 2026-05-24, dropping
+Snapchat/TikTok which turn out to detect cleanly without a browser) —
+serve a JavaScript login wall or a Cloudflare challenge to a plain HTTP
+request. They're tagged `bot-protected` and, on the raw HTTP path, will
+*always* return `Uncertain` because the response looks identical for an
+existing account and a missing one.
 
 With `--browser-backend` Adler routes those sites (and *only* those —
 everything else stays on the fast HTTP path) through a real headless
