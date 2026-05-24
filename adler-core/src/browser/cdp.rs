@@ -284,23 +284,20 @@ impl CdpClient {
             })
         };
 
-        tokio::time::timeout(timeout, wait).await.map_or_else(
-            |_| {
-                // Drop the (now-useless) channel entry so the read loop can
-                // discard the eventual late response.
-                let _ = self
-                    .inner
-                    .pending
-                    .lock()
-                    .map(|mut g| g.remove(&id))
-                    .unwrap_or_default();
-                Err(CdpError::Timeout {
-                    elapsed: timeout,
-                    what: method,
-                })
-            },
-            |result| result,
-        )
+        tokio::time::timeout(timeout, wait).await.map_err(|_| {
+            // Drop the (now-useless) channel entry so the read loop can
+            // discard the eventual late response.
+            let _ = self
+                .inner
+                .pending
+                .lock()
+                .map(|mut g| g.remove(&id))
+                .unwrap_or_default();
+            CdpError::Timeout {
+                elapsed: timeout,
+                what: method,
+            }
+        })?
     }
 
     /// Subscribe to every event the read loop dispatches.
