@@ -30,6 +30,7 @@
 
 pub mod browserbase;
 pub mod budget;
+pub mod cdp;
 pub mod local;
 
 use std::time::Duration;
