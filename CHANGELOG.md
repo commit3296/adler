@@ -9,6 +9,11 @@ pre-1.0 bump rules.
 
 ## [Unreleased]
 
+## [0.3.1](https://github.com/commit3296/adler/compare/v0.3.0...v0.3.1) - 2026-05-24
+
+### Added
+- *(doctor)* route --doctor --fix through browser backend for bot-protected sites
+
 ## [0.3.0](https://github.com/commit3296/adler/compare/v0.2.1...v0.3.0) - 2026-05-24
 
 ### Added
