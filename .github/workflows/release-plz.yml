@@ -1,0 +1,77 @@
+name: release-plz
+
+# Two-stage automation driven by `release-plz` (config in
+# /release-plz.toml):
+#
+#   * `release-plz-pr`  — on every push to `main`, open or update a
+#     Release PR with version bumps + CHANGELOG.md entries derived
+#     from commits since the last tagged release. The PR is the
+#     review surface for what would ship.
+#
+#   * `release-plz-release` — on every push to `main`, check whether
+#     a tagged version is missing from crates.io and publish it. In
+#     practice this fires after a Release PR merge: HEAD now carries
+#     the bumped Cargo.toml(s), and release-plz publishes + tags +
+#     creates the GitHub Release. The GitHub Release publication then
+#     fans out to `.github/workflows/release.yml` for the platform
+#     binaries.
+#
+# Concurrency on the release job is serial — never two publishes in
+# flight at once, even if commits land back-to-back.
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-plz-pr:
+    name: Release PR
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          # release-plz needs the full history to read the previous
+          # tag and the commit range since.
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - name: Run release-plz
+        uses: release-plz/action@v0.5
+        with:
+          command: release-pr
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+
+  release-plz-release:
+    name: Release
+    runs-on: ubuntu-latest
+    needs: release-plz-pr
+    # Cross-run serialization: only one publish in flight at a time,
+    # even if multiple commits land on `main` in quick succession.
+    # `cancel-in-progress: false` lets every queued release finish
+    # rather than dropping work.
+    concurrency:
+      group: release-plz-release-${{ github.ref }}
+      cancel-in-progress: false
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - name: Run release-plz
+        uses: release-plz/action@v0.5
+        with:
+          command: release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}

@@ -159,46 +159,80 @@ No live network? Say so in the PR and a maintainer will run the doctor.
 Adler follows **SemVer**. While we're pre-1.0, the version reads as
 `0.<minor>.<patch>`:
 
-| Change | Bump |
-| --- | --- |
-| Breaking public API (trait signatures, removed `pub` items, behaviour change of a flag's default) | `0.X.0` |
-| Additive: new site in the registry, new CLI flag, new backend, new `pub` item | `0.x.Y` |
-| Bugfix / clippy / docs / CI / tests only | `0.x.Y` |
+| Change | Bump | Conventional Commit prefix |
+| --- | --- | --- |
+| Breaking public API (trait signatures, removed `pub` items, behaviour change of a flag's default) | `0.X.0` | `feat!:` / `fix!:` (or any type with `!`) |
+| Additive: new site in the registry, new CLI flag, new backend, new `pub` item | `0.x.Y` | `feat:` |
+| Bugfix | `0.x.Y` | `fix:` |
+| Anything else (clippy, docs, CI, refactor, tests) | none | `chore:` / `docs:` / `ci:` / `refactor:` / `test:` |
 
 After 1.0.0 we switch to standard SemVer (MAJOR for breaks).
 
-We don't release on every commit — we batch a meaningful unit of work
-(a feature plus its follow-up fixes, or a stack of bugfixes) and tag.
-Roughly every 2–4 weeks. Both crates (`adler-core`, `adler-cli`) share
-one workspace version and ship together.
+Both crates (`adler-core`, `adler-cli`) share one workspace version
+and ship together.
 
-### Cutting a release
+### Release pipeline
 
-1. Pick the next version per the table above. Update `CHANGELOG.md`:
-   move entries from `## [Unreleased]` into a new `## [X.Y.Z] — YYYY-MM-DD`
-   section.
-2. Bump the workspace version and lockfile:
-   ```bash
-   cargo set-version 0.X.Y     # cargo-edit
-   ```
-3. Commit, tag, push:
-   ```bash
-   git commit -am "chore(release): vX.Y.Z"
-   git tag vX.Y.Z
-   git push origin main vX.Y.Z
-   ```
-   The `v*` tag fires `.github/workflows/release.yml`, which builds the
-   five platform binaries and attaches them to a GitHub Release whose
-   archive names match `cargo binstall`.
-4. Once the release workflow is green, publish to crates.io in
-   dependency order — `adler-core` first, then `adler-cli`:
-   ```bash
-   cargo publish -p adler-core
-   cargo publish -p adler-cli
-   ```
+Releases are fully automated by
+[release-plz](https://release-plz.dev). Contributors write
+[Conventional Commits](https://www.conventionalcommits.org); the
+machinery handles the rest:
 
-If a release ships a bug serious enough to warrant a hotfix, repeat
-the same procedure with a `0.x.Y+1` bump; don't backport.
+1. **You** open a normal PR with a `feat:` / `fix:` (or breaking
+   variant) and merge it into `main`.
+2. **release-plz** sees the new commit and opens (or updates) a
+   *Release PR* titled `chore(release): release vX.Y.Z`. The PR
+   contains exactly two kinds of change: the workspace version bump
+   in `Cargo.toml` + `Cargo.lock`, and a fresh section appended to
+   `CHANGELOG.md` derived from the qualifying commits.
+3. **A maintainer** reviews the Release PR — most importantly: is the
+   bump right, and does the changelog accurately describe what
+   shipped? Edits to the changelog text on the PR are preserved when
+   release-plz refreshes the branch.
+4. **Merging the Release PR** triggers, in order:
+   - `cargo publish -p adler-core` then `cargo publish -p adler-cli`
+     (release-plz, in dependency order);
+   - a `vX.Y.Z` git tag and a GitHub Release named the same, with
+     the new changelog section in the body;
+   - `.github/workflows/release.yml`, which builds the five platform
+     binaries and attaches them to the Release (`cargo binstall`
+     fetches from there).
+
+What this means in practice:
+
+- **Never bump versions or write CHANGELOG.md by hand.** Both are
+  generated; manual edits will be overwritten on the next refresh.
+  Want a release? Land a `feat:` / `fix:` and merge the Release PR.
+- **Commit subjects become changelog bullets.** Write them for end
+  users, not for the diff. `fix(browser): handle CDP reconnect`
+  beats `fix bug`.
+- **Scope is optional but recommended.** `(browser)`, `(registry)`,
+  `(cli)`, `(ci)` are the common ones — they group the changelog
+  visibly.
+- **Breaking changes use the `!`.** `feat!: replace BrowserBackend
+  trait with two methods`. release-plz then bumps `0.X.0` instead
+  of `0.x.Y` and tags the entry `[breaking]`.
+
+### Secrets the pipeline needs
+
+One-time repo setup (Settings → Secrets → Actions):
+
+- `CARGO_REGISTRY_TOKEN` — a crates.io API token with
+  `publish-update` scope for both `adler-core` and `adler-cli`.
+
+Plus Settings → Actions → General → *Workflow permissions* must
+allow GitHub Actions to **create and approve pull requests** (so
+release-plz can open the Release PR).
+
+### Emergency manual release
+
+If automation is broken and you need to ship now, the fallback is
+the old four-step dance: `cargo set-version`, hand-edit
+`CHANGELOG.md`, `chore(release): vX.Y.Z` commit, `git tag vX.Y.Z`,
+push. The `release.yml` workflow now triggers on `release.published`
+rather than tag-push, so you also need a manual `gh release create
+vX.Y.Z` before the binaries will build. Prefer fixing the
+automation.
 
 ## Ethics
 

@@ -1,0 +1,114 @@
+# release-plz configuration
+#
+# Drives the fully-automated release pipeline:
+#   1. release-plz watches `main`; when commits since the last release
+#      include `feat:` / `fix:` (per `release_commits` below), it
+#      opens or updates a "Release PR" that bumps Cargo.toml versions
+#      and appends a new section to CHANGELOG.md.
+#   2. Merging the Release PR triggers `cargo publish` for each
+#      modified crate in dependency order and creates the matching
+#      GitHub Release.
+#   3. The GitHub Release publication then triggers
+#      `.github/workflows/release.yml`, which builds and attaches the
+#      platform binaries.
+#
+# Versioning policy: pre-1.0 SemVer per CONTRIBUTING.md. Cargo's
+# default 0.x bump logic matches that policy (feat → 0.x.Y patch,
+# feat! → 0.X.0 minor), so no override needed.
+
+[workspace]
+# Both crates share one changelog at the repo root.
+changelog_path = "./CHANGELOG.md"
+
+# Single-tag pattern (see [[package]] sections below): we want one tag
+# / one GitHub Release per workspace version, not one per crate.
+git_tag_enable = false
+git_release_enable = false
+
+# Only prepare a release if at least one commit since the last release
+# would actually show up in the changelog. Skips no-op cycles where
+# only chore/docs/ci/refactor commits landed.
+release_commits = "^(feat|fix)[(:!]"
+
+# Add a label to every Release PR so we can filter / search them.
+pr_labels = ["release"]
+
+# Bound the publish step — crates.io is normally fast, but the post-
+# upload availability poll can hang if the index is slow.
+publish_timeout = "20m"
+
+# Guard against accidental breaking changes in the library crate.
+semver_check = true
+
+# adler-cli is the user-facing binary; it owns the workspace's tag,
+# GitHub Release, and changelog section. `changelog_include` rolls
+# adler-core's commits into the same section so the user reads one
+# coherent entry per release.
+[[package]]
+name = "adler-cli"
+changelog_include = ["adler-core"]
+git_tag_enable = true
+git_tag_name = "v{{ version }}"
+git_release_enable = true
+git_release_name = "v{{ version }}"
+
+# adler-core publishes to crates.io but does not write its own
+# CHANGELOG section (adler-cli pulls its commits via
+# `changelog_include`) and does not create a tag / GitHub Release
+# (already covered by the adler-cli release above).
+[[package]]
+name = "adler-core"
+changelog_update = false
+
+[changelog]
+# Always carry forward breaking-change commits, even if their type
+# isn't in the parser map above. A `feat!:` or `fix!:` must never get
+# silently dropped from the changelog.
+protect_breaking_commits = true
+
+# Header is written once when CHANGELOG.md doesn't exist; ours already
+# exists, so this is mostly future-proofing.
+header = """# Changelog
+
+All notable changes to Adler are documented here.
+
+Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+Adler follows [SemVer](https://semver.org); see the *Versioning &
+releases* section of [CONTRIBUTING.md](CONTRIBUTING.md) for the
+pre-1.0 bump rules.
+
+## [Unreleased]
+"""
+
+# Per-version section. Matches the hand-written 0.1.0 / 0.2.0
+# entries: `## [X.Y.Z] - YYYY-MM-DD`, grouped headings, list items
+# with optional `(scope)` prefix and a `[breaking]` marker.
+body = """
+
+## [{{ version }}]{%- if release_link -%}({{ release_link }}){%- endif %} - {{ timestamp | date(format="%Y-%m-%d") }}
+{% for group, commits in commits | group_by(attribute="group") %}
+### {{ group | upper_first }}
+{% for commit in commits %}
+{%- if commit.scope -%}
+- *({{commit.scope}})* {% if commit.breaking %}[**breaking**] {% endif %}{{ commit.message }}
+{% else -%}
+- {% if commit.breaking %}[**breaking**] {% endif %}{{ commit.message }}
+{% endif -%}
+{% endfor -%}
+{% endfor %}
+"""
+
+# Conventional Commits → Keep-a-Changelog section mapping.
+# Anything not listed here is dropped from the changelog (chore, ci,
+# docs, refactor, style, test, build, revert all live in git history
+# but don't belong in user-facing release notes). Order matters:
+# release-plz uses the first matching rule.
+commit_parsers = [
+  { message = "^feat",       group = "Added" },
+  { message = "^fix",        group = "Fixed" },
+  { message = "^perf",       group = "Changed" },
+  { message = "^deprecate",  group = "Deprecated" },
+  { message = "^remove",     group = "Removed" },
+  { message = "^security",   group = "Security" },
+  { message = ".*",          skip = true },
+]

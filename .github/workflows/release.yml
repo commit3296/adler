@@ -1,46 +1,35 @@
 name: release
 
-# Build cross-platform `adler` binaries and attach them to the GitHub
-# Release when a `v*` tag is pushed. Archive names match the
-# [package.metadata.binstall] template in adler-cli/Cargo.toml, so
-# `cargo binstall adler-cli` picks them up.
+# Attach cross-platform `adler` binaries to a GitHub Release after
+# release-plz publishes it.
 #
-# Two-stage layout: `create-release` makes (or reuses) the Release once;
-# then the matrix uploads artefacts into it. Running creation inside the
-# matrix races — five jobs simultaneously call `gh release create` and all
-# but one fail with "release not found" during their upload poll.
+# Trigger: `release: published`, filtered to releases whose tag is the
+# workspace version pattern `v<X.Y.Z>` (the one release-plz creates
+# for adler-cli; see /release-plz.toml). We deliberately ignore the
+# per-crate releases that release-plz would otherwise emit — only the
+# binary deserves a platform-binary upload.
+#
+# Archive names match the [package.metadata.binstall] template in
+# adler-cli/Cargo.toml so `cargo binstall adler-cli` picks them up.
+#
+# Manual `workflow_dispatch` is kept for re-runs (e.g. one platform
+# job flaked and the rest succeeded).
 
 on:
-  push:
-    tags: ["v*"]
+  release:
+    types: [published]
   workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  create-release:
-    name: create release
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - name: Create or reuse the release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ github.ref_name }}
-        run: |
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            echo "release $TAG already exists, reusing"
-          else
-            gh release create "$TAG" \
-              --title "$TAG" \
-              --generate-notes \
-              --verify-tag
-          fi
-
   upload:
     name: ${{ matrix.target }}
-    needs: create-release
+    # Skip the per-crate releases that release-plz creates for
+    # adler-core (which have no `v` prefix — they're disabled in
+    # release-plz.toml, but defensive).
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.event.release.tag_name, 'v')
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
