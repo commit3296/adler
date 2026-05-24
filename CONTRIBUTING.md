@@ -154,6 +154,52 @@ workflow then runs automatically:
 
 No live network? Say so in the PR and a maintainer will run the doctor.
 
+## Versioning & releases
+
+Adler follows **SemVer**. While we're pre-1.0, the version reads as
+`0.<minor>.<patch>`:
+
+| Change | Bump |
+| --- | --- |
+| Breaking public API (trait signatures, removed `pub` items, behaviour change of a flag's default) | `0.X.0` |
+| Additive: new site in the registry, new CLI flag, new backend, new `pub` item | `0.x.Y` |
+| Bugfix / clippy / docs / CI / tests only | `0.x.Y` |
+
+After 1.0.0 we switch to standard SemVer (MAJOR for breaks).
+
+We don't release on every commit — we batch a meaningful unit of work
+(a feature plus its follow-up fixes, or a stack of bugfixes) and tag.
+Roughly every 2–4 weeks. Both crates (`adler-core`, `adler-cli`) share
+one workspace version and ship together.
+
+### Cutting a release
+
+1. Pick the next version per the table above. Update `CHANGELOG.md`:
+   move entries from `## [Unreleased]` into a new `## [X.Y.Z] — YYYY-MM-DD`
+   section.
+2. Bump the workspace version and lockfile:
+   ```bash
+   cargo set-version 0.X.Y     # cargo-edit
+   ```
+3. Commit, tag, push:
+   ```bash
+   git commit -am "chore(release): vX.Y.Z"
+   git tag vX.Y.Z
+   git push origin main vX.Y.Z
+   ```
+   The `v*` tag fires `.github/workflows/release.yml`, which builds the
+   five platform binaries and attaches them to a GitHub Release whose
+   archive names match `cargo binstall`.
+4. Once the release workflow is green, publish to crates.io in
+   dependency order — `adler-core` first, then `adler-cli`:
+   ```bash
+   cargo publish -p adler-core
+   cargo publish -p adler-cli
+   ```
+
+If a release ships a bug serious enough to warrant a hotfix, repeat
+the same procedure with a `0.x.Y+1` bump; don't backport.
+
 ## Ethics
 
 Adler detects anti-bot gates but never circumvents them, and is for

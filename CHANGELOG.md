@@ -1,0 +1,114 @@
+# Changelog
+
+All notable changes to Adler are documented here.
+
+Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+Adler follows [SemVer](https://semver.org); see the *Versioning &
+releases* section of [CONTRIBUTING.md](CONTRIBUTING.md) for the
+pre-1.0 bump rules.
+
+## [Unreleased]
+
+## [0.2.0] — 2026-05-24
+
+### Added
+
+- **Browser backend for bot-protected sites.** Sites tagged
+  `bot-protected` (Instagram, X/Twitter, …) can now be routed through
+  a real headless Chrome that runs JS, accepts cookies, and returns
+  the final post-render DOM. Two transports:
+  - `--browser-backend local` — launches Chrome on the host via
+    `chromiumoxide`. Free; needs Chrome installed.
+  - `--browser-backend browserbase` — opens a remote session on
+    [Browserbase](https://browserbase.com) and drives it over CDP.
+    Pay per session-minute; residential / mobile IPs and
+    anti-fingerprint baked in. Reads `ADLER_BROWSERBASE_API_KEY` and
+    `ADLER_BROWSERBASE_PROJECT_ID` from the environment.
+  - `--browser-budget N` (default 50) caps how many fetches a single
+    scan may route through the browser; remaining bot-protected
+    sites fall back to `Uncertain(BrowserBudget)`.
+- **Raw async CDP client** (`adler-core::browser::cdp::CdpClient`).
+  Both maintained Rust CDP libraries deadlock against Browserbase's
+  remote-attach semantics; the in-tree client is the only path that
+  works. See `adler-core/src/browser/cdp.rs` and
+  [issue #5](https://github.com/commit3296/adler/issues/5) for the
+  diagnosis.
+- **Per-site request headers** via a new `request_headers` field on
+  `Site` (serde-default, so existing entries are unchanged). Browser
+  backends apply them through `Network.setExtraHTTPHeaders` and
+  `Network.setUserAgentOverride` before navigation. Required for
+  JSON APIs that gate on caller identity rather than IP.
+- **Twitter detection** (`x.com`) via the canonical profile page +
+  react-testid signals (`data-testid="primaryColumn"` for found,
+  `data-testid="mask"` for not-found). Browser-backend required.
+- **Instagram detection** through the `web_profile_info` JSON
+  endpoint with `X-IG-App-ID` + a Chrome `User-Agent`. Existing
+  account → 200 + profile JSON containing `"is_verified"`; missing
+  account → HTTP 404. Sherlock and Maigret both detect Instagram
+  via broken third-party mirrors; this is the working path.
+- **Detection-rate section in the README** with validated numbers
+  for datacenter (65%, 272/416) and US residential
+  (71%, 295/416) scans.
+- **crates.io / docs.rs badges** in the README; refreshed `Install`
+  section.
+
+### Changed
+
+- **BREAKING.** `BrowserBackend::fetch` signature changed from
+  `fetch(url, timeout)` to
+  `fetch(url, headers: &BTreeMap<String, String>, timeout)`. Custom
+  backend impls (downstream of `adler-core`) need to take the extra
+  parameter; pass `&BTreeMap::new()` to preserve the old behaviour.
+- **Registry hygiene** — refreshed ~12 stale `known_present`
+  usernames (Bitwarden Forum, Ask Fedora, Archive of Our Own,
+  BitBucket, Duolingo, Gravatar, ImgUp.cz, Kick, Kongregate,
+  Opensource, Xbox Gamertag, moikrug); dropped two non-discriminating
+  signals.
+- **Pruned `bot-protected` tag** — Snapchat and TikTok detect
+  cleanly through a residential IP, so they no longer need a browser.
+- **Dependency bumps** — `reqwest 0.12 → 0.13`; relaxed the
+  `=`-version pins on `scraper` / `wiremock` now that CI is on a
+  Clippy that accepts `let`-chains; `actions/checkout 4 → 6`,
+  `actions/upload-artifact 4 → 7`, four other cargo-group bumps.
+
+### Removed
+
+- Three too-permissive site signatures
+  (`Replit.com`, `RedTube`, `YouPorn`) that fired Found on a
+  nonsense username during the residential validation pass.
+
+### Fixed
+
+- Clippy 1.95 lints across the new browser / CDP code (manual
+  let-else, future-not-send, redundant pass-by-value, double
+  `#[must_use]`, doc-markdown, etc.).
+
+### Migration
+
+If you build on top of `adler-core` and implement `BrowserBackend`
+yourself, change:
+
+```rust
+async fn fetch(&self, url: &Url, timeout: Duration) -> Result<RenderedPage>
+```
+
+to:
+
+```rust
+async fn fetch(
+    &self,
+    url: &Url,
+    headers: &std::collections::BTreeMap<String, String>,
+    timeout: Duration,
+) -> Result<RenderedPage>
+```
+
+Pass `&BTreeMap::new()` from callers that don't need custom headers.
+
+## [0.1.0] — 2026-05-23
+
+Initial public release.
+
+[Unreleased]: https://github.com/commit3296/adler/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/commit3296/adler/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/commit3296/adler/releases/tag/v0.1.0
