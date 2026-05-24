@@ -9,6 +9,11 @@ pre-1.0 bump rules.
 
 ## [Unreleased]
 
+## [0.2.1](https://github.com/commit3296/adler/compare/v0.2.0...v0.2.1) - 2026-05-24
+
+### Fixed
+- *(registry)* use torvalds, not "instagram", as Instagram known_present
+
 ## [0.2.0] — 2026-05-24
 
 ### Added
