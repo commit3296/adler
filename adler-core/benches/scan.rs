@@ -3,8 +3,8 @@
 //! This measures Adler's internal overhead per site, not raw network speed —
 //! the wiremock server runs in-process. It exists to catch regressions
 //! between Adler commits, not to validate the phase gate "5× faster than
-//! Sherlock". That comparison needs real-network runs and lives in
-//! `scripts/bench-vs-sherlock.sh` (TODO, separate change).
+//! Sherlock". That comparison needs real-network runs; see issue #8 for
+//! the planned `scripts/bench-vs-sherlock.sh` harness.
 //!
 //! Run with: `cargo bench --bench scan`
 
