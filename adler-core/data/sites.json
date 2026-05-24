@@ -3394,29 +3394,6 @@
       "known_present": "blue"
     },
     {
-      "name": "Instagram",
-      "url": "https://imginn.com/{username}",
-      "signals": [
-        {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
-          "kind": "status_not_found",
-          "codes": [
-            404
-          ]
-        }
-      ],
-      "known_present": "instagram",
-      "tags": [
-        "bot-protected",
-        "social"
-      ]
-    },
-    {
       "name": "Instapaper",
       "url": "https://www.instapaper.com/p/{username}",
       "signals": [
@@ -7143,24 +7120,18 @@
     },
     {
       "name": "Twitter",
-      "url": "https://nitter.privacydev.net/{username}",
+      "url": "https://x.com/{username}",
       "signals": [
         {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
+          "kind": "body_present",
+          "text": "data-testid=\"primaryColumn\""
         },
         {
           "kind": "body_absent",
-          "text": "<div class=\"error-panel\"><span>User "
-        },
-        {
-          "kind": "body_absent",
-          "text": "<title>429 Too Many Requests</title>"
+          "text": "data-testid=\"mask\""
         }
       ],
-      "known_present": "blue",
+      "known_present": "jack",
       "tags": [
         "bot-protected",
         "social"

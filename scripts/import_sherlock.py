@@ -56,6 +56,14 @@ KNOWN_BROKEN = {
         # is non-discriminating; excluded until a working one is found.
         # 2026-05-24.
         "Replit.com", "RedTube", "YouPorn",
+        # Bot-protected: Instagram serves an identical login wall for every
+        # username from any IP we can reach (residential, mobile, Browserbase),
+        # so neither raw HTTP nor browser-backed detection can distinguish
+        # existing from missing accounts without an authenticated session.
+        # Sherlock and Maigret both rely on broken third-party mirrors
+        # (imginn, picnob) here. Excluded until someone wires up a logged-in
+        # Browserbase context. Tracked in issue #6.
+        "Instagram",
         # Too restrictive: body-marker is site-wide chrome (forum nav for
         # forum_guns, generic "404" string for Pychess), so the signal
         # fires for *every* user → NotFound for everyone. 2026-05-24.
@@ -93,6 +101,14 @@ OVERRIDES: dict[str, dict] = {
     "Opensource": {"known_present": "admin"},
     "Xbox Gamertag": {"known_present": "torvalds"},
     "moikrug": {"known_present": "microsoft"},
+    "Twitter": {
+        "url": "https://x.com/{username}",
+        "signals": [
+            {"kind": "body_present", "text": "data-testid=\"primaryColumn\""},
+            {"kind": "body_absent", "text": "data-testid=\"mask\""}
+        ],
+        "known_present": "jack",
+    },
     "Ask Fedora": {"known_present": "mattdm"},
     "Bitwarden Forum": {"known_present": "kspearrin"},
 
