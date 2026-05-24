@@ -130,6 +130,18 @@ impl BrowserbaseBackend {
     pub fn session_id(&self) -> &str {
         &self.session_id
     }
+
+    /// Test-only: assemble a backend directly from a pre-connected
+    /// [`CdpClient`], skipping the live Browserbase REST handshake.
+    /// Used by the in-tree mock-CDP integration tests.
+    #[cfg(test)]
+    pub(crate) fn from_parts(cdp: CdpClient, session_id: String) -> Self {
+        Self {
+            cdp,
+            fetch_lock: Mutex::new(()),
+            session_id,
+        }
+    }
 }
 
 async fn create_session(cfg: &BrowserbaseConfig) -> Result<CreateSessionResponse> {
@@ -420,6 +432,7 @@ fn extract_document_response(evt: &CdpEvent) -> Option<(u16, String)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::browser::mock_cdp::{FrameOut, MockCdpServer};
 
     #[test]
     fn extract_document_response_filters_non_documents() {
@@ -447,6 +460,200 @@ mod tests {
         assert_eq!(
             extract_document_response(&doc),
             Some((404_u16, "https://example.com/missing".into()))
+        );
+    }
+
+    /// Canonical CDP fetch handler used by the integration tests.
+    /// Replays the minimum sequence the real Browserbase backend
+    /// expects: createTarget → attachToTarget → enable Page+Network →
+    /// navigate → frameStoppedLoading + Network.responseReceived →
+    /// Runtime.evaluate returning a canned body.
+    ///
+    /// `body` parameterises what `document.documentElement.outerHTML`
+    /// returns. `status` parameterises the navigation HTTP status,
+    /// which the backend reads from the synthetic
+    /// `Network.responseReceived` event.
+    fn happy_path_handler(
+        body: &'static str,
+        status: u16,
+    ) -> impl Fn(&str, &serde_json::Value, Option<&str>) -> Vec<FrameOut> + Send + Sync + 'static
+    {
+        move |method, params, _sid| match method {
+            "Target.createTarget" => vec![FrameOut::Response(json!({ "targetId": "T1" }))],
+            "Target.attachToTarget" => vec![FrameOut::Response(json!({ "sessionId": "S1" }))],
+            "Page.navigate" => {
+                let url = params
+                    .get("url")
+                    .and_then(serde_json::Value::as_str)
+                    .unwrap_or("about:blank")
+                    .to_owned();
+                vec![
+                    FrameOut::Response(json!({ "frameId": "F1" })),
+                    FrameOut::Event {
+                        method: "Network.responseReceived".into(),
+                        params: json!({
+                            "type": "Document",
+                            "response": { "status": status, "url": url },
+                        }),
+                        session_id: Some("S1".into()),
+                    },
+                    FrameOut::Event {
+                        method: "Page.frameStoppedLoading".into(),
+                        params: json!({ "frameId": "F1" }),
+                        session_id: Some("S1".into()),
+                    },
+                ]
+            }
+            "Runtime.evaluate" => vec![FrameOut::Response(json!({
+                "result": { "type": "string", "value": body },
+            }))],
+            // Everything else (Page.enable / Network.enable / header
+            // configures / Target.closeTarget …) just needs an empty
+            // ack. The mock loop records the request regardless, so
+            // tests that assert on those commands still see them.
+            _ => vec![FrameOut::Response(json!({}))],
+        }
+    }
+
+    #[tokio::test]
+    async fn fetch_returns_status_url_and_body_on_happy_path() {
+        let server =
+            MockCdpServer::start(happy_path_handler("<html><body>hello</body></html>", 200)).await;
+        let cdp = CdpClient::connect(&server.ws_url())
+            .await
+            .expect("cdp connect to mock");
+        let backend = BrowserbaseBackend::from_parts(cdp, "test-session".into());
+        assert_eq!(backend.session_id(), "test-session");
+
+        let url = Url::parse("https://example.com/u/torvalds").unwrap();
+        let headers = BTreeMap::new();
+        let page = backend
+            .fetch(&url, &headers, Duration::from_secs(5))
+            .await
+            .expect("fetch ok");
+
+        assert_eq!(page.status, 200);
+        assert_eq!(page.final_url.as_str(), "https://example.com/u/torvalds");
+        assert!(page.body.contains("hello"), "body: {}", page.body);
+    }
+
+    #[tokio::test]
+    async fn fetch_propagates_404_status_from_navigation_response() {
+        let server =
+            MockCdpServer::start(happy_path_handler("<html><body>404</body></html>", 404)).await;
+        let cdp = CdpClient::connect(&server.ws_url()).await.unwrap();
+        let backend = BrowserbaseBackend::from_parts(cdp, "test-session".into());
+
+        let url = Url::parse("https://example.com/u/nobody").unwrap();
+        let page = backend
+            .fetch(&url, &BTreeMap::new(), Duration::from_secs(5))
+            .await
+            .expect("fetch ok");
+
+        assert_eq!(page.status, 404);
+    }
+
+    #[tokio::test]
+    async fn fetch_sends_per_site_headers_via_extra_headers_and_ua_override() {
+        let server = MockCdpServer::start(happy_path_handler("<html></html>", 200)).await;
+        let cdp = CdpClient::connect(&server.ws_url()).await.unwrap();
+        let backend = BrowserbaseBackend::from_parts(cdp, "test-session".into());
+
+        let mut headers = BTreeMap::new();
+        headers.insert("X-IG-App-ID".into(), "936619743392459".into());
+        headers.insert("User-Agent".into(), "Mozilla/5.0 (test)".into());
+
+        backend
+            .fetch(
+                &Url::parse("https://example.com/u/torvalds").unwrap(),
+                &headers,
+                Duration::from_secs(5),
+            )
+            .await
+            .expect("fetch ok");
+
+        let log = server.received().await;
+        let ua = log
+            .iter()
+            .find(|r| r.method == "Network.setUserAgentOverride")
+            .expect("setUserAgentOverride was sent");
+        assert_eq!(
+            ua.params
+                .get("userAgent")
+                .and_then(serde_json::Value::as_str),
+            Some("Mozilla/5.0 (test)"),
+            "UA override params: {:?}",
+            ua.params
+        );
+
+        let extras = log
+            .iter()
+            .find(|r| r.method == "Network.setExtraHTTPHeaders")
+            .expect("setExtraHTTPHeaders was sent");
+        let map = extras
+            .params
+            .get("headers")
+            .and_then(serde_json::Value::as_object)
+            .expect("headers object");
+        assert_eq!(
+            map.get("X-IG-App-ID").and_then(serde_json::Value::as_str),
+            Some("936619743392459")
+        );
+        // User-Agent must be routed via setUserAgentOverride, not
+        // duplicated into setExtraHTTPHeaders.
+        assert!(
+            !map.contains_key("User-Agent"),
+            "User-Agent leaked into setExtraHTTPHeaders: {map:?}"
+        );
+
+        // Navigation must happen *after* both header configurations.
+        let nav_idx = log
+            .iter()
+            .position(|r| r.method == "Page.navigate")
+            .unwrap();
+        let ua_idx = log
+            .iter()
+            .position(|r| r.method == "Network.setUserAgentOverride")
+            .unwrap();
+        let extras_idx = log
+            .iter()
+            .position(|r| r.method == "Network.setExtraHTTPHeaders")
+            .unwrap();
+        assert!(
+            ua_idx < nav_idx && extras_idx < nav_idx,
+            "headers must be set before navigate; got order: \
+             ua={ua_idx} extras={extras_idx} nav={nav_idx}"
+        );
+    }
+
+    #[tokio::test]
+    async fn fetch_skips_header_commands_when_no_headers_given() {
+        let server = MockCdpServer::start(happy_path_handler("<html></html>", 200)).await;
+        let cdp = CdpClient::connect(&server.ws_url()).await.unwrap();
+        let backend = BrowserbaseBackend::from_parts(cdp, "test-session".into());
+
+        backend
+            .fetch(
+                &Url::parse("https://example.com/u/x").unwrap(),
+                &BTreeMap::new(),
+                Duration::from_secs(5),
+            )
+            .await
+            .expect("fetch ok");
+
+        let methods: Vec<String> = server
+            .received()
+            .await
+            .into_iter()
+            .map(|r| r.method)
+            .collect();
+        assert!(
+            !methods.iter().any(|m| m == "Network.setExtraHTTPHeaders"),
+            "setExtraHTTPHeaders should not fire on empty headers; saw {methods:?}"
+        );
+        assert!(
+            !methods.iter().any(|m| m == "Network.setUserAgentOverride"),
+            "setUserAgentOverride should not fire on empty headers; saw {methods:?}"
         );
     }
 }

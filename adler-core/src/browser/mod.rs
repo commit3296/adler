@@ -33,6 +33,9 @@ pub mod budget;
 pub mod cdp;
 pub mod local;
 
+#[cfg(test)]
+pub(crate) mod mock_cdp;
+
 use std::collections::BTreeMap;
 use std::time::Duration;
 
