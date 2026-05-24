@@ -93,6 +93,8 @@ OVERRIDES: dict[str, dict] = {
     "Opensource": {"known_present": "admin"},
     "Xbox Gamertag": {"known_present": "torvalds"},
     "moikrug": {"known_present": "microsoft"},
+    "Ask Fedora": {"known_present": "mattdm"},
+    "Bitwarden Forum": {"known_present": "kspearrin"},
 
 }
 
