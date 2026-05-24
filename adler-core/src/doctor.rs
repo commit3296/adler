@@ -238,7 +238,7 @@ pub async fn scaffold_site(
         known_absent: None,
         extract: Vec::new(),
         tags: Vec::new(),
-            request_headers: std::collections::BTreeMap::new(),
+        request_headers: std::collections::BTreeMap::new(),
     };
     Ok(suggest_fix(client, &probe).await.map(|fix| {
         (

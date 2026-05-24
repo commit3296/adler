@@ -139,6 +139,9 @@ impl Client {
         }
     }
 
+    // Splitting probe_once into helpers would scatter the request/response
+    // flow that has to read top-to-bottom; one long function reads better.
+    #[allow(clippy::too_many_lines)]
     async fn probe_once(&self, site: &Site, username: &Username) -> CheckOutcome {
         let url = site.url_for(username);
 
@@ -502,7 +505,6 @@ impl ClientBuilder {
     /// the browser backend. Once exhausted, the rest fall back to
     /// `Uncertain(BrowserBudget)`. Defaults to
     /// [`DEFAULT_BROWSER_BUDGET`].
-    #[must_use]
     pub const fn browser_budget(mut self, cap: usize) -> Self {
         self.browser_budget = cap;
         self
@@ -564,9 +566,11 @@ impl ClientBuilder {
 }
 
 /// Default ceiling on browser-backed probes per scan when no other value
-/// is specified. Sized as ~5× the typical `bot-protected` registry subset
-/// — comfortable headroom while still being a guardrail against a
-/// misconfigured flag burning a whole Browserbase quota.
+/// is specified.
+///
+/// Sized as ~5× the typical `bot-protected` registry subset — comfortable
+/// headroom while still being a guardrail against a misconfigured flag
+/// burning a whole Browserbase quota.
 pub const DEFAULT_BROWSER_BUDGET: usize = 50;
 
 impl fmt::Debug for Client {
@@ -1393,11 +1397,11 @@ mod tests {
         #[async_trait::async_trait]
         impl BrowserBackend for FailingBackend {
             async fn fetch(
-            &self,
-            _url: &url::Url,
-            _headers: &std::collections::BTreeMap<String, String>,
-            _timeout: Duration,
-        ) -> Result<RenderedPage> {
+                &self,
+                _url: &url::Url,
+                _headers: &std::collections::BTreeMap<String, String>,
+                _timeout: Duration,
+            ) -> Result<RenderedPage> {
                 Err(Error::BrowserSetup {
                     message: "simulated crash".into(),
                 })

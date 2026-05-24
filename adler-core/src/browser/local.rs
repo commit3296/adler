@@ -1,7 +1,7 @@
 //! Local headless Chrome / Chromium backend.
 //!
 //! Launches a long-lived browser process via [`chromiumoxide`] and drives
-//! it through the Chrome DevTools Protocol. Free to use; requires that
+//! it through the Chrome `DevTools` Protocol. Free to use; requires that
 //! Chrome / Chromium is installed on the host. The user can pass a
 //! [`LocalConfig::proxy_url`] which is forwarded to the child process as
 //! `--proxy-server=<url>` so the browser inherits Adler's `--proxy` flag.
@@ -34,7 +34,7 @@ pub struct LocalBackend {
     browser: Browser,
     // Kept alive for the lifetime of the backend — chromiumoxide commands
     // deadlock if this stream isn't drained.
-    _handler: JoinHandle<()>,
+    handler: JoinHandle<()>,
 }
 
 impl LocalBackend {
@@ -60,14 +60,23 @@ impl LocalBackend {
                 })?;
         // Drain handler events for the lifetime of the backend; without
         // this, CDP commands made via `Page` block forever.
-        let _handler = tokio::spawn(async move {
+        let handler_task = tokio::spawn(async move {
             while let Some(res) = handler.next().await {
                 if res.is_err() {
                     break;
                 }
             }
         });
-        Ok(Self { browser, _handler })
+        Ok(Self {
+            browser,
+            handler: handler_task,
+        })
+    }
+}
+
+impl Drop for LocalBackend {
+    fn drop(&mut self) {
+        self.handler.abort();
     }
 }
 
@@ -104,11 +113,11 @@ impl BrowserBackend for LocalBackend {
                         }
                     }
                     if let Some(ua) = ua {
-                        page.set_user_agent(ua).await.map_err(|e| {
-                            Error::BrowserSetup {
+                        page.set_user_agent(ua)
+                            .await
+                            .map_err(|e| Error::BrowserSetup {
                                 message: format!("set_user_agent: {e}"),
-                            }
-                        })?;
+                            })?;
                     }
                     if !extras.is_empty() {
                         page.execute(SetExtraHttpHeadersParams::new(Headers::new(
@@ -134,19 +143,22 @@ impl BrowserBackend for LocalBackend {
                             message: format!("wait_for_navigation: {e}"),
                         })?;
 
-                let (status, final_url) = nav.as_ref().map_or((0_u16, url.clone()), |req| {
-                    let st = req
-                        .response
-                        .as_ref()
-                        .and_then(|r| u16::try_from(r.status).ok())
-                        .unwrap_or(0);
-                    let fu = req
-                        .url
-                        .as_deref()
-                        .and_then(|s| Url::parse(s).ok())
-                        .unwrap_or_else(|| url.clone());
-                    (st, fu)
-                });
+                let (status, final_url) = nav.as_ref().map_or_else(
+                    || (0_u16, url.clone()),
+                    |req| {
+                        let st = req
+                            .response
+                            .as_ref()
+                            .and_then(|r| u16::try_from(r.status).ok())
+                            .unwrap_or(0);
+                        let fu = req
+                            .url
+                            .as_deref()
+                            .and_then(|s| Url::parse(s).ok())
+                            .unwrap_or_else(|| url.clone());
+                        (st, fu)
+                    },
+                );
 
                 let body = page.content().await.map_err(|e| Error::BrowserSetup {
                     message: format!("content: {e}"),

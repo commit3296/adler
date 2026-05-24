@@ -165,6 +165,10 @@ async fn create_session(cfg: &BrowserbaseConfig) -> Result<CreateSessionResponse
 
 #[async_trait]
 impl BrowserBackend for BrowserbaseBackend {
+    // The fetch sequence is a flat list of CDP commands that have to run in
+    // a specific order; splitting them across helper fns hides the order
+    // and adds nothing.
+    #[allow(clippy::too_many_lines)]
     async fn fetch(
         &self,
         url: &Url,
@@ -190,7 +194,7 @@ impl BrowserBackend for BrowserbaseBackend {
                     CDP_CALL_TIMEOUT,
                 )
                 .await
-                .map_err(browser_err)?;
+                .map_err(|e| browser_err(&e))?;
 
             // 2. Attach to it with `flatten: true` — all subsequent
             // messages for this target carry our sessionId on the same
@@ -203,18 +207,18 @@ impl BrowserBackend for BrowserbaseBackend {
                     CDP_CALL_TIMEOUT,
                 )
                 .await
-                .map_err(browser_err)?;
+                .map_err(|e| browser_err(&e))?;
 
             // 3. Enable the Page + Network domains so we get load /
             // responseReceived events for this session.
             let _: serde_json::Value = cdp
                 .execute("Page.enable", json!({}), Some(&sid), CDP_CALL_TIMEOUT)
                 .await
-                .map_err(browser_err)?;
+                .map_err(|e| browser_err(&e))?;
             let _: serde_json::Value = cdp
                 .execute("Network.enable", json!({}), Some(&sid), CDP_CALL_TIMEOUT)
                 .await
-                .map_err(browser_err)?;
+                .map_err(|e| browser_err(&e))?;
 
             // 3a. Per-site request headers (e.g. Instagram needs
             // `X-IG-App-ID` + a matching `User-Agent` to unlock its
@@ -244,7 +248,7 @@ impl BrowserBackend for BrowserbaseBackend {
                             CDP_CALL_TIMEOUT,
                         )
                         .await
-                        .map_err(browser_err)?;
+                        .map_err(|e| browser_err(&e))?;
                 }
                 if !extras.is_empty() {
                     let _: serde_json::Value = cdp
@@ -255,7 +259,7 @@ impl BrowserBackend for BrowserbaseBackend {
                             CDP_CALL_TIMEOUT,
                         )
                         .await
-                        .map_err(browser_err)?;
+                        .map_err(|e| browser_err(&e))?;
                 }
             }
 
@@ -274,9 +278,8 @@ impl BrowserBackend for BrowserbaseBackend {
             let mut wait_rx = cdp.subscribe_events();
             let collector = tokio::spawn(async move {
                 while !stop_clone.load(Ordering::Acquire) {
-                    let evt = match collector_rx.recv().await {
-                        Ok(e) => e,
-                        Err(_) => return,
+                    let Ok(evt) = collector_rx.recv().await else {
+                        return;
                     };
                     if evt.session_id.as_deref() == Some(&sid_for_collector)
                         && evt.method == "Network.responseReceived"
@@ -303,7 +306,7 @@ impl BrowserBackend for BrowserbaseBackend {
                     CDP_CALL_TIMEOUT,
                 )
                 .await
-                .map_err(browser_err)?;
+                .map_err(|e| browser_err(&e))?;
             if let Some(err) = nav.error_text.as_deref().filter(|s| !s.is_empty()) {
                 return Err(Error::BrowserSetup {
                     message: format!("Page.navigate {url}: {err}"),
@@ -327,7 +330,7 @@ impl BrowserBackend for BrowserbaseBackend {
                 "Page.frameStoppedLoading",
             )
             .await
-            .map_err(browser_err)?;
+            .map_err(|e| browser_err(&e))?;
 
             // 7. Read the post-render DOM via Runtime.evaluate.
             let eval: EvaluateResult = cdp
@@ -341,7 +344,7 @@ impl BrowserBackend for BrowserbaseBackend {
                     CDP_CALL_TIMEOUT,
                 )
                 .await
-                .map_err(browser_err)?;
+                .map_err(|e| browser_err(&e))?;
             if let Some(exc) = eval.exception_details {
                 return Err(Error::BrowserSetup {
                     message: format!("Runtime.evaluate threw: {exc}"),
@@ -394,7 +397,7 @@ impl BrowserBackend for BrowserbaseBackend {
     }
 }
 
-fn browser_err(e: CdpError) -> Error {
+fn browser_err(e: &CdpError) -> Error {
     Error::BrowserSetup {
         message: e.to_string(),
     }

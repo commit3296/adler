@@ -1,4 +1,4 @@
-//! Minimal async Chrome DevTools Protocol client.
+//! Minimal async Chrome `DevTools` Protocol client.
 //!
 //! Maintained Rust CDP libraries (`chromiumoxide`, `headless_chrome`) both
 //! assume target-event semantics that match a *locally launched* Chrome and
@@ -83,7 +83,7 @@ pub enum CdpError {
 }
 
 impl CdpError {
-    fn ws(e: WsError) -> Self {
+    fn ws(e: &WsError) -> Self {
         Self::WebSocket(e.to_string())
     }
 }
@@ -101,7 +101,7 @@ pub struct CdpEvent {
 }
 
 #[derive(Serialize)]
-struct Request<'a, P: Serialize> {
+struct Request<'a, P> {
     id: u64,
     method: &'a str,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -146,7 +146,10 @@ impl Inner {
         }
         // Fail every in-flight request once.
         let drained: Vec<_> = {
-            let mut g = self.pending.lock().unwrap_or_else(|e| e.into_inner());
+            let mut g = self
+                .pending
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
             g.drain().collect()
         };
         for (_, tx) in drained {
@@ -178,6 +181,7 @@ impl fmt::Debug for CdpClient {
                     .map(|g| g.len())
                     .unwrap_or_default(),
             )
+            .field("read_loop_finished", &self.read_loop.is_finished())
             .finish()
     }
 }
@@ -196,7 +200,7 @@ impl CdpClient {
     /// # Errors
     /// [`CdpError::WebSocket`] on handshake, DNS, or TLS failure.
     pub async fn connect(url: &str) -> Result<Self, CdpError> {
-        let (ws, _resp) = connect_async(url).await.map_err(CdpError::ws)?;
+        let (ws, _resp) = connect_async(url).await.map_err(|e| CdpError::ws(&e))?;
         let (sink, stream) = ws.split();
         let (events_tx, _) = broadcast::channel(EVENT_BUFFER);
         let inner = Arc::new(Inner {
@@ -271,7 +275,7 @@ impl CdpClient {
                 .lock()
                 .map(|mut g| g.remove(&id))
                 .unwrap_or_default();
-            return Err(CdpError::ws(e));
+            return Err(CdpError::ws(&e));
         }
 
         let wait = async {
@@ -280,9 +284,8 @@ impl CdpClient {
             })
         };
 
-        match tokio::time::timeout(timeout, wait).await {
-            Ok(result) => result,
-            Err(_) => {
+        tokio::time::timeout(timeout, wait).await.map_or_else(
+            |_| {
                 // Drop the (now-useless) channel entry so the read loop can
                 // discard the eventual late response.
                 let _ = self
@@ -295,8 +298,9 @@ impl CdpClient {
                     elapsed: timeout,
                     what: method,
                 })
-            }
-        }
+            },
+            |result| result,
+        )
     }
 
     /// Subscribe to every event the read loop dispatches.
@@ -330,7 +334,7 @@ impl CdpClient {
         what: &'static str,
     ) -> Result<CdpEvent, CdpError>
     where
-        F: Fn(&CdpEvent) -> bool + Send,
+        F: Fn(&CdpEvent) -> bool + Send + Sync,
     {
         let mut rx = self.subscribe_events();
         Self::wait_for_event_on(&mut rx, predicate, timeout, what).await
@@ -350,14 +354,14 @@ impl CdpClient {
         what: &'static str,
     ) -> Result<CdpEvent, CdpError>
     where
-        F: Fn(&CdpEvent) -> bool + Send,
+        F: Fn(&CdpEvent) -> bool + Send + Sync,
     {
         let wait = async {
             loop {
                 match rx.recv().await {
                     Ok(evt) if predicate(&evt) => return Ok::<CdpEvent, CdpError>(evt),
-                    Ok(_) => {} // not ours yet, keep listening
-                    Err(broadcast::error::RecvError::Lagged(_)) => {} // skipped some, keep going
+                    // not ours yet (or we lagged behind the broadcast); keep listening
+                    Ok(_) | Err(broadcast::error::RecvError::Lagged(_)) => {}
                     Err(broadcast::error::RecvError::Closed) => return Err(CdpError::Closed),
                 }
             }
@@ -390,13 +394,13 @@ async fn read_loop(inner: Arc<Inner>, mut stream: Stream) {
         }
         let text = match msg {
             Ok(Message::Text(t)) => t,
-            Ok(Message::Binary(b)) => match String::from_utf8(b.into()) {
-                Ok(t) => t.into(),
-                Err(_) => {
+            Ok(Message::Binary(b)) => {
+                let Ok(decoded) = String::from_utf8(b.into()) else {
                     tracing::warn!("CDP: non-UTF8 binary frame, dropped");
                     continue;
-                }
-            },
+                };
+                decoded.into()
+            }
             Ok(Message::Close(_)) => {
                 tracing::debug!("CDP: peer closed");
                 break;
