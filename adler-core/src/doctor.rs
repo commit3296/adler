@@ -169,6 +169,12 @@ pub struct FixSuggestion {
 /// be told apart (commonly: a stale `known_present` user that itself no
 /// longer exists, so both probes hit a not-found page). Issues two fresh
 /// requests; intended for opt-in `--fix` use, not the hot scan path.
+///
+/// Routes through the [`BrowserBackend`](crate::BrowserBackend) configured
+/// on `client` when the site is tagged `bot-protected` (Instagram,
+/// Twitter, …), so the diff sees a real JS-rendered profile rather than
+/// two identical login-wall shells. Without a backend, falls back to raw
+/// HTTP; bot-protected sites will then typically return `None`.
 pub async fn suggest_fix(client: &Client, site: &Site) -> Option<FixSuggestion> {
     // Diffing uses the primary (first) known_present candidate. If the
     // site declares several, the others are doctor-only fallbacks; for
@@ -177,8 +183,12 @@ pub async fn suggest_fix(client: &Client, site: &Site) -> Option<FixSuggestion> 
     let present_user = Username::new(present_name.to_owned()).ok()?;
     let absent_user = Username::new(random_nonsense_username()).ok()?;
 
-    let present = client.fetch(&site.url_for(&present_user)).await?;
-    let absent = client.fetch(&site.url_for(&absent_user)).await?;
+    let present = client
+        .fetch_for_doctor(site, &site.url_for(&present_user))
+        .await?;
+    let absent = client
+        .fetch_for_doctor(site, &site.url_for(&absent_user))
+        .await?;
 
     // 1. Distinct status codes are the cleanest discriminator. Require the
     //    present side to be a non-error status so we don't "fix" a site by
@@ -554,6 +564,121 @@ mod tests {
             [Signal::StatusFound { .. }, Signal::BodyAbsent { text }]
                 if text == "Page not found"
         ));
+    }
+
+    #[tokio::test]
+    async fn suggest_fix_routes_bot_protected_sites_through_browser_backend() {
+        // suggest_fix on a raw-HTTP path only sees the login wall both
+        // sites return, so without the browser it'd produce no
+        // signature. Wiring a backend in should make it see distinct
+        // bodies (real profile vs not-found page) and derive a
+        // BodyAbsent marker.
+        use std::sync::Arc;
+        use std::sync::Mutex;
+
+        use serde_json::json;
+
+        use crate::browser::cdp::CdpClient;
+        use crate::browser::mock_cdp::{FrameOut, MockCdpServer};
+        use crate::browser::{BrowserBackend, BrowserbaseBackend};
+
+        // The mock dispatches Runtime.evaluate based on the URL the
+        // most recent Page.navigate carried. Two probe URLs land in
+        // sequence (suggest_fix issues present then absent), and the
+        // returned body is keyed off the username path segment.
+        let last_url: Arc<Mutex<String>> = Arc::new(Mutex::new(String::new()));
+        let last_url_for_handler = Arc::clone(&last_url);
+        let server = MockCdpServer::start(move |method, params, _sid| match method {
+            "Target.createTarget" => vec![FrameOut::Response(json!({ "targetId": "T1" }))],
+            "Target.attachToTarget" => vec![FrameOut::Response(json!({ "sessionId": "S1" }))],
+            "Page.navigate" => {
+                let url = params
+                    .get("url")
+                    .and_then(serde_json::Value::as_str)
+                    .unwrap_or("")
+                    .to_owned();
+                *last_url_for_handler.lock().unwrap() = url.clone();
+                vec![
+                    FrameOut::Response(json!({ "frameId": "F1" })),
+                    FrameOut::Event {
+                        method: "Network.responseReceived".into(),
+                        params: json!({
+                            "type": "Document",
+                            "response": { "status": 200, "url": url },
+                        }),
+                        session_id: Some("S1".into()),
+                    },
+                    FrameOut::Event {
+                        method: "Page.frameStoppedLoading".into(),
+                        params: json!({ "frameId": "F1" }),
+                        session_id: Some("S1".into()),
+                    },
+                ]
+            }
+            "Runtime.evaluate" => {
+                let url = last_url_for_handler.lock().unwrap().clone();
+                let body = if url.contains("/torvalds") {
+                    // present probe — real profile page
+                    "<html><head><title>torvalds · profile</title></head>\
+                     <body>real content</body></html>"
+                } else {
+                    // absent probe — not-found page
+                    "<html><head><title>Profile not found</title></head>\
+                     <body>Profile not found</body></html>"
+                };
+                vec![FrameOut::Response(json!({
+                    "result": { "type": "string", "value": body },
+                }))]
+            }
+            _ => vec![FrameOut::Response(json!({}))],
+        })
+        .await;
+
+        let cdp = CdpClient::connect(&server.ws_url()).await.unwrap();
+        let backend: std::sync::Arc<dyn BrowserBackend> =
+            std::sync::Arc::new(BrowserbaseBackend::from_parts(cdp, "test-session".into()));
+
+        let http_server = MockServer::start().await;
+        let url_template = format!("{}/{{username}}", http_server.uri());
+        let s = Site {
+            name: "MockBP".into(),
+            url: UrlTemplate::new(url_template).unwrap(),
+            signals: vec![Signal::StatusFound { codes: vec![200] }],
+            known_present: Some(KnownPresent::Single("torvalds".into())),
+            known_absent: None,
+            extract: Vec::new(),
+            tags: vec!["bot-protected".into()],
+            request_headers: std::collections::BTreeMap::new(),
+        };
+
+        let client = Client::builder()
+            .timeout(std::time::Duration::from_secs(5))
+            .min_request_interval(std::time::Duration::ZERO)
+            .max_retries(0)
+            .browser(backend)
+            .build()
+            .unwrap();
+
+        let fix = suggest_fix(&client, &s)
+            .await
+            .expect("suggest_fix should derive a signature from the browser-rendered diff");
+        // Same status (200) on both sides → falls into the title /
+        // body-marker branch, picking up "Profile not found" as
+        // BodyAbsent.
+        assert!(
+            matches!(
+                fix.signals.as_slice(),
+                [Signal::StatusFound { codes }, Signal::BodyAbsent { text }]
+                    if codes == &[200] && text.contains("not found")
+            ),
+            "unexpected signals: {:?}",
+            fix.signals,
+        );
+        assert!(
+            fix.rationale.contains("titles") || fix.rationale.contains("title"),
+            "rationale should mention titles, got: {}",
+            fix.rationale,
+        );
     }
 
     #[tokio::test]

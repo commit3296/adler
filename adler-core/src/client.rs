@@ -129,6 +129,47 @@ impl Client {
         })
     }
 
+    /// Same as [`Self::fetch`] but routes through the configured browser
+    /// backend when the site is tagged `bot-protected` and a backend is
+    /// available. Used by [`doctor::suggest_fix`](crate::doctor::suggest_fix)
+    /// so that the diff-derivation works against the JS-rendered page
+    /// (login wall vs. real profile) rather than two identical raw-HTTP
+    /// shells.
+    ///
+    /// Falls back to raw HTTP if (a) no browser is configured, (b) the
+    /// site isn't `bot-protected`, or (c) the browser fetch fails — so
+    /// callers get the same `Option<RawResponse>` shape either way.
+    pub async fn fetch_for_doctor(&self, site: &Site, url: &str) -> Option<RawResponse> {
+        if let Some(backend) = self.browser.as_deref() {
+            if site
+                .tags
+                .iter()
+                .any(|t| t.eq_ignore_ascii_case(BOT_PROTECTED_TAG))
+            {
+                let parsed = url::Url::parse(url).ok()?;
+                match backend
+                    .fetch(&parsed, &site.request_headers, BROWSER_TIMEOUT)
+                    .await
+                {
+                    Ok(page) => {
+                        return Some(RawResponse {
+                            status: page.status,
+                            final_url: page.final_url.to_string(),
+                            body: page.body,
+                        });
+                    }
+                    Err(err) => {
+                        tracing::warn!(
+                            site = %site.name, %url, error = %err,
+                            "browser fetch failed in doctor; falling back to raw HTTP",
+                        );
+                    }
+                }
+            }
+        }
+        self.fetch(url).await
+    }
+
     /// Pick a User-Agent for the next request from the rotation pool, or
     /// `None` to fall back on the client's fixed header.
     fn pick_user_agent(&self) -> Option<&str> {
