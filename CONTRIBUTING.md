@@ -219,10 +219,22 @@ One-time repo setup (Settings → Secrets → Actions):
 
 - `CARGO_REGISTRY_TOKEN` — a crates.io API token with
   `publish-update` scope for both `adler-core` and `adler-cli`.
+- `RELEASE_PLZ_APP_ID` — the numeric *App ID* of the
+  [`adler-release`](https://github.com/settings/apps/adler-release)
+  GitHub App installed on this repo.
+- `RELEASE_PLZ_APP_PRIVATE_KEY` — the PEM-format private key
+  generated for that same App.
 
-Plus Settings → Actions → General → *Workflow permissions* must
-allow GitHub Actions to **create and approve pull requests** (so
-release-plz can open the Release PR).
+The reason for the GitHub App (vs a Personal Access Token) is that
+events authored by the default `GITHUB_TOKEN` do **not** trigger
+downstream workflows — release-plz creating the GitHub Release with
+`GITHUB_TOKEN` would silently fail to fire `release.yml` and ship no
+binaries. A GitHub App is authored by its bot identity, so its events
+cascade normally, and its installation tokens are short-lived (~1 h)
+which is materially safer than a long-lived PAT.
+
+The App needs only three repository permissions: **Contents: Read &
+Write**, **Pull requests: Read & Write**, **Workflows: Read & Write**.
 
 ### Emergency manual release
 
