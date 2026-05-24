@@ -67,6 +67,34 @@ Logging is controlled by the `ADLER_LOG` env var (defaults to `adler=info`):
 ADLER_LOG=adler=debug cargo run -p adler-cli -- alice
 ```
 
+## Detection rate
+
+Recall depends on where you scan from. A `--doctor` pass against the
+bundled 413-site registry, run on 2026-05-24:
+
+| Scan source | Sites where a known-existing account is found | Recall |
+| --- | ---: | ---: |
+| Datacenter IP (Hetzner / Leaseweb DE) | 272 / 416 | 65% |
+| US residential proxy pool (DECODO) | **295 / 416** | **71%** |
+
+The +23-site delta is real: the residential IP recovers many Cloudflare-
+walled and geo-restricted sites (mostly RU-segment, plus large platforms
+like Reddit, Patreon, Imgur, Tumblr, DeviantArt). The remaining ~30% is a
+mix of:
+
+- **Bot-protected sites** tagged `bot-protected` (Instagram, X/Twitter,
+  TikTok, Facebook, Threads, Snapchat, Weibo) — these serve a JS login
+  wall to a plain HTTP request; a clean IP doesn't help, you need a
+  browser backend. Exclude them with `--exclude-tag bot-protected`.
+- **Stale Sherlock-imported `known_present` accounts** that no longer
+  exist (≈100 sites, contributor cleanup needed).
+- **Detection signatures that genuinely don't discriminate any more** —
+  the three caught with false positives during validation are now
+  excluded (`Replit.com`, `RedTube`, `YouPorn`).
+
+Run the same check yourself: `adler --doctor` (uses your current IP) or
+`adler --doctor --proxy <url>` (via your own proxy).
+
 ## Usage
 
 ```bash
