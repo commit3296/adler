@@ -69,43 +69,52 @@ ADLER_LOG=adler=debug cargo run -p adler-cli -- alice
 
 ## Detection rate
 
-Recall depends on where you scan from. A `--doctor` pass on 2026-05-24
-against the bundled registry (416 sites at measurement time; 413 after
-removing the three false-positive emitters this pass surfaced):
+Recall depends on where you scan from. A `--doctor` pass on 2026-05-25
+against the bundled registry (411 sites):
 
 | Scan source | Sites where a known-existing account is found | Recall |
 | --- | ---: | ---: |
-| Datacenter IP (Hetzner / Leaseweb DE) | 272 / 416 | 65% |
-| US residential proxy pool (DECODO) | **295 / 416** | **71%** |
+| Datacenter IP (Hetzner / Leaseweb DE) | 279 / 411 | 67.9% |
+| US residential proxy pool (DECODO) | **297 / 411** | **72.3%** |
 
-The +23-site delta is real: the residential IP recovers many Cloudflare-
-walled and geo-restricted sites (mostly RU-segment, plus large platforms
-like Reddit, Patreon, Imgur, Tumblr, DeviantArt). The remaining ~30% is a
-mix of:
+The +18-site residential lift is real: ~40 sites swap their verdict
+between `Uncertain` (datacenter) and `Found` (residential) — most are
+Cloudflare-walled or geo-restricted (RU-segment, plus platforms like
+Reddit, Imgur, Patreon). The remaining ~28% breaks down roughly as:
 
-- **Bot-protected sites** tagged `bot-protected` (Instagram, X/Twitter,
-  TikTok, Facebook, Threads, Snapchat, Weibo) — these serve a JS login
-  wall to a plain HTTP request; a clean IP doesn't help, you need a
-  browser backend. Exclude them with `--exclude-tag bot-protected`.
-- **Stale Sherlock-imported `known_present` accounts** that no longer
-  exist (≈100 sites, contributor cleanup needed).
-- **Detection signatures that genuinely don't discriminate any more** —
-  the three caught with false positives during validation are now
-  excluded (`Replit.com`, `RedTube`, `YouPorn`).
+- **Bot-protected sites** tagged `bot-protected` (Instagram and
+  X/Twitter today) — these serve a JS login wall to a plain HTTP
+  request; a clean IP doesn't help, you need a browser backend.
+  Exclude them with `--exclude-tag bot-protected`.
+- **Stale Sherlock-imported `known_present` accounts** that no
+  longer exist (~50 sites still on the placeholder username `"blue"`
+  from Sherlock's data, plus ~30 others; see
+  [issue #4](https://github.com/commit3296/adler/issues/4) — a good
+  first issue, the doctor flags them clearly).
+- **Sites that don't reliably distinguish found from not-found** for
+  unauthenticated requests at all — investigated and not added
+  rather than ship false-positive entries: Reddit (403s
+  unauthenticated POSTs since the 2023 API changes), TikTok and
+  Pinterest (JS-rendered shells that never hydrate for headless
+  browsers), Threads (login redirect for most usernames).
 
-Run the same check yourself: `adler --doctor` (uses your current IP) or
-`adler --doctor --proxy <url>` (via your own proxy).
+Run the same check yourself: `adler --doctor` (uses your current IP)
+or `adler --doctor --proxy <url>` (via your own proxy). With
+`--browser-backend browserbase` the doctor's `--fix` mode routes
+bot-protected sites through a real Chrome session, so the diff sees
+real profile pages rather than two identical login walls.
 
 ## Browser backend (optional)
 
 A small subset of sites — currently **Instagram and Twitter**
-(`adler --list-tags` shows the live count; the tag was validated and
-narrowed against the residential pool on 2026-05-24, dropping
-Snapchat/TikTok which turn out to detect cleanly without a browser) —
-serve a JavaScript login wall or a Cloudflare challenge to a plain HTTP
-request. They're tagged `bot-protected` and, on the raw HTTP path, will
-*always* return `Uncertain` because the response looks identical for an
-existing account and a missing one.
+(`adler --list-tags` shows the live count; the tag is kept narrow
+because every additional candidate we investigated either detects
+fine without a browser or is structurally unscrapable even *with*
+one — see *Detection rate* above) — serve a JavaScript login wall
+or a Cloudflare challenge to a plain HTTP request. They're tagged
+`bot-protected` and, on the raw HTTP path, will *always* return
+`Uncertain` because the response looks identical for an existing
+account and a missing one.
 
 With `--browser-backend` Adler routes those sites (and *only* those —
 everything else stays on the fast HTTP path) through a real headless
