@@ -47,6 +47,16 @@ pub enum Error {
         /// Underlying error description (reqwest's error chain rendered).
         message: String,
     },
+
+    /// Constructing a browser backend failed (no local Chrome, bad
+    /// Browserbase credentials, etc.). Per-fetch browser failures become
+    /// [`MatchKind::Uncertain`](crate::MatchKind::Uncertain) — only setup
+    /// surfaces here.
+    #[error("browser backend setup failed: {message}")]
+    BrowserSetup {
+        /// Underlying error description.
+        message: String,
+    },
 }
 
 /// Result alias used throughout the engine.

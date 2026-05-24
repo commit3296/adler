@@ -53,6 +53,12 @@ pub enum UncertainReason {
     Network(String),
     /// An error reading the response body.
     BodyRead(String),
+    /// A `bot-protected` site needed the browser backend but the per-scan
+    /// `--browser-budget` cap was already spent on earlier sites.
+    BrowserBudget,
+    /// The browser backend itself failed (timeout, navigation error,
+    /// session drop, …) for a `bot-protected` site.
+    BrowserFailed(String),
     /// Any other reason (e.g. a `doctor` pre-flight skip).
     Other(String),
 }
@@ -68,6 +74,8 @@ impl fmt::Display for UncertainReason {
             Self::SchedulerClosed => f.write_str("scheduler closed"),
             Self::Network(detail) => write!(f, "request: {detail}"),
             Self::BodyRead(detail) => write!(f, "body read: {detail}"),
+            Self::BrowserBudget => f.write_str("browser_budget_exceeded"),
+            Self::BrowserFailed(detail) => write!(f, "browser: {detail}"),
             Self::Other(detail) => f.write_str(detail),
         }
     }

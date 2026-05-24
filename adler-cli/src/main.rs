@@ -7,11 +7,13 @@ use std::io::{self, IsTerminal as _, Write};
 use std::num::{NonZeroU32, NonZeroUsize};
 use std::path::PathBuf;
 use std::process::ExitCode;
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
+use adler_core::browser::{BrowserbaseBackend, BrowserbaseConfig, LocalBackend, LocalConfig};
 use adler_core::{
-    Cache, CheckOutcome, Client, CorrelationReport, DoctorReport, ExecutorOptions, MatchKind,
-    PermuteLevel, Registry, Site, Username, correlate, doctor, executor, permute,
+    BrowserBackend, Cache, CheckOutcome, Client, CorrelationReport, DoctorReport, ExecutorOptions,
+    MatchKind, PermuteLevel, Registry, Site, Username, correlate, doctor, executor, permute,
 };
 use anyhow::{Context as _, Result};
 use clap::{CommandFactory as _, Parser, ValueEnum};
@@ -196,6 +198,26 @@ struct Cli {
     #[arg(long)]
     respect_robots: bool,
 
+    /// Browser backend used for sites tagged `bot-protected` (Instagram,
+    /// X/Twitter, TikTok, Facebook, Threads, Snapchat, Weibo). `local`
+    /// needs Chrome installed; `browserbase` reads
+    /// `ADLER_BROWSERBASE_API_KEY` / `ADLER_BROWSERBASE_PROJECT_ID` and
+    /// charges per session-minute. Default `none` leaves those sites on
+    /// raw HTTP (typically Uncertain).
+    #[arg(long, value_enum, default_value_t = BrowserBackendChoice::None, value_name = "BACKEND")]
+    browser_backend: BrowserBackendChoice,
+
+    /// Per-scan cap on browser-routed probes. Once exceeded, remaining
+    /// bot-protected sites return `Uncertain(browser_budget_exceeded)`.
+    /// Guardrail against a misconfigured flag burning a whole quota.
+    #[arg(long, default_value_t = adler_core::DEFAULT_BROWSER_BUDGET, value_name = "N")]
+    browser_budget: usize,
+
+    /// Disable the browser backend for this run, even if `--browser-backend`
+    /// or its env vars are set. Convenient for one-off raw-HTTP scans.
+    #[arg(long)]
+    no_browser: bool,
+
     /// Extract profile fields (name, bio, avatar, …) from found accounts on
     /// sites that declare extractor rules. Implies a fresh scan (skips the
     /// cache) so enrichment data is current.
@@ -284,6 +306,22 @@ enum OutputFormat {
     Html,
 }
 
+/// Browser backend selection for `bot-protected` sites.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+enum BrowserBackendChoice {
+    /// Don't use a browser backend (default). Bot-protected sites stay on
+    /// the raw HTTP path and typically return `Uncertain`.
+    None,
+    /// Launch local headless Chrome via `chromiumoxide`. Requires Chrome
+    /// or Chromium installed; honors `--proxy` (passed via
+    /// `--proxy-server=...`).
+    Local,
+    /// Browserbase cloud session. Reads credentials from
+    /// `ADLER_BROWSERBASE_API_KEY` and `ADLER_BROWSERBASE_PROJECT_ID`.
+    /// Pay-per-session — see the project README.
+    Browserbase,
+}
+
 /// When to colorize text output.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 enum ColorChoice {
@@ -360,7 +398,7 @@ async fn run(cli: Cli) -> Result<ExitCode> {
 
     // Scaffolding a new site needs neither the registry nor a filter.
     if let Some(url) = cli.add_site.clone() {
-        let client = build_client(&cli)?;
+        let client = build_client(&cli).await?;
         return run_add_site(&cli, &client, &url).await;
     }
 
@@ -394,7 +432,7 @@ async fn run(cli: Cli) -> Result<ExitCode> {
         return Ok(ExitCode::SUCCESS);
     }
 
-    let client = build_client(&cli)?;
+    let client = build_client(&cli).await?;
 
     if cli.doctor {
         let color = cli.color.resolve(io::stdout().is_terminal());
@@ -1049,28 +1087,81 @@ async fn scan(
     cached.into_iter().chain(fresh).collect()
 }
 
-fn build_client(cli: &Cli) -> Result<Client> {
+async fn build_client(cli: &Cli) -> Result<Client> {
     let mut builder = Client::builder()
         .timeout(Duration::from_secs(cli.timeout))
         .max_retries(cli.max_retries);
     if let Some(rps) = cli.max_rps {
         builder = builder.max_rps(rps);
     }
-    if cli.tor {
+    let proxy_for_browser: Option<String> = if cli.tor {
         builder = builder.proxy(TOR_PROXY);
+        Some(TOR_PROXY.to_owned())
     } else if let Some(url) = &cli.proxy {
         builder = builder.proxy(url.clone());
-    }
+        Some(url.clone())
+    } else {
+        None
+    };
     if cli.rotate_ua {
         builder =
             builder.rotate_user_agents(USER_AGENT_POOL.iter().map(|s| (*s).to_owned()).collect());
     }
+
+    if let Some(backend) = build_browser_backend(cli, proxy_for_browser.as_deref()).await? {
+        builder = builder.browser(backend).browser_budget(cli.browser_budget);
+    }
+
     builder
         // --correlate needs profile fields, so it implies enrichment.
         .enrich(cli.enrich || cli.correlate)
         .respect_robots(cli.respect_robots)
         .build()
         .context("building HTTP client")
+}
+
+/// Construct the browser backend selected by CLI flags, or `None` when no
+/// backend should be used. `--no-browser` short-circuits to `None` even if
+/// a backend is configured.
+async fn build_browser_backend(
+    cli: &Cli,
+    proxy_url: Option<&str>,
+) -> Result<Option<Arc<dyn BrowserBackend>>> {
+    if cli.no_browser {
+        return Ok(None);
+    }
+    match cli.browser_backend {
+        BrowserBackendChoice::None => Ok(None),
+        BrowserBackendChoice::Local => {
+            let cfg = LocalConfig {
+                proxy_url: proxy_url.map(str::to_owned),
+            };
+            let backend = LocalBackend::launch(cfg)
+                .await
+                .context("launching local browser backend (is Chrome installed?)")?;
+            Ok(Some(Arc::new(backend) as Arc<dyn BrowserBackend>))
+        }
+        BrowserBackendChoice::Browserbase => {
+            let api_key = std::env::var("ADLER_BROWSERBASE_API_KEY").map_err(|_| {
+                anyhow::anyhow!(
+                    "--browser-backend browserbase requires ADLER_BROWSERBASE_API_KEY env var"
+                )
+            })?;
+            let project_id = std::env::var("ADLER_BROWSERBASE_PROJECT_ID").map_err(|_| {
+                anyhow::anyhow!(
+                    "--browser-backend browserbase requires ADLER_BROWSERBASE_PROJECT_ID env var"
+                )
+            })?;
+            let cfg = BrowserbaseConfig {
+                api_key: secrecy::SecretString::from(api_key),
+                project_id,
+            };
+            let backend = BrowserbaseBackend::connect(cfg)
+                .await
+                .context("opening Browserbase session")?;
+            Ok(Some(Arc::new(backend) as Arc<dyn BrowserBackend>))
+        }
+    }
 }
 
 /// Derive a default site name from a URL: the registrable label of the host,

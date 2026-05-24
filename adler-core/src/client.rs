@@ -7,6 +7,7 @@
 //! [`MatchKind::Uncertain`](crate::MatchKind::Uncertain) on the returned
 //! outcome.
 
+use std::fmt;
 use std::num::NonZeroU32;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -14,6 +15,7 @@ use std::time::{Duration, Instant};
 use reqwest::redirect;
 
 use crate::ban;
+use crate::browser::{BrowserBackend, BrowserBudget, RenderedPage};
 use crate::check::{CheckOutcome, MatchKind, UncertainReason};
 use crate::error::{Error, Result};
 use crate::retry::{self, RetryPolicy};
@@ -36,7 +38,7 @@ const GLOBAL_THROTTLE_KEY: &str = "*global*";
 /// recommended way to share a client between tasks. Cloned clients share
 /// throttle state, which is what you want: a fan-out scan must not
 /// accidentally exceed a per-host budget by spawning more clients.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Client {
     inner: reqwest::Client,
     throttle: HostThrottle,
@@ -50,6 +52,12 @@ pub struct Client {
     enrich: bool,
     /// When set, skip probes disallowed by the host's `robots.txt`.
     robots: Option<RobotsCache>,
+    /// Browser backend used for `bot-protected` sites. `None` → those sites
+    /// stay on the raw HTTP path and typically end up `Uncertain`.
+    browser: Option<Arc<dyn BrowserBackend>>,
+    /// Per-scan cap on browser fetches. Shared across `Client::check` calls
+    /// for a single scan, so several tasks compete for the same budget.
+    browser_budget: Arc<BrowserBudget>,
 }
 
 impl Client {
@@ -133,6 +141,29 @@ impl Client {
 
     async fn probe_once(&self, site: &Site, username: &Username) -> CheckOutcome {
         let url = site.url_for(username);
+
+        // Auto-route bot-protected sites through the browser backend when
+        // one is configured. Raw HTTP can't see past their JS/login wall,
+        // so this is the only way they ever produce a Found verdict.
+        if let Some(backend) = self.browser.as_deref() {
+            if site
+                .tags
+                .iter()
+                .any(|t| t.eq_ignore_ascii_case(BOT_PROTECTED_TAG))
+            {
+                if self.browser_budget.try_consume() {
+                    return self.probe_with_browser(site, &url, backend).await;
+                }
+                tracing::warn!(site = %site.name, "browser budget exhausted");
+                return uncertain(
+                    &site.name,
+                    url,
+                    Instant::now(),
+                    UncertainReason::BrowserBudget,
+                );
+            }
+        }
+
         let host = host_of(&url);
 
         // robots.txt gate, before consuming a throttle slot or probing.
@@ -240,6 +271,73 @@ impl Client {
         }
         result
     }
+
+    /// Render `url` through the configured [`BrowserBackend`] and run the
+    /// same signal pipeline on the result. Per-fetch failures (timeout,
+    /// navigation error, etc.) surface as `Uncertain(BrowserFailed)` so
+    /// one flaky bot-protected site can't abort the scan.
+    async fn probe_with_browser(
+        &self,
+        site: &Site,
+        url: &str,
+        backend: &dyn BrowserBackend,
+    ) -> CheckOutcome {
+        let started = Instant::now();
+        let parsed = match url::Url::parse(url) {
+            Ok(u) => u,
+            Err(err) => {
+                return uncertain(
+                    &site.name,
+                    url.to_owned(),
+                    started,
+                    UncertainReason::Other(format!("invalid url: {err}")),
+                );
+            }
+        };
+
+        let page: RenderedPage = match backend.fetch(&parsed, BROWSER_TIMEOUT).await {
+            Ok(p) => p,
+            Err(err) => {
+                tracing::warn!(site = %site.name, %url, error = %err, "browser fetch failed");
+                return uncertain(
+                    &site.name,
+                    url.to_owned(),
+                    started,
+                    UncertainReason::BrowserFailed(err.to_string()),
+                );
+            }
+        };
+
+        let final_url_str = page.final_url.as_str().to_owned();
+        let probe = Probe {
+            status: page.status,
+            final_url: &final_url_str,
+            body: &page.body,
+        };
+        let votes: Vec<(&Signal, SignalVerdict)> = site
+            .signals
+            .iter()
+            .map(|s| (s, s.evaluate(&probe)))
+            .collect();
+        let kind = aggregate(votes.iter().map(|(_, v)| *v));
+        let mut result = outcome(&site.name, url.to_owned(), started, kind);
+        let winning = match kind {
+            MatchKind::Found => Some(SignalVerdict::Found),
+            MatchKind::NotFound => Some(SignalVerdict::NotFound),
+            MatchKind::Uncertain => None,
+        };
+        if let Some(want) = winning {
+            result.evidence = votes
+                .iter()
+                .filter(|(_, v)| *v == want)
+                .map(|(s, _)| s.describe_match(&probe))
+                .collect();
+        }
+        if self.enrich && kind == MatchKind::Found && !site.extract.is_empty() {
+            result.enrichment = crate::enrich::extract(&page.body, &site.extract);
+        }
+        result
+    }
 }
 
 /// Raw response data returned by [`Client::fetch`] for diagnostics.
@@ -254,7 +352,7 @@ pub struct RawResponse {
 }
 
 /// Builder for [`Client`].
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 #[must_use = "ClientBuilder does nothing until `.build()` is called"]
 pub struct ClientBuilder {
     timeout: Duration,
@@ -269,6 +367,8 @@ pub struct ClientBuilder {
     user_agents: Vec<String>,
     enrich: bool,
     respect_robots: bool,
+    browser: Option<Arc<dyn BrowserBackend>>,
+    browser_budget: usize,
 }
 
 impl Default for ClientBuilder {
@@ -286,6 +386,8 @@ impl Default for ClientBuilder {
             user_agents: Vec::new(),
             enrich: false,
             respect_robots: false,
+            browser: None,
+            browser_budget: DEFAULT_BROWSER_BUDGET,
         }
     }
 }
@@ -385,6 +487,24 @@ impl ClientBuilder {
         self
     }
 
+    /// Attach a browser backend. Sites tagged `bot-protected` will be
+    /// routed through it instead of the raw HTTP path, up to the
+    /// [`browser_budget`](Self::browser_budget) cap.
+    pub fn browser(mut self, backend: Arc<dyn BrowserBackend>) -> Self {
+        self.browser = Some(backend);
+        self
+    }
+
+    /// Per-scan cap on how many `bot-protected` sites are allowed to use
+    /// the browser backend. Once exhausted, the rest fall back to
+    /// `Uncertain(BrowserBudget)`. Defaults to
+    /// [`DEFAULT_BROWSER_BUDGET`].
+    #[must_use]
+    pub const fn browser_budget(mut self, cap: usize) -> Self {
+        self.browser_budget = cap;
+        self
+    }
+
     /// Build a [`Client`].
     pub fn build(self) -> Result<Client> {
         let redirect_policy = if self.follow_redirects {
@@ -434,9 +554,60 @@ impl ClientBuilder {
             user_agents: Arc::from(self.user_agents),
             enrich: self.enrich,
             robots,
+            browser: self.browser,
+            browser_budget: Arc::new(BrowserBudget::new(self.browser_budget)),
         })
     }
 }
+
+/// Default ceiling on browser-backed probes per scan when no other value
+/// is specified. Sized as ~5× the typical `bot-protected` registry subset
+/// — comfortable headroom while still being a guardrail against a
+/// misconfigured flag burning a whole Browserbase quota.
+pub const DEFAULT_BROWSER_BUDGET: usize = 50;
+
+impl fmt::Debug for Client {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Client")
+            .field("throttle", &self.throttle)
+            .field("global_throttle", &self.global_throttle)
+            .field("retry", &self.retry)
+            .field("user_agents", &self.user_agents)
+            .field("enrich", &self.enrich)
+            .field("robots", &self.robots.is_some())
+            .field("browser", &self.browser.is_some())
+            .field("browser_budget", &self.browser_budget)
+            .finish_non_exhaustive()
+    }
+}
+
+impl fmt::Debug for ClientBuilder {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ClientBuilder")
+            .field("timeout", &self.timeout)
+            .field("connect_timeout", &self.connect_timeout)
+            .field("user_agent", &self.user_agent)
+            .field("follow_redirects", &self.follow_redirects)
+            .field("redirect_limit", &self.redirect_limit)
+            .field("min_request_interval", &self.min_request_interval)
+            .field("max_rps", &self.max_rps)
+            .field("retry", &self.retry)
+            .field("proxy", &self.proxy)
+            .field("user_agents", &self.user_agents)
+            .field("enrich", &self.enrich)
+            .field("respect_robots", &self.respect_robots)
+            .field("browser", &self.browser.is_some())
+            .field("browser_budget", &self.browser_budget)
+            .finish()
+    }
+}
+
+/// Per-fetch timeout passed to [`BrowserBackend::fetch`]. Browser fetches
+/// (JS execution + waits) are inherently slower than raw HTTP, so this is
+/// generous on purpose.
+const BROWSER_TIMEOUT: Duration = Duration::from_secs(60);
+
+const BOT_PROTECTED_TAG: &str = "bot-protected";
 
 fn default_user_agent() -> String {
     format!("adler/{}", env!("CARGO_PKG_VERSION"))
@@ -1079,5 +1250,159 @@ mod tests {
         let site = site_with(&server, vec![Signal::StatusFound { codes: vec![200] }]);
         let outcome = build_client().check(&site, &user()).await;
         assert_eq!(outcome.kind, MatchKind::Found);
+    }
+
+    // ===== Browser routing =====
+
+    /// Test backend that returns a canned page and counts calls. Lets the
+    /// routing tests assert "Client did/did not invoke the browser" without
+    /// involving a real Chrome process.
+    #[derive(Debug)]
+    struct RecordingBackend {
+        page: RenderedPage,
+        calls: std::sync::atomic::AtomicUsize,
+    }
+
+    impl RecordingBackend {
+        fn with_page(page: RenderedPage) -> Self {
+            Self {
+                page,
+                calls: std::sync::atomic::AtomicUsize::new(0),
+            }
+        }
+        fn call_count(&self) -> usize {
+            self.calls.load(std::sync::atomic::Ordering::SeqCst)
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl BrowserBackend for RecordingBackend {
+        async fn fetch(&self, _url: &url::Url, _timeout: Duration) -> Result<RenderedPage> {
+            self.calls.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            Ok(self.page.clone())
+        }
+    }
+
+    fn site_bot_protected(server: &MockServer) -> Site {
+        let mut s = site_with(server, vec![Signal::StatusFound { codes: vec![200] }]);
+        s.tags = vec!["bot-protected".into()];
+        s
+    }
+
+    #[tokio::test]
+    async fn browser_routes_bot_protected_sites() {
+        // wiremock would *not* fire (raw HTTP path is skipped) — the backend
+        // returns its canned page directly.
+        let server = MockServer::start().await;
+        let backend = Arc::new(RecordingBackend::with_page(RenderedPage {
+            status: 200,
+            final_url: url::Url::parse("https://example.com/alice").unwrap(),
+            body: "<html></html>".into(),
+            elapsed_ms: 42,
+        }));
+        let client = Client::builder()
+            .min_request_interval(Duration::ZERO)
+            .max_retries(0)
+            .browser(backend.clone())
+            .build()
+            .unwrap();
+        let outcome = client.check(&site_bot_protected(&server), &user()).await;
+        assert_eq!(outcome.kind, MatchKind::Found);
+        assert_eq!(backend.call_count(), 1, "browser invoked exactly once");
+    }
+
+    #[tokio::test]
+    async fn non_bot_protected_sites_skip_browser() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/alice"))
+            .respond_with(ResponseTemplate::new(200))
+            .mount(&server)
+            .await;
+        let backend = Arc::new(RecordingBackend::with_page(RenderedPage {
+            status: 500, // would make wiremock case fail if browser was taken
+            final_url: url::Url::parse("https://x/").unwrap(),
+            body: String::new(),
+            elapsed_ms: 0,
+        }));
+        let client = Client::builder()
+            .min_request_interval(Duration::ZERO)
+            .max_retries(0)
+            .browser(backend.clone())
+            .build()
+            .unwrap();
+        // site WITHOUT bot-protected tag → must go via raw HTTP (wiremock).
+        let site = site_with(&server, vec![Signal::StatusFound { codes: vec![200] }]);
+        let outcome = client.check(&site, &user()).await;
+        assert_eq!(outcome.kind, MatchKind::Found);
+        assert_eq!(backend.call_count(), 0, "browser must not be touched");
+    }
+
+    #[tokio::test]
+    async fn browser_budget_exhaust_yields_uncertain() {
+        let server = MockServer::start().await;
+        let backend = Arc::new(RecordingBackend::with_page(RenderedPage {
+            status: 200,
+            final_url: url::Url::parse("https://x/").unwrap(),
+            body: String::new(),
+            elapsed_ms: 0,
+        }));
+        let client = Client::builder()
+            .min_request_interval(Duration::ZERO)
+            .max_retries(0)
+            .browser(backend.clone())
+            .browser_budget(1)
+            .build()
+            .unwrap();
+        let site = site_bot_protected(&server);
+        // First call consumes the only slot.
+        let first = client.check(&site, &user()).await;
+        assert_eq!(first.kind, MatchKind::Found);
+        // Second call hits the cap → Uncertain(BrowserBudget), backend NOT invoked.
+        let second = client.check(&site, &user()).await;
+        assert_eq!(second.kind, MatchKind::Uncertain);
+        assert!(matches!(
+            second.reason,
+            Some(UncertainReason::BrowserBudget)
+        ));
+        assert_eq!(
+            backend.call_count(),
+            1,
+            "second call must not invoke backend"
+        );
+    }
+
+    #[tokio::test]
+    async fn browser_failure_surfaces_as_uncertain_browser_failed() {
+        struct FailingBackend;
+        #[async_trait::async_trait]
+        impl BrowserBackend for FailingBackend {
+            async fn fetch(&self, _url: &url::Url, _timeout: Duration) -> Result<RenderedPage> {
+                Err(Error::BrowserSetup {
+                    message: "simulated crash".into(),
+                })
+            }
+        }
+        impl std::fmt::Debug for FailingBackend {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str("FailingBackend")
+            }
+        }
+
+        let server = MockServer::start().await;
+        let client = Client::builder()
+            .min_request_interval(Duration::ZERO)
+            .max_retries(0)
+            .browser(Arc::new(FailingBackend))
+            .build()
+            .unwrap();
+        let outcome = client.check(&site_bot_protected(&server), &user()).await;
+        assert_eq!(outcome.kind, MatchKind::Uncertain);
+        match outcome.reason {
+            Some(UncertainReason::BrowserFailed(msg)) => {
+                assert!(msg.contains("simulated crash"), "got: {msg}");
+            }
+            other => panic!("expected BrowserFailed, got {other:?}"),
+        }
     }
 }

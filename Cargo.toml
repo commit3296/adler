@@ -43,6 +43,16 @@ ratatui = "0.30"
 crossterm = "0.29"
 open = "5"
 scraper = "0.27"
+# Browser backend (bot-protected sites). chromiumoxide drives Chrome via the
+# CDP, used by both the local launcher and the Browserbase cloud adapter
+# (which exposes a CDP-compatible WebSocket). default features use native-tls
+# + bundle a Chromium fetcher; we want neither (we use rustls everywhere, and
+# the user provides their own Chrome).
+chromiumoxide = { version = "0.9", default-features = false }
+secrecy = "0.10"
+async-trait = "0.1"
+url = "2"
+futures = "0.3"
 
 # Dev-deps
 wiremock = "0.6"

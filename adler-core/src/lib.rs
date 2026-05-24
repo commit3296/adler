@@ -50,9 +50,12 @@ mod site;
 mod throttle;
 mod username;
 
+pub mod browser;
+
+pub use browser::{BrowserBackend, BrowserBudget, RenderedPage};
 pub use cache::Cache;
 pub use check::{CheckOutcome, MatchKind, UncertainReason};
-pub use client::{Client, ClientBuilder, RawResponse};
+pub use client::{Client, ClientBuilder, DEFAULT_BROWSER_BUDGET, RawResponse};
 pub use correlate::{Cluster, CorrelationReport, LINK_THRESHOLD, correlate};
 pub use doctor::{DoctorReport, FixSuggestion};
 pub use error::{Error, Result};
