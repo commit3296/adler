@@ -111,6 +111,11 @@ OVERRIDES: dict[str, dict] = {
     # via the browser backend's `Network.setExtraHTTPHeaders` /
     # `setUserAgentOverride`. Found → 200 + profile JSON containing
     # `"is_verified"`; NotFound → 404.
+    #
+    # `known_present` is deliberately a normal user (torvalds), not
+    # "instagram" itself — Instagram special-cases their own brand
+    # account on `web_profile_info` and returns a degenerate JSON that
+    # has no `"is_verified"` marker, so it would always doctor-fail.
     "Instagram": {
         "url": "https://i.instagram.com/api/v1/users/web_profile_info/?username={username}",
         "signals": [
@@ -121,7 +126,7 @@ OVERRIDES: dict[str, dict] = {
             "X-IG-App-ID": "936619743392459",
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
         },
-        "known_present": "instagram",
+        "known_present": "torvalds",
     },
 }
 
