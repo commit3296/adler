@@ -177,6 +177,7 @@ mod tests {
             known_absent: None,
             extract: Vec::new(),
             tags: Vec::new(),
+            request_headers: std::collections::BTreeMap::new(),
         }
     }
 

@@ -33,6 +33,7 @@ pub mod budget;
 pub mod cdp;
 pub mod local;
 
+use std::collections::BTreeMap;
 use std::time::Duration;
 
 use async_trait::async_trait;
@@ -71,6 +72,12 @@ pub struct RenderedPage {
 pub trait BrowserBackend: Send + Sync {
     /// Render `url` and return the final page state.
     ///
+    /// `headers` are applied to *every* request the page issues (sent via
+    /// `Network.setExtraHTTPHeaders` before navigation). The map is keyed
+    /// by header name; empty means "no overrides, use defaults". Used by
+    /// sites whose JSON APIs require app-id or custom UA — e.g.
+    /// Instagram's `web_profile_info` endpoint needs `X-IG-App-ID`.
+    ///
     /// Failures (timeout, navigation error, JS crash, etc.) should be
     /// returned as `Err`; the caller will convert them into a
     /// per-site `Uncertain` verdict so a single flaky site can't abort the
@@ -80,5 +87,10 @@ pub trait BrowserBackend: Send + Sync {
     /// Returns [`Error::BrowserSetup`](crate::Error::BrowserSetup) on
     /// connection / lifecycle problems and a generic browser error string
     /// on per-fetch failures.
-    async fn fetch(&self, url: &Url, timeout: Duration) -> Result<RenderedPage>;
+    async fn fetch(
+        &self,
+        url: &Url,
+        headers: &BTreeMap<String, String>,
+        timeout: Duration,
+    ) -> Result<RenderedPage>;
 }

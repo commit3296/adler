@@ -57,6 +57,13 @@ pub struct Site {
     /// convention, not enforced.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub tags: Vec<String>,
+    /// Extra HTTP headers to send with the probe (e.g.
+    /// `{"X-IG-App-ID": "936619743392459"}` to unlock Instagram's
+    /// `web_profile_info` endpoint, or a custom `User-Agent`). Browser
+    /// backends apply them via `Network.setExtraHTTPHeaders` before
+    /// navigation; the raw-HTTP path doesn't read this yet.
+    #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub request_headers: std::collections::BTreeMap<String, String>,
 }
 
 /// A rule for extracting one profile field from a page.
@@ -366,6 +373,7 @@ mod tests {
             known_absent: None,
             extract: Vec::new(),
             tags: Vec::new(),
+            request_headers: std::collections::BTreeMap::new(),
         }
     }
 

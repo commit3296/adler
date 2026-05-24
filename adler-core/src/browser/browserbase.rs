@@ -22,6 +22,7 @@
 //! scan. Each fetch creates a fresh target, navigates it, reads
 //! `document.documentElement.outerHTML`, and closes the target.
 
+use std::collections::BTreeMap;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
@@ -164,7 +165,12 @@ async fn create_session(cfg: &BrowserbaseConfig) -> Result<CreateSessionResponse
 
 #[async_trait]
 impl BrowserBackend for BrowserbaseBackend {
-    async fn fetch(&self, url: &Url, timeout: Duration) -> Result<RenderedPage> {
+    async fn fetch(
+        &self,
+        url: &Url,
+        headers: &BTreeMap<String, String>,
+        timeout: Duration,
+    ) -> Result<RenderedPage> {
         let start = Instant::now();
         let cdp = &self.cdp;
 
@@ -209,6 +215,49 @@ impl BrowserBackend for BrowserbaseBackend {
                 .execute("Network.enable", json!({}), Some(&sid), CDP_CALL_TIMEOUT)
                 .await
                 .map_err(browser_err)?;
+
+            // 3a. Per-site request headers (e.g. Instagram needs
+            // `X-IG-App-ID` + a matching `User-Agent` to unlock its
+            // `web_profile_info` JSON endpoint — Chrome's default UA gets
+            // a `useragent mismatch` reject). Applied before navigation so
+            // they cover the main document request too.
+            //
+            // `User-Agent` is special-cased: CDP wants it via
+            // `Network.setUserAgentOverride`, not `setExtraHTTPHeaders`.
+            // Splitting keeps us compatible across Chrome builds.
+            if !headers.is_empty() {
+                let mut ua: Option<&str> = None;
+                let mut extras = serde_json::Map::new();
+                for (k, v) in headers {
+                    if k.eq_ignore_ascii_case("user-agent") {
+                        ua = Some(v.as_str());
+                    } else {
+                        extras.insert(k.clone(), serde_json::Value::String(v.clone()));
+                    }
+                }
+                if let Some(ua) = ua {
+                    let _: serde_json::Value = cdp
+                        .execute(
+                            "Network.setUserAgentOverride",
+                            json!({ "userAgent": ua }),
+                            Some(&sid),
+                            CDP_CALL_TIMEOUT,
+                        )
+                        .await
+                        .map_err(browser_err)?;
+                }
+                if !extras.is_empty() {
+                    let _: serde_json::Value = cdp
+                        .execute(
+                            "Network.setExtraHTTPHeaders",
+                            json!({ "headers": extras }),
+                            Some(&sid),
+                            CDP_CALL_TIMEOUT,
+                        )
+                        .await
+                        .map_err(browser_err)?;
+                }
+            }
 
             // 4. Subscribe BEFORE navigation so neither the
             // `Network.responseReceived` for the main document nor the

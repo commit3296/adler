@@ -6,11 +6,14 @@
 //! [`LocalConfig::proxy_url`] which is forwarded to the child process as
 //! `--proxy-server=<url>` so the browser inherits Adler's `--proxy` flag.
 
+use std::collections::BTreeMap;
 use std::time::{Duration, Instant};
 
 use async_trait::async_trait;
 use chromiumoxide::browser::{Browser, BrowserConfig};
+use chromiumoxide::cdp::browser_protocol::network::{Headers, SetExtraHttpHeadersParams};
 use futures::StreamExt as _;
+use serde_json::Value as JsonValue;
 use tokio::task::JoinHandle;
 use url::Url;
 
@@ -70,7 +73,12 @@ impl LocalBackend {
 
 #[async_trait]
 impl BrowserBackend for LocalBackend {
-    async fn fetch(&self, url: &Url, timeout: Duration) -> Result<RenderedPage> {
+    async fn fetch(
+        &self,
+        url: &Url,
+        headers: &BTreeMap<String, String>,
+        timeout: Duration,
+    ) -> Result<RenderedPage> {
         let start = Instant::now();
         let url_str = url.as_str().to_owned();
 
@@ -81,6 +89,37 @@ impl BrowserBackend for LocalBackend {
                         message: format!("new_page: {e}"),
                     }
                 })?;
+
+                // Per-site overrides (e.g. Instagram's `X-IG-App-ID` +
+                // matching `User-Agent`). UA goes through the dedicated
+                // override command; the rest via Network.setExtraHTTPHeaders.
+                if !headers.is_empty() {
+                    let mut ua: Option<&str> = None;
+                    let mut extras = serde_json::Map::new();
+                    for (k, v) in headers {
+                        if k.eq_ignore_ascii_case("user-agent") {
+                            ua = Some(v.as_str());
+                        } else {
+                            extras.insert(k.clone(), JsonValue::String(v.clone()));
+                        }
+                    }
+                    if let Some(ua) = ua {
+                        page.set_user_agent(ua).await.map_err(|e| {
+                            Error::BrowserSetup {
+                                message: format!("set_user_agent: {e}"),
+                            }
+                        })?;
+                    }
+                    if !extras.is_empty() {
+                        page.execute(SetExtraHttpHeadersParams::new(Headers::new(
+                            JsonValue::Object(extras),
+                        )))
+                        .await
+                        .map_err(|e| Error::BrowserSetup {
+                            message: format!("setExtraHTTPHeaders: {e}"),
+                        })?;
+                    }
+                }
 
                 page.goto(&url_str).await.map_err(|e| Error::BrowserSetup {
                     message: format!("goto {url_str}: {e}"),

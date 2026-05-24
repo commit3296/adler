@@ -31,6 +31,7 @@ fn make_sites(server: &MockServer) -> Vec<Site> {
             known_absent: None,
             extract: Vec::new(),
             tags: Vec::new(),
+            request_headers: std::collections::BTreeMap::new(),
         })
         .collect()
 }

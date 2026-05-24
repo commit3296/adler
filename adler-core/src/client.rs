@@ -295,7 +295,10 @@ impl Client {
             }
         };
 
-        let page: RenderedPage = match backend.fetch(&parsed, BROWSER_TIMEOUT).await {
+        let page: RenderedPage = match backend
+            .fetch(&parsed, &site.request_headers, BROWSER_TIMEOUT)
+            .await
+        {
             Ok(p) => p,
             Err(err) => {
                 tracing::warn!(site = %site.name, %url, error = %err, "browser fetch failed");
@@ -691,6 +694,7 @@ mod tests {
             known_absent: None,
             extract: Vec::new(),
             tags: Vec::new(),
+            request_headers: std::collections::BTreeMap::new(),
         }
     }
 
@@ -863,6 +867,7 @@ mod tests {
             known_absent: None,
             extract: Vec::new(),
             tags: Vec::new(),
+            request_headers: std::collections::BTreeMap::new(),
         };
         let client = Client::builder()
             .timeout(Duration::from_millis(500))
@@ -1062,6 +1067,7 @@ mod tests {
             known_absent: None,
             extract: Vec::new(),
             tags: Vec::new(),
+            request_headers: std::collections::BTreeMap::new(),
         };
         let client = Client::builder()
             .timeout(Duration::from_millis(500))
@@ -1151,6 +1157,7 @@ mod tests {
             known_absent: None,
             extract: Vec::new(),
             tags: Vec::new(),
+            request_headers: std::collections::BTreeMap::new(),
         };
         let site_b = Site {
             name: "B".into(),
@@ -1160,6 +1167,7 @@ mod tests {
             known_absent: None,
             extract: Vec::new(),
             tags: Vec::new(),
+            request_headers: std::collections::BTreeMap::new(),
         };
         // 2 RPS → ~500 ms between requests. A large interval keeps the
         // assertion robust even when the first probe's own duration (which
@@ -1218,6 +1226,7 @@ mod tests {
             known_absent: None,
             extract: Vec::new(),
             tags: Vec::new(),
+            request_headers: std::collections::BTreeMap::new(),
         };
         let allowed = Site {
             name: "Yes".into(),
@@ -1227,6 +1236,7 @@ mod tests {
             known_absent: None,
             extract: Vec::new(),
             tags: Vec::new(),
+            request_headers: std::collections::BTreeMap::new(),
         };
 
         let no = client.check(&disallowed, &user()).await;
@@ -1277,7 +1287,12 @@ mod tests {
 
     #[async_trait::async_trait]
     impl BrowserBackend for RecordingBackend {
-        async fn fetch(&self, _url: &url::Url, _timeout: Duration) -> Result<RenderedPage> {
+        async fn fetch(
+            &self,
+            _url: &url::Url,
+            _headers: &std::collections::BTreeMap<String, String>,
+            _timeout: Duration,
+        ) -> Result<RenderedPage> {
             self.calls.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
             Ok(self.page.clone())
         }
@@ -1377,7 +1392,12 @@ mod tests {
         struct FailingBackend;
         #[async_trait::async_trait]
         impl BrowserBackend for FailingBackend {
-            async fn fetch(&self, _url: &url::Url, _timeout: Duration) -> Result<RenderedPage> {
+            async fn fetch(
+            &self,
+            _url: &url::Url,
+            _headers: &std::collections::BTreeMap<String, String>,
+            _timeout: Duration,
+        ) -> Result<RenderedPage> {
                 Err(Error::BrowserSetup {
                     message: "simulated crash".into(),
                 })
