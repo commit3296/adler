@@ -9,6 +9,11 @@ pre-1.0 bump rules.
 
 ## [Unreleased]
 
+## [0.3.0](https://github.com/commit3296/adler/compare/v0.2.1...v0.3.0) - 2026-05-24
+
+### Added
+- [**breaking**] allow multiple known_present usernames per site for doctor
+
 ## [0.2.1](https://github.com/commit3296/adler/compare/v0.2.0...v0.2.1) - 2026-05-24
 
 ### Fixed
