@@ -93,14 +93,6 @@ OVERRIDES: dict[str, dict] = {
     "Opensource": {"known_present": "admin"},
     "Xbox Gamertag": {"known_present": "torvalds"},
     "moikrug": {"known_present": "microsoft"},
-    "Twitter": {
-        "url": "https://x.com/{username}",
-        "signals": [
-            {"kind": "body_present", "text": "data-testid=\"primaryColumn\""},
-            {"kind": "body_absent", "text": "data-testid=\"mask\""}
-        ],
-        "known_present": "jack",
-    },
     "Ask Fedora": {"known_present": "mattdm"},
     "Bitwarden Forum": {"known_present": "kspearrin"},
     # Instagram's canonical /{username} page is a JS login wall identical
@@ -112,10 +104,13 @@ OVERRIDES: dict[str, dict] = {
     # `setUserAgentOverride`. Found → 200 + profile JSON containing
     # `"is_verified"`; NotFound → 404.
     #
-    # `known_present` is deliberately a normal user (torvalds), not
-    # "instagram" itself — Instagram special-cases their own brand
-    # account on `web_profile_info` and returns a degenerate JSON that
-    # has no `"is_verified"` marker, so it would always doctor-fail.
+    # `known_present` is a list of well-known personal accounts — the
+    # doctor passes if *any* of them detects as Found. Avoiding the
+    # `"instagram"` brand account is deliberate: IG special-cases its
+    # own account on `web_profile_info` and returns a degenerate JSON
+    # that has no `"is_verified"` marker, so it would always
+    # doctor-fail. Listing several guards against any of them being
+    # deleted, renamed, or starting to behave oddly.
     "Instagram": {
         "url": "https://i.instagram.com/api/v1/users/web_profile_info/?username={username}",
         "signals": [
@@ -126,7 +121,17 @@ OVERRIDES: dict[str, dict] = {
             "X-IG-App-ID": "936619743392459",
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
         },
-        "known_present": "torvalds",
+        "known_present": ["torvalds", "leomessi", "cristiano"],
+    },
+    # `twitter`/`x` are likewise IG-style brand accounts on x.com that
+    # may behave oddly; pin to a few popular human accounts.
+    "Twitter": {
+        "url": "https://x.com/{username}",
+        "signals": [
+            {"kind": "body_present", "text": "data-testid=\"primaryColumn\""},
+            {"kind": "body_absent", "text": "data-testid=\"mask\""},
+        ],
+        "known_present": ["jack", "elonmusk", "naval"],
     },
 }
 

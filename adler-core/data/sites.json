@@ -3408,7 +3408,11 @@
           "text": "\"is_verified\""
         }
       ],
-      "known_present": "torvalds",
+      "known_present": [
+        "torvalds",
+        "leomessi",
+        "cristiano"
+      ],
       "tags": [
         "bot-protected",
         "social"
@@ -7156,7 +7160,11 @@
           "text": "data-testid=\"mask\""
         }
       ],
-      "known_present": "jack",
+      "known_present": [
+        "jack",
+        "elonmusk",
+        "naval"
+      ],
       "tags": [
         "bot-protected",
         "social"

@@ -38,10 +38,16 @@ pub struct Site {
     pub url: UrlTemplate,
     /// Ordered list of detection signals. Aggregated per the type-level docs.
     pub signals: Vec<Signal>,
-    /// Username known to exist on this site. Consumed by `adler doctor` to
-    /// verify that the signal list still reports `Found` for a real account.
+    /// One or more usernames known to exist on this site. Consumed by
+    /// `adler doctor` to verify the signal list still reports `Found`
+    /// for a real account. Accepts either a single string or an array
+    /// of strings in JSON; the doctor probes each in declaration order
+    /// and passes the present-check if **any** one of them resolves to
+    /// `Found`. Listing several is defensive — brand accounts or other
+    /// users that the site special-cases (e.g. Instagram's own
+    /// `instagram` account) shouldn't false-fail the whole site.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub known_present: Option<String>,
+    pub known_present: Option<KnownPresent>,
     /// Username known to *not* exist on this site (optional). When omitted,
     /// the doctor generates a random nonsense username instead.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -64,6 +70,55 @@ pub struct Site {
     /// navigation; the raw-HTTP path doesn't read this yet.
     #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
     pub request_headers: std::collections::BTreeMap<String, String>,
+}
+
+/// Known-present declaration on a [`Site`].
+///
+/// In JSON this is `untagged`: a plain string `"torvalds"` deserialises
+/// into [`KnownPresent::Single`], an array `["torvalds", "leomessi"]`
+/// into [`KnownPresent::Multiple`]. Serialisation preserves the form
+/// the site was authored with, so single-username entries stay
+/// compact.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+#[non_exhaustive]
+pub enum KnownPresent {
+    /// Exactly one candidate username.
+    Single(String),
+    /// Two or more candidate usernames. Doctor passes if any resolve
+    /// to `Found`.
+    Multiple(Vec<String>),
+}
+
+impl KnownPresent {
+    /// View all candidate usernames as a slice, in declaration order.
+    /// Always non-empty for `Single`; may be empty for a hand-authored
+    /// `Multiple([])` (validation rejects that).
+    pub fn as_slice(&self) -> &[String] {
+        match self {
+            Self::Single(s) => std::slice::from_ref(s),
+            Self::Multiple(v) => v.as_slice(),
+        }
+    }
+
+    /// Primary candidate — the first declared username. `Single`
+    /// always has one; `Multiple` may be empty if a contributor wrote
+    /// `[]` (caught by [`Site::validate`]).
+    pub fn primary(&self) -> Option<&str> {
+        self.as_slice().first().map(String::as_str)
+    }
+}
+
+impl From<&str> for KnownPresent {
+    fn from(s: &str) -> Self {
+        Self::Single(s.to_owned())
+    }
+}
+
+impl From<String> for KnownPresent {
+    fn from(s: String) -> Self {
+        Self::Single(s)
+    }
 }
 
 /// A rule for extracting one profile field from a page.
@@ -116,6 +171,23 @@ impl Site {
                         self.name, extractor.selector, extractor.field
                     ),
                 });
+            }
+        }
+        if let Some(kp) = &self.known_present {
+            if kp.as_slice().is_empty() {
+                return Err(Error::InvalidSite {
+                    reason: format!("site {:?}: known_present is an empty list", self.name),
+                });
+            }
+            for name in kp.as_slice() {
+                if name.trim().is_empty() {
+                    return Err(Error::InvalidSite {
+                        reason: format!(
+                            "site {:?}: known_present contains an empty username",
+                            self.name
+                        ),
+                    });
+                }
             }
         }
         for tag in &self.tags {

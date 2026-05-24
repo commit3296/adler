@@ -5,7 +5,12 @@
 //! deleted users — and detection rules silently rot. The doctor catches
 //! that rot by exercising both polarities for every site:
 //!
-//! 1. If `known_present` is set, probe with it and expect `Found`.
+//! 1. If `known_present` is set, probe each of its candidate
+//!    usernames in order; the present-check passes when **any one**
+//!    of them resolves to `Found`. Listing more than one is defensive
+//!    against sites that special-case specific accounts (e.g.
+//!    Instagram's own `instagram` brand account returns a degenerate
+//!    JSON shape).
 //! 2. Probe with a random nonsense username and expect not-`Found`.
 //!    (We don't require `NotFound` strictly: under-specified sites can
 //!    legitimately return `Uncertain` for a nonexistent user. Only a
@@ -24,7 +29,7 @@
 use crate::check::{CheckOutcome, MatchKind};
 use crate::client::Client;
 use crate::error::Result;
-use crate::site::{Signal, Site, UrlTemplate};
+use crate::site::{KnownPresent, Signal, Site, UrlTemplate};
 use crate::username::Username;
 
 const NONSENSE_LEN: usize = 24;
@@ -36,8 +41,12 @@ const MAX_TITLE_MARKER: usize = 120;
 pub enum DoctorReport {
     /// All assertions held.
     Healthy {
-        /// Optional outcome for the known-present probe (if `known_present` was set).
-        present: Option<CheckOutcome>,
+        /// Outcome for every known-present candidate that was probed,
+        /// in declaration order, with the username that produced it.
+        /// Empty when the site declares no `known_present`. At least
+        /// one of these is guaranteed to be `MatchKind::Found` when
+        /// the report is `Healthy`.
+        present: Vec<(String, CheckOutcome)>,
         /// Outcome for the random nonsense probe.
         absent: CheckOutcome,
     },
@@ -45,8 +54,11 @@ pub enum DoctorReport {
     Unhealthy {
         /// Each entry is a short reason string.
         issues: Vec<String>,
-        /// Optional outcome for the known-present probe.
-        present: Option<CheckOutcome>,
+        /// Outcome for every known-present candidate that was probed,
+        /// in declaration order. Empty when the site declares no
+        /// `known_present` or when none of the candidates parsed as
+        /// valid usernames.
+        present: Vec<(String, CheckOutcome)>,
         /// Outcome for the random nonsense probe.
         absent: CheckOutcome,
     },
@@ -62,31 +74,40 @@ impl DoctorReport {
 /// Run health probes against a single site.
 pub async fn check_site(client: &Client, site: &Site) -> DoctorReport {
     let mut issues: Vec<String> = Vec::new();
+    let mut present_outcomes: Vec<(String, CheckOutcome)> = Vec::new();
 
-    let present_outcome = if let Some(name) = &site.known_present {
-        let user = match Username::new(name.clone()) {
-            Ok(u) => u,
-            Err(err) => {
-                issues.push(format!("known_present is not a valid username: {err}"));
-                return DoctorReport::Unhealthy {
-                    issues,
-                    present: None,
-                    // We didn't get to probe the absent case either.
-                    absent: dummy_outcome(&site.name, "skipped: invalid known_present"),
-                };
+    if let Some(kp) = &site.known_present {
+        for name in kp.as_slice() {
+            match Username::new(name.clone()) {
+                Ok(user) => {
+                    let outcome = client.check(site, &user).await;
+                    present_outcomes.push((name.clone(), outcome));
+                }
+                Err(err) => {
+                    issues.push(format!(
+                        "known_present {name:?} is not a valid username: {err}"
+                    ));
+                }
             }
-        };
-        let outcome = client.check(site, &user).await;
-        if outcome.kind != MatchKind::Found {
+        }
+        // Pass the present-check if *any* candidate yielded Found.
+        // Listing several is defensive against sites that special-case
+        // specific accounts; only fail when every candidate misbehaves.
+        if !present_outcomes.is_empty()
+            && !present_outcomes
+                .iter()
+                .any(|(_, o)| o.kind == MatchKind::Found)
+        {
+            let summary = present_outcomes
+                .iter()
+                .map(|(n, o)| format!("{n}={:?}", o.kind))
+                .collect::<Vec<_>>()
+                .join(", ");
             issues.push(format!(
-                "known-present user {name:?} reported {:?}, expected Found",
-                outcome.kind
+                "no known-present user yielded Found (tried: {summary})"
             ));
         }
-        Some(outcome)
-    } else {
-        None
-    };
+    }
 
     let nonsense = site
         .known_absent
@@ -109,13 +130,13 @@ pub async fn check_site(client: &Client, site: &Site) -> DoctorReport {
 
     if issues.is_empty() {
         DoctorReport::Healthy {
-            present: present_outcome,
+            present: present_outcomes,
             absent: absent_outcome,
         }
     } else {
         DoctorReport::Unhealthy {
             issues,
-            present: present_outcome,
+            present: present_outcomes,
             absent: absent_outcome,
         }
     }
@@ -149,8 +170,11 @@ pub struct FixSuggestion {
 /// longer exists, so both probes hit a not-found page). Issues two fresh
 /// requests; intended for opt-in `--fix` use, not the hot scan path.
 pub async fn suggest_fix(client: &Client, site: &Site) -> Option<FixSuggestion> {
-    let present_name = site.known_present.as_ref()?;
-    let present_user = Username::new(present_name.clone()).ok()?;
+    // Diffing uses the primary (first) known_present candidate. If the
+    // site declares several, the others are doctor-only fallbacks; for
+    // signal derivation we want a single representative `Found` page.
+    let present_name = site.known_present.as_ref()?.primary()?;
+    let present_user = Username::new(present_name.to_owned()).ok()?;
     let absent_user = Username::new(random_nonsense_username()).ok()?;
 
     let present = client.fetch(&site.url_for(&present_user)).await?;
@@ -234,7 +258,7 @@ pub async fn scaffold_site(
         url: UrlTemplate::new(url)?,
         // suggest_fix ignores these; it only needs the url + known_present.
         signals: vec![Signal::StatusFound { codes: vec![200] }],
-        known_present: Some(known_present.to_owned()),
+        known_present: Some(KnownPresent::Single(known_present.to_owned())),
         known_absent: None,
         extract: Vec::new(),
         tags: Vec::new(),
@@ -300,7 +324,7 @@ mod tests {
                 Signal::StatusFound { codes: vec![200] },
                 Signal::StatusNotFound { codes: vec![404] },
             ],
-            known_present: known_present.map(str::to_owned),
+            known_present: known_present.map(KnownPresent::from),
             known_absent: None,
             extract: Vec::new(),
             tags: Vec::new(),
@@ -376,6 +400,72 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn healthy_when_one_of_several_known_present_yields_found() {
+        // Simulates the Instagram-brand case: the first candidate
+        // ("instagram") looks degenerate to our signals (random body,
+        // 200 status with the wrong markers — modelled here as a 404),
+        // but the second one ("torvalds") detects cleanly.
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path_regex("^/torvalds$"))
+            .respond_with(ResponseTemplate::new(200))
+            .mount(&server)
+            .await;
+        Mock::given(method("GET"))
+            .respond_with(ResponseTemplate::new(404))
+            .mount(&server)
+            .await;
+
+        let mut s = site(&server, "Mock", None);
+        s.known_present = Some(KnownPresent::Multiple(vec![
+            "instagram".into(),
+            "torvalds".into(),
+        ]));
+        let report = check_site(&build_client(), &s).await;
+        assert!(report.is_healthy(), "{report:?}");
+        let DoctorReport::Healthy { present, .. } = &report else {
+            unreachable!()
+        };
+        assert_eq!(present.len(), 2);
+        assert!(
+            present
+                .iter()
+                .any(|(n, o)| n == "torvalds" && o.kind == MatchKind::Found),
+            "expected torvalds=Found in {present:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn unhealthy_when_no_known_present_candidate_is_found() {
+        // All candidates fail the present-check → site reported as
+        // broken, and the summary lists each verdict so a contributor
+        // can see at a glance which ones rotted.
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .respond_with(ResponseTemplate::new(404))
+            .mount(&server)
+            .await;
+
+        let mut s = site(&server, "Mock", None);
+        s.known_present = Some(KnownPresent::Multiple(vec!["alpha".into(), "beta".into()]));
+        let report = check_site(&build_client(), &s).await;
+        match report {
+            DoctorReport::Unhealthy {
+                issues, present, ..
+            } => {
+                assert_eq!(present.len(), 2, "both candidates should be reported");
+                let summary = issues.iter().find(|i| i.contains("known-present"));
+                let summary = summary.expect("present-check issue should be raised");
+                assert!(summary.contains("alpha"), "issue lacks alpha: {summary}");
+                assert!(summary.contains("beta"), "issue lacks beta: {summary}");
+            }
+            other @ DoctorReport::Healthy { .. } => {
+                panic!("expected Unhealthy, got {other:?}")
+            }
+        }
+    }
+
+    #[tokio::test]
     async fn skips_present_check_when_known_present_is_none() {
         let server = MockServer::start().await;
         Mock::given(method("GET"))
@@ -391,7 +481,7 @@ mod tests {
         let DoctorReport::Healthy { present, .. } = &report else {
             unreachable!()
         };
-        assert!(present.is_none());
+        assert!(present.is_empty());
     }
 
     #[test]
@@ -497,7 +587,10 @@ mod tests {
             .expect("valid url")
             .expect("a derived signature");
         assert_eq!(site.name, "Mock");
-        assert_eq!(site.known_present.as_deref(), Some("torvalds"));
+        assert_eq!(
+            site.known_present.as_ref().and_then(KnownPresent::primary),
+            Some("torvalds")
+        );
         assert!(rationale.contains("status differs"));
         assert!(matches!(
             site.signals.as_slice(),

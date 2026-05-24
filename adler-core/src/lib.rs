@@ -62,5 +62,5 @@ pub use error::{Error, Result};
 pub use executor::ExecutorOptions;
 pub use permute::{MAX_VARIANTS, PermuteLevel, permute};
 pub use registry::Registry;
-pub use site::{Extractor, Signal, Site, UrlTemplate};
+pub use site::{Extractor, KnownPresent, Signal, Site, UrlTemplate};
 pub use username::Username;
