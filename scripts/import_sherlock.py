@@ -56,14 +56,6 @@ KNOWN_BROKEN = {
         # is non-discriminating; excluded until a working one is found.
         # 2026-05-24.
         "Replit.com", "RedTube", "YouPorn",
-        # Bot-protected: Instagram serves an identical login wall for every
-        # username from any IP we can reach (residential, mobile, Browserbase),
-        # so neither raw HTTP nor browser-backed detection can distinguish
-        # existing from missing accounts without an authenticated session.
-        # Sherlock and Maigret both rely on broken third-party mirrors
-        # (imginn, picnob) here. Excluded until someone wires up a logged-in
-        # Browserbase context. Tracked in issue #6.
-        "Instagram",
         # Too restrictive: body-marker is site-wide chrome (forum nav for
         # forum_guns, generic "404" string for Pychess), so the signal
         # fires for *every* user → NotFound for everyone. 2026-05-24.
@@ -111,7 +103,26 @@ OVERRIDES: dict[str, dict] = {
     },
     "Ask Fedora": {"known_present": "mattdm"},
     "Bitwarden Forum": {"known_present": "kspearrin"},
-
+    # Instagram's canonical /{username} page is a JS login wall identical
+    # for every user, so we hit the `web_profile_info` JSON endpoint that
+    # the web app itself queries. Requires the Instagram web app id and a
+    # User-Agent the API accepts (the default Chrome UA gets rejected with
+    # `{"message":"useragent mismatch","status":"fail"}`); both are sent
+    # via the browser backend's `Network.setExtraHTTPHeaders` /
+    # `setUserAgentOverride`. Found → 200 + profile JSON containing
+    # `"is_verified"`; NotFound → 404.
+    "Instagram": {
+        "url": "https://i.instagram.com/api/v1/users/web_profile_info/?username={username}",
+        "signals": [
+            {"kind": "status_not_found", "codes": [404]},
+            {"kind": "body_present", "text": "\"is_verified\""},
+        ],
+        "request_headers": {
+            "X-IG-App-ID": "936619743392459",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+        },
+        "known_present": "instagram",
+    },
 }
 
 

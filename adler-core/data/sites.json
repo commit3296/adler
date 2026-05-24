@@ -3394,6 +3394,31 @@
       "known_present": "blue"
     },
     {
+      "name": "Instagram",
+      "url": "https://i.instagram.com/api/v1/users/web_profile_info/?username={username}",
+      "signals": [
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        },
+        {
+          "kind": "body_present",
+          "text": "\"is_verified\""
+        }
+      ],
+      "known_present": "instagram",
+      "tags": [
+        "bot-protected",
+        "social"
+      ],
+      "request_headers": {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+        "X-IG-App-ID": "936619743392459"
+      }
+    },
+    {
       "name": "Instapaper",
       "url": "https://www.instapaper.com/p/{username}",
       "signals": [
