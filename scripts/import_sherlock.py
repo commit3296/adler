@@ -56,6 +56,10 @@ KNOWN_BROKEN = {
         # is non-discriminating; excluded until a working one is found.
         # 2026-05-24.
         "Replit.com", "RedTube", "YouPorn",
+        # Too restrictive: body-marker is site-wide chrome (forum nav for
+        # forum_guns, generic "404" string for Pychess), so the signal
+        # fires for *every* user → NotFound for everyone. 2026-05-24.
+        "forum_guns", "Pychess",
     )
 }
 
@@ -77,6 +81,19 @@ OVERRIDES: dict[str, dict] = {
             {"field": "avatar", "selector": "img.avatar-user", "attr": "src"},
         ]
     },
+    # Stale known_present values (Sherlock's were 404) replaced with real
+    # accounts that exist as of 2026-05-24, found via residential probe sweep.
+    "Archive of Our Own": {"known_present": "torvalds"},
+    "BitBucket": {"known_present": "torvalds"},
+    "Duolingo": {"known_present": "torvalds"},
+    "Gravatar": {"known_present": "jack"},
+    "ImgUp.cz": {"known_present": "admin"},
+    "Kick": {"known_present": "torvalds"},
+    "Kongregate": {"known_present": "octocat"},
+    "Opensource": {"known_present": "admin"},
+    "Xbox Gamertag": {"known_present": "torvalds"},
+    "moikrug": {"known_present": "microsoft"},
+
 }
 
 

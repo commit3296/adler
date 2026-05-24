@@ -316,7 +316,7 @@
           ]
         }
       ],
-      "known_present": "test"
+      "known_present": "torvalds"
     },
     {
       "name": "Arduino Forum",
@@ -619,7 +619,7 @@
           ]
         }
       ],
-      "known_present": "white",
+      "known_present": "torvalds",
       "tags": [
         "dev"
       ]
@@ -1969,7 +1969,7 @@
           "text": "{\"users\":[]}"
         }
       ],
-      "known_present": "blue"
+      "known_present": "torvalds"
     },
     {
       "name": "eGPU",
@@ -2358,26 +2358,6 @@
         }
       ],
       "known_present": "bob"
-    },
-    {
-      "name": "forum_guns",
-      "url": "https://forum.guns.ru/forummisc/blog/{username}",
-      "signals": [
-        {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
-          "kind": "body_absent",
-          "text": "action=https://forum.guns.ru/forummisc/blog/search"
-        }
-      ],
-      "known_present": "red",
-      "tags": [
-        "region:ru"
-      ]
     },
     {
       "name": "Fosstodon",
@@ -2861,7 +2841,7 @@
           ]
         }
       ],
-      "known_present": "blue"
+      "known_present": "jack"
     },
     {
       "name": "Gumroad",
@@ -3370,7 +3350,7 @@
           ]
         }
       ],
-      "known_present": "adam",
+      "known_present": "admin",
       "tags": [
         "region:cz"
       ]
@@ -3765,7 +3745,7 @@
           ]
         }
       ],
-      "known_present": "blue"
+      "known_present": "torvalds"
     },
     {
       "name": "Kik",
@@ -3801,7 +3781,7 @@
           ]
         }
       ],
-      "known_present": "blue"
+      "known_present": "octocat"
     },
     {
       "name": "kwork",
@@ -4365,7 +4345,7 @@
           ]
         }
       ],
-      "known_present": "blue",
+      "known_present": "microsoft",
       "tags": [
         "region:ru"
       ]
@@ -5027,7 +5007,7 @@
           ]
         }
       ],
-      "known_present": "red"
+      "known_present": "admin"
     },
     {
       "name": "OpenStreetMap",
@@ -5693,23 +5673,6 @@
         }
       ],
       "known_present": "andrea"
-    },
-    {
-      "name": "Pychess",
-      "url": "https://www.pychess.org/@/{username}",
-      "signals": [
-        {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
-          "kind": "body_absent",
-          "text": "404"
-        }
-      ],
-      "known_present": "gbtami"
     },
     {
       "name": "PyPi",
@@ -7787,7 +7750,7 @@
           ]
         }
       ],
-      "known_present": "red"
+      "known_present": "torvalds"
     },
     {
       "name": "xHamster",
