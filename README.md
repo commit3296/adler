@@ -69,8 +69,9 @@ ADLER_LOG=adler=debug cargo run -p adler-cli -- alice
 
 ## Detection rate
 
-Recall depends on where you scan from. A `--doctor` pass against the
-bundled 413-site registry, run on 2026-05-24:
+Recall depends on where you scan from. A `--doctor` pass on 2026-05-24
+against the bundled registry (416 sites at measurement time; 413 after
+removing the three false-positive emitters this pass surfaced):
 
 | Scan source | Sites where a known-existing account is found | Recall |
 | --- | ---: | ---: |
