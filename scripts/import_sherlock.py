@@ -50,6 +50,12 @@ KNOWN_BROKEN = {
         # signal, so the site reports NotFound for everyone (verified the
         # marker appears on the homepage). 2026-05-20.
         "All Things Worn",
+        # Too-permissive: a random nonsense username reported Found in the
+        # residential validation pass (Replit.com triggered on both
+        # baseline+residential, RedTube/YouPorn on residential). Signature
+        # is non-discriminating; excluded until a working one is found.
+        # 2026-05-24.
+        "Replit.com", "RedTube", "YouPorn",
     )
 }
 

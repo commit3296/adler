@@ -5867,25 +5867,6 @@
       ]
     },
     {
-      "name": "RedTube",
-      "url": "https://www.redtube.com/users/{username}",
-      "signals": [
-        {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
-          "kind": "status_not_found",
-          "codes": [
-            404
-          ]
-        }
-      ],
-      "known_present": "hacker"
-    },
-    {
       "name": "Reisefrage",
       "url": "https://www.reisefrage.net/nutzer/{username}",
       "signals": [
@@ -5903,25 +5884,6 @@
         }
       ],
       "known_present": "reisefrage"
-    },
-    {
-      "name": "Replit.com",
-      "url": "https://replit.com/@{username}",
-      "signals": [
-        {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
-          "kind": "status_not_found",
-          "codes": [
-            404
-          ]
-        }
-      ],
-      "known_present": "blue"
     },
     {
       "name": "ReverbNation",
@@ -7913,25 +7875,6 @@
     {
       "name": "YouPic",
       "url": "https://youpic.com/photographer/{username}/",
-      "signals": [
-        {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
-          "kind": "status_not_found",
-          "codes": [
-            404
-          ]
-        }
-      ],
-      "known_present": "blue"
-    },
-    {
-      "name": "YouPorn",
-      "url": "https://youporn.com/uservids/{username}",
       "signals": [
         {
           "kind": "status_found",
