@@ -69,40 +69,48 @@ ADLER_LOG=adler=debug cargo run -p adler-cli -- alice
 
 ## Detection rate
 
-Recall depends on where you scan from. A `--doctor` pass on 2026-05-25
+Recall depends on where you scan from. A `--doctor` pass on 2026-05-26
 against the bundled registry (411 sites):
 
 | Scan source | Sites where a known-existing account is found | Recall |
 | --- | ---: | ---: |
-| Datacenter IP (Hetzner / Leaseweb DE) | 279 / 411 | 67.9% |
-| US residential proxy pool (DECODO) | **297 / 411** | **72.3%** |
+| Datacenter IP (Hetzner / Leaseweb DE) | 282 / 411 | 68.6% |
+| US residential proxy pool (DECODO) | **305 / 411** | **74.2%** |
 
-The +18-site residential lift is real: ~40 sites swap their verdict
-between `Uncertain` (datacenter) and `Found` (residential) — most are
+The residential lift is real: ~40 sites swap their verdict between
+`Uncertain` (datacenter) and `Found` (residential) — most are
 Cloudflare-walled or geo-restricted (RU-segment, plus platforms like
-Reddit, Imgur, Patreon). The remaining ~28% breaks down roughly as:
+Reddit, Imgur, Patreon). The remaining ~26% breaks down roughly as:
 
 - **Bot-protected sites** tagged `bot-protected` (Instagram and
   X/Twitter today) — these serve a JS login wall to a plain HTTP
   request; a clean IP doesn't help, you need a browser backend.
   Exclude them with `--exclude-tag bot-protected`.
 - **Stale Sherlock-imported `known_present` accounts** that no
-  longer exist (~50 sites still on the placeholder username `"blue"`
-  from Sherlock's data, plus ~30 others; see
-  [issue #4](https://github.com/commit3296/adler/issues/4) — a good
-  first issue, the doctor flags them clearly).
+  longer exist on the live site. The `--doctor --suggest-known-present`
+  tool (new in v0.4.0) probes a small candidate pool (the site's
+  brand name, plus `torvalds` / `octocat` / `admin` / …) and prints
+  a paste-ready snippet for any site where it finds a live account.
+  Discovery surfaced 19 healable entries on the most recent sweep;
+  the remaining placeholders need either a contributor-found
+  candidate or a deeper repair via `--doctor --fix`.
+- **Sites whose detection rule fires for *every* username** —
+  signal repair territory, not username repair. `--doctor --fix`
+  diffs the responses and proposes a tighter signal.
 - **Sites that don't reliably distinguish found from not-found** for
   unauthenticated requests at all — investigated and not added
-  rather than ship false-positive entries: Reddit (403s
-  unauthenticated POSTs since the 2023 API changes), TikTok and
-  Pinterest (JS-rendered shells that never hydrate for headless
-  browsers), Threads (login redirect for most usernames).
+  rather than ship false-positive entries: Reddit, TikTok,
+  Pinterest, and Threads. See issues
+  [#11–#14](https://github.com/commit3296/adler/issues?q=is%3Aissue+label%3A%22help+wanted%22)
+  for the specific failure modes and what would unblock each.
 
 Run the same check yourself: `adler --doctor` (uses your current IP)
 or `adler --doctor --proxy <url>` (via your own proxy). With
 `--browser-backend browserbase` the doctor's `--fix` mode routes
 bot-protected sites through a real Chrome session, so the diff sees
-real profile pages rather than two identical login walls.
+real profile pages rather than two identical login walls. With
+`--suggest-known-present` you get an OVERRIDES block per healable
+site.
 
 ## Browser backend (optional)
 
