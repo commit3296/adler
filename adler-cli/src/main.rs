@@ -95,6 +95,15 @@ struct Cli {
     #[arg(long, requires = "doctor")]
     fix: bool,
 
+    /// With `--doctor`: for each failing site whose `known_present` is
+    /// likely stale (no candidate yielded `Found`), probe a small pool
+    /// of well-known accounts (`torvalds`, `octocat`, the site's brand
+    /// name, …) and report the first one that resolves to `Found`.
+    /// Prints a paste-ready `OVERRIDES` snippet for
+    /// `scripts/import_sherlock.py`. Does not modify anything.
+    #[arg(long, requires = "doctor")]
+    suggest_known_present: bool,
+
     /// Scaffold a new site entry: probe this URL template (must contain
     /// `{username}`) with the given existing account and a nonsense one,
     /// derive a signature, and print a ready-to-paste JSON entry. Does not
@@ -436,7 +445,7 @@ async fn run(cli: Cli) -> Result<ExitCode> {
 
     if cli.doctor {
         let color = cli.color.resolve(io::stdout().is_terminal());
-        return run_doctor(&client, &sites, cli.fix, color).await;
+        return run_doctor(&client, &sites, cli.fix, cli.suggest_known_present, color).await;
     }
 
     run_scan(&cli, &client, &sites).await
@@ -1226,8 +1235,19 @@ async fn run_add_site(cli: &Cli, client: &Client, url: &str) -> Result<ExitCode>
     }
 }
 
-async fn run_doctor(client: &Client, sites: &[Site], fix: bool, color: bool) -> Result<ExitCode> {
-    tracing::info!(count = sites.len(), fix, "starting doctor");
+async fn run_doctor(
+    client: &Client,
+    sites: &[Site],
+    fix: bool,
+    suggest_known_present: bool,
+    color: bool,
+) -> Result<ExitCode> {
+    tracing::info!(
+        count = sites.len(),
+        fix,
+        suggest_known_present,
+        "starting doctor"
+    );
     let mut failures = 0_usize;
     let mut failed_sites: Vec<&Site> = Vec::new();
     for site in sites {
@@ -1259,6 +1279,10 @@ async fn run_doctor(client: &Client, sites: &[Site], fix: bool, color: bool) -> 
 
     if fix && !failed_sites.is_empty() {
         print_fix_suggestions(client, &failed_sites).await?;
+    }
+
+    if suggest_known_present && !failed_sites.is_empty() {
+        print_known_present_suggestions(client, &failed_sites).await?;
     }
 
     Ok(if failures == 0 {
@@ -1297,6 +1321,47 @@ async fn print_fix_suggestions(client: &Client, failed: &[&Site]) -> Result<()> 
     }
     println!(
         "\n{suggested} of {} failing site(s) produced a suggestion",
+        failed.len()
+    );
+    Ok(())
+}
+
+/// For each failing site, probe a small pool of well-known accounts and
+/// report the first one (if any) that resolves to `Found`. Output is a
+/// paste-ready snippet for `scripts/import_sherlock.py:OVERRIDES`.
+/// Nothing is modified — the maintainer reviews and pastes.
+async fn print_known_present_suggestions(client: &Client, failed: &[&Site]) -> Result<()> {
+    println!("\nknown_present discovery (paste into scripts/import_sherlock.py OVERRIDES):\n");
+    let mut found_count = 0_usize;
+    let mut snippets: Vec<String> = Vec::new();
+    for site in failed {
+        let pool = doctor::default_candidate_pool(site);
+        match doctor::discover_known_present(client, site, &pool).await {
+            Some(name) => {
+                found_count += 1;
+                println!("  {}  ← {name:?}", site.name);
+                snippets.push(format!(
+                    "    {:?}: {{\"known_present\": {name:?}}},",
+                    site.name,
+                ));
+            }
+            None => {
+                println!(
+                    "  {}  — no candidate matched (tried {} usernames)",
+                    site.name,
+                    pool.len()
+                );
+            }
+        }
+    }
+    if !snippets.is_empty() {
+        println!("\nOVERRIDES additions:");
+        for line in &snippets {
+            println!("{line}");
+        }
+    }
+    println!(
+        "\n{found_count} of {} failing site(s) yielded a known_present candidate",
         failed.len()
     );
     Ok(())

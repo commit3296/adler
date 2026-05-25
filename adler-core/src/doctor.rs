@@ -151,6 +151,98 @@ fn random_nonsense_username() -> String {
     s
 }
 
+/// Fixed pool of well-known accounts to probe when discovering a real
+/// `known_present` for a site whose Sherlock-imported placeholder
+/// (`"blue"`, `"example"`, etc.) doesn't actually exist. Order
+/// approximates likelihood of a hit across a long-tail registry:
+/// developer-aligned accounts first (since dev sites are common in
+/// the imported corpus), then generic admin / brand handles.
+///
+/// Augmented at runtime with a brand-name candidate derived from the
+/// site URL (see [`default_candidate_pool`]).
+const DEFAULT_CANDIDATES: &[&str] = &[
+    "torvalds", "octocat", "dhh", "tj", "admin", "support", "test",
+];
+
+/// Build the default candidate pool for [`discover_known_present`].
+///
+/// The first entry, when derivable, is the site's brand name — many
+/// sites have an official `@<sitename>` account that's a near-
+/// guaranteed hit (e.g. `github` on GitHub, `gitlab` on GitLab, `vk`
+/// on vk.com). Followed by [`DEFAULT_CANDIDATES`] with duplicates
+/// removed.
+///
+/// Brand derivation is heuristic: parse the URL template (with the
+/// placeholder substituted), take the host, drop subdomain and TLD,
+/// keep the registrable second-level label. Works cleanly for `.com`
+/// / `.net` / `.org`; less so for double-suffix TLDs like `.co.uk`,
+/// but the cost of a wrong candidate is just one wasted probe.
+#[must_use]
+pub fn default_candidate_pool(site: &Site) -> Vec<String> {
+    use std::collections::HashSet;
+
+    let mut pool: Vec<String> = Vec::with_capacity(DEFAULT_CANDIDATES.len() + 1);
+    let mut seen: HashSet<String> = HashSet::new();
+    let push = |pool: &mut Vec<String>, seen: &mut HashSet<String>, name: String| {
+        if !name.is_empty() && seen.insert(name.clone()) {
+            pool.push(name);
+        }
+    };
+    if let Some(brand) = brand_name_from_site(site) {
+        push(&mut pool, &mut seen, brand);
+    }
+    for name in DEFAULT_CANDIDATES {
+        push(&mut pool, &mut seen, (*name).to_owned());
+    }
+    pool
+}
+
+fn brand_name_from_site(site: &Site) -> Option<String> {
+    let probe = site.url.as_str().replace("{username}", "_");
+    let url = url::Url::parse(&probe).ok()?;
+    let host = url.host_str()?;
+    let parts: Vec<&str> = host.split('.').collect();
+    let label = if parts.len() >= 2 {
+        parts[parts.len() - 2]
+    } else {
+        parts[0]
+    };
+    if label.is_empty() {
+        None
+    } else {
+        Some(label.to_lowercase())
+    }
+}
+
+/// Probe `candidates` against `site` and return the first one whose
+/// scan resolves to [`MatchKind::Found`].
+///
+/// Used by `adler --doctor --suggest-known-present` to surface a
+/// real-existing account for sites whose imported placeholder doesn't
+/// exist on the live site. Stops at the first hit, so the average
+/// probe count with the default pool ([`default_candidate_pool`]) is
+/// 2–3 per site rather than `pool.len()`.
+///
+/// Candidates that aren't valid usernames are silently skipped (the
+/// pool is small enough that an invalid entry isn't an error
+/// condition). Returns `None` when no candidate yields `Found`.
+pub async fn discover_known_present(
+    client: &Client,
+    site: &Site,
+    candidates: &[String],
+) -> Option<String> {
+    for name in candidates {
+        let Ok(user) = Username::new(name.clone()) else {
+            continue;
+        };
+        let outcome = client.check(site, &user).await;
+        if outcome.kind == MatchKind::Found {
+            return Some(name.clone());
+        }
+    }
+    None
+}
+
 /// A proposed signal set for a site whose current detection misbehaves.
 #[derive(Debug, Clone)]
 pub struct FixSuggestion {
@@ -753,5 +845,114 @@ mod tests {
             .await;
         let s = site(&server, "Mock", None);
         assert!(suggest_fix(&build_client(), &s).await.is_none());
+    }
+
+    #[tokio::test]
+    async fn discover_returns_first_candidate_that_yields_found() {
+        // Only `dhh` exists on this mock — the discovery should walk
+        // past the brand-name candidate (mock's host doesn't match)
+        // and through `torvalds`, `octocat` (404 → NotFound) before
+        // landing on `dhh` (200 → Found).
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path_regex("^/dhh$"))
+            .respond_with(ResponseTemplate::new(200))
+            .mount(&server)
+            .await;
+        Mock::given(method("GET"))
+            .respond_with(ResponseTemplate::new(404))
+            .mount(&server)
+            .await;
+
+        let s = site(&server, "Mock", None);
+        let candidates = vec![
+            "torvalds".into(),
+            "octocat".into(),
+            "dhh".into(),
+            "admin".into(),
+        ];
+        let found = discover_known_present(&build_client(), &s, &candidates).await;
+        assert_eq!(found.as_deref(), Some("dhh"));
+    }
+
+    #[tokio::test]
+    async fn discover_returns_none_when_no_candidate_yields_found() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .respond_with(ResponseTemplate::new(404))
+            .mount(&server)
+            .await;
+        let s = site(&server, "Mock", None);
+        let candidates = vec!["torvalds".into(), "admin".into()];
+        let found = discover_known_present(&build_client(), &s, &candidates).await;
+        assert!(found.is_none());
+    }
+
+    #[tokio::test]
+    async fn discover_skips_invalid_usernames_silently() {
+        // The empty string and one containing forbidden chars must
+        // not abort the search — discovery continues to the next
+        // candidate, finds `dhh`.
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path_regex("^/dhh$"))
+            .respond_with(ResponseTemplate::new(200))
+            .mount(&server)
+            .await;
+        Mock::given(method("GET"))
+            .respond_with(ResponseTemplate::new(404))
+            .mount(&server)
+            .await;
+        let s = site(&server, "Mock", None);
+        let candidates = vec![String::new(), "bad user with space".into(), "dhh".into()];
+        let found = discover_known_present(&build_client(), &s, &candidates).await;
+        assert_eq!(found.as_deref(), Some("dhh"));
+    }
+
+    #[test]
+    fn default_pool_puts_brand_first_when_derivable() {
+        let site = Site {
+            name: "GitHub".into(),
+            url: UrlTemplate::new("https://www.github.com/{username}").unwrap(),
+            signals: vec![Signal::StatusFound { codes: vec![200] }],
+            known_present: None,
+            known_absent: None,
+            extract: Vec::new(),
+            tags: Vec::new(),
+            request_headers: std::collections::BTreeMap::new(),
+        };
+        let pool = default_candidate_pool(&site);
+        assert_eq!(pool.first().map(String::as_str), Some("github"));
+        // Brand is also among DEFAULT_CANDIDATES adjacent to the
+        // contributor names, but it must not appear twice.
+        let brand_occurrences = pool.iter().filter(|n| n.as_str() == "github").count();
+        assert_eq!(brand_occurrences, 1, "brand should be deduplicated");
+        // Sanity: a handful of known defaults follow.
+        for expected in ["torvalds", "octocat", "admin"] {
+            assert!(
+                pool.iter().any(|n| n == expected),
+                "pool missing {expected:?}; got {pool:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn default_pool_falls_back_to_canned_list_when_brand_underivable() {
+        // A URL whose host is a single label (no TLD) makes brand
+        // derivation degenerate to the host itself — still produces
+        // a non-empty pool, just without a meaningful brand prefix.
+        let site = Site {
+            name: "Local".into(),
+            url: UrlTemplate::new("http://localhost/{username}").unwrap(),
+            signals: vec![Signal::StatusFound { codes: vec![200] }],
+            known_present: None,
+            known_absent: None,
+            extract: Vec::new(),
+            tags: Vec::new(),
+            request_headers: std::collections::BTreeMap::new(),
+        };
+        let pool = default_candidate_pool(&site);
+        assert!(pool.contains(&"torvalds".to_owned()));
+        assert!(pool.contains(&"admin".to_owned()));
     }
 }
