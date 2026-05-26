@@ -12,7 +12,7 @@
 //! immediately after `Target.createTarget`) and deadlock against
 //! Browserbase, whose remote browser is quieter on that front. Issue #5
 //! has the full diagnosis. Instead we drive CDP directly through our
-//! [`CdpClient`](super::cdp::CdpClient) and request the attach explicitly
+//! [`CdpClient`] and request the attach explicitly
 //! via `Target.attachToTarget` with `flatten: true`.
 //!
 //! ## Session lifecycle

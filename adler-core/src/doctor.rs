@@ -169,8 +169,8 @@ const DEFAULT_CANDIDATES: &[&str] = &[
 /// The first entry, when derivable, is the site's brand name — many
 /// sites have an official `@<sitename>` account that's a near-
 /// guaranteed hit (e.g. `github` on GitHub, `gitlab` on GitLab, `vk`
-/// on vk.com). Followed by [`DEFAULT_CANDIDATES`] with duplicates
-/// removed.
+/// on vk.com). Followed by the canned `DEFAULT_CANDIDATES` constant
+/// (private), with duplicates removed.
 ///
 /// Brand derivation is heuristic: parse the URL template (with the
 /// placeholder substituted), take the host, drop subdomain and TLD,
