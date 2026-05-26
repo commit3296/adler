@@ -20,8 +20,9 @@
 //!
 //! # async fn run() -> adler_core::Result<()> {
 //! let registry = Registry::default_embedded()?;
-//! // filter(include, exclude, tags, exclude_tags) — empty slices = no filter.
-//! let sites = registry.filter(&["github".into()], &[], &[], &[]);
+//! // filter(include, exclude, tags, exclude_tags, include_nsfw) — empty
+//! // slices = no filter; `false` keeps the default NSFW auto-exclusion.
+//! let sites = registry.filter(&["github".into()], &[], &[], &[], false);
 //! let username = Username::new("torvalds")?;
 //! let client = Client::builder().build()?;
 //!

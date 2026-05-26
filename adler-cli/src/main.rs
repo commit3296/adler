@@ -79,6 +79,13 @@ struct Cli {
     #[arg(long, value_delimiter = ',', value_name = "TAG")]
     exclude_tag: Vec<String>,
 
+    /// Include sites tagged `nsfw` (adult content) in the scan. They are
+    /// auto-excluded by default — surfacing a profile URL on Pornhub
+    /// or Xvideos when the user just typed `adler alice` is rarely what
+    /// they wanted. Passing `--tag nsfw` also opts in.
+    #[arg(long)]
+    nsfw: bool,
+
     /// Print a shell completion script to stdout and exit.
     #[arg(long, value_enum, value_name = "SHELL")]
     completions: Option<Shell>,
@@ -426,7 +433,13 @@ async fn run(cli: Cli) -> Result<ExitCode> {
         return Ok(ExitCode::SUCCESS);
     }
 
-    let sites = registry.filter(&cli.only, &cli.exclude, &cli.tag, &cli.exclude_tag);
+    let sites = registry.filter(
+        &cli.only,
+        &cli.exclude,
+        &cli.tag,
+        &cli.exclude_tag,
+        cli.nsfw,
+    );
     if sites.is_empty() {
         eprintln!("adler: no sites match the filter");
         return Ok(ExitCode::from(2));

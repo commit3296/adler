@@ -213,8 +213,15 @@ REGIONAL_PLATFORMS: dict[str, str] = {
 }
 
 
-def derive_tags(name: str, url: str) -> list[str]:
-    """Compute the starter tag set for a site from its name and URL."""
+def derive_tags(name: str, url: str, entry: dict | None = None) -> list[str]:
+    """Compute the starter tag set for a site from its name and URL.
+
+    `entry` is the raw Sherlock entry; we read its `isNSFW` flag and
+    map it onto our `nsfw` tag, which the Rust loader auto-excludes
+    from scans unless `adler --nsfw` is passed. Keeping the mapping
+    here means a re-import preserves the gate for any new sites the
+    upstream marks isNSFW.
+    """
     tags: set[str] = set()
     key = name.lower()
     if key in CATEGORY_MAP:
@@ -230,6 +237,9 @@ def derive_tags(name: str, url: str) -> list[str]:
 
     if key in BOT_PROTECTED:
         tags.add("bot-protected")
+
+    if entry is not None and entry.get("isNSFW") is True:
+        tags.add("nsfw")
 
     return sorted(tags)
 
@@ -304,7 +314,7 @@ def main() -> int:
         site = {"name": name, **converted}
         if name in OVERRIDES:
             site.update(OVERRIDES[name])
-        tags = derive_tags(name, site["url"])
+        tags = derive_tags(name, site["url"], entry)
         if tags:
             site["tags"] = tags
         sites.append(site)

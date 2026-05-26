@@ -69,6 +69,11 @@ impl Registry {
     ///   "only social-tagged sites".
     /// - Sites carrying any tag in `exclude_tags` are dropped (e.g.
     ///   `--exclude-tag bot-protected` for a fast clean run).
+    /// - **NSFW sites are auto-excluded** (the `nsfw` tag) unless
+    ///   `include_nsfw` is `true` or `tags` explicitly asks for `nsfw`.
+    ///   This matches Sherlock's `--nsfw` opt-in pattern and prevents
+    ///   the default `adler <username>` from surfacing adult-site URLs
+    ///   the user didn't ask for.
     /// - Sites are returned by value (cloned) so the result is independent
     ///   of the registry's lifetime — convenient for handing to the executor.
     pub fn filter(
@@ -77,11 +82,20 @@ impl Registry {
         exclude: &[String],
         tags: &[String],
         exclude_tags: &[String],
+        include_nsfw: bool,
     ) -> Vec<Site> {
         let include: Vec<String> = include.iter().map(|s| s.to_lowercase()).collect();
         let exclude: Vec<String> = exclude.iter().map(|s| s.to_lowercase()).collect();
         let want_tags: Vec<String> = tags.iter().map(|s| s.to_lowercase()).collect();
-        let drop_tags: Vec<String> = exclude_tags.iter().map(|s| s.to_lowercase()).collect();
+        let mut drop_tags: Vec<String> = exclude_tags.iter().map(|s| s.to_lowercase()).collect();
+
+        // NSFW gate: auto-exclude unless the caller explicitly opted in,
+        // either via `include_nsfw` or by asking for the `nsfw` tag.
+        let nsfw_tag = "nsfw".to_owned();
+        let asking_for_nsfw = want_tags.contains(&nsfw_tag);
+        if !include_nsfw && !asking_for_nsfw && !drop_tags.contains(&nsfw_tag) {
+            drop_tags.push(nsfw_tag);
+        }
 
         self.sites
             .iter()
@@ -197,18 +211,20 @@ mod tests {
     #[test]
     fn filter_include_is_case_insensitive_substring() {
         let registry = Registry::default_embedded().unwrap();
-        let only_github = registry.filter(&["github".into()], &[], &[], &[]);
+        let only_github = registry.filter(&["github".into()], &[], &[], &[], false);
         assert_eq!(only_github.len(), 1);
         assert_eq!(only_github[0].name, "GitHub");
 
-        let many = registry.filter(&["e".into()], &[], &[], &[]); // matches anything with "e"
+        let many = registry.filter(&["e".into()], &[], &[], &[], false); // matches anything with "e"
         assert!(many.len() > 1);
     }
 
     #[test]
     fn filter_exclude_drops_matches() {
         let registry = Registry::default_embedded().unwrap();
-        let without_github = registry.filter(&[], &["github".into()], &[], &[]);
+        // Include NSFW to keep the test focused on the name-exclude
+        // path; the NSFW auto-exclusion is exercised separately.
+        let without_github = registry.filter(&[], &["github".into()], &[], &[], true);
         assert!(without_github.iter().all(|s| s.name != "GitHub"));
         assert_eq!(without_github.len(), registry.len() - 1);
     }
@@ -217,7 +233,7 @@ mod tests {
     fn filter_include_and_exclude_compose() {
         let registry = Registry::default_embedded().unwrap();
         // Include "git", then exclude "lab" → keep GitHub, drop GitLab.
-        let filtered = registry.filter(&["git".into()], &["lab".into()], &[], &[]);
+        let filtered = registry.filter(&["git".into()], &["lab".into()], &[], &[], false);
         let names: Vec<&str> = filtered.iter().map(|s| s.name.as_str()).collect();
         assert!(names.contains(&"GitHub"));
         assert!(!names.contains(&"GitLab"));
@@ -227,7 +243,7 @@ mod tests {
     #[test]
     fn filter_with_no_matches_returns_empty() {
         let registry = Registry::default_embedded().unwrap();
-        let filtered = registry.filter(&["does-not-exist-xyz".into()], &[], &[], &[]);
+        let filtered = registry.filter(&["does-not-exist-xyz".into()], &[], &[], &[], false);
         assert!(filtered.is_empty());
     }
 
@@ -250,7 +266,7 @@ mod tests {
     #[test]
     fn tag_filter_keeps_only_matching_tags_and_drops_untagged() {
         let r = tagged_registry();
-        let social = r.filter(&[], &[], &["social".into()], &[]);
+        let social = r.filter(&[], &[], &["social".into()], &[], false);
         let names: Vec<&str> = social.iter().map(|s| s.name.as_str()).collect();
         assert_eq!(names, ["Soc"], "tag filter should keep only tagged matches");
     }
@@ -258,7 +274,7 @@ mod tests {
     #[test]
     fn tag_filter_is_or_within_requested_tags_and_case_insensitive() {
         let r = tagged_registry();
-        let either = r.filter(&[], &[], &["DEV".into(), "social".into()], &[]);
+        let either = r.filter(&[], &[], &["DEV".into(), "social".into()], &[], false);
         let names: Vec<&str> = either.iter().map(|s| s.name.as_str()).collect();
         assert_eq!(names, ["Soc", "Dev"]);
     }
@@ -266,16 +282,55 @@ mod tests {
     #[test]
     fn no_tag_filter_includes_untagged_sites() {
         let r = tagged_registry();
-        assert_eq!(r.filter(&[], &[], &[], &[]).len(), 3);
+        assert_eq!(r.filter(&[], &[], &[], &[], false).len(), 3);
     }
 
     #[test]
     fn exclude_tag_drops_matching_sites() {
         let r = tagged_registry();
-        let kept = r.filter(&[], &[], &[], &["social".into()]);
+        let kept = r.filter(&[], &[], &[], &["social".into()], false);
         let names: Vec<&str> = kept.iter().map(|s| s.name.as_str()).collect();
         // Soc carries "social" → dropped; Dev and untagged Plain remain.
         assert_eq!(names, ["Dev", "Plain"], "{names:?}");
+    }
+
+    fn nsfw_registry() -> Registry {
+        let json = r#"{
+            "sites": [
+                { "name": "Family", "url": "https://family.example/{username}",
+                  "signals": [{ "kind": "status_found", "codes": [200] }],
+                  "tags": ["social"] },
+                { "name": "Adult", "url": "https://adult.example/{username}",
+                  "signals": [{ "kind": "status_found", "codes": [200] }],
+                  "tags": ["nsfw"] }
+            ]
+        }"#;
+        Registry::from_json_str(json).unwrap()
+    }
+
+    #[test]
+    fn nsfw_sites_excluded_by_default() {
+        let r = nsfw_registry();
+        let kept = r.filter(&[], &[], &[], &[], false);
+        let names: Vec<&str> = kept.iter().map(|s| s.name.as_str()).collect();
+        assert_eq!(names, ["Family"], "nsfw site must be excluded by default");
+    }
+
+    #[test]
+    fn nsfw_sites_included_when_flag_set() {
+        let r = nsfw_registry();
+        let kept = r.filter(&[], &[], &[], &[], true);
+        assert_eq!(kept.len(), 2, "both sites present with include_nsfw=true");
+    }
+
+    #[test]
+    fn nsfw_sites_included_when_tag_asked_for_explicitly() {
+        // `--tag nsfw` is an explicit opt-in; should bypass the default
+        // auto-exclusion even with include_nsfw=false.
+        let r = nsfw_registry();
+        let kept = r.filter(&[], &[], &["nsfw".into()], &[], false);
+        let names: Vec<&str> = kept.iter().map(|s| s.name.as_str()).collect();
+        assert_eq!(names, ["Adult"]);
     }
 
     #[test]
