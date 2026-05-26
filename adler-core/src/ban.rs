@@ -37,10 +37,19 @@ pub(crate) fn detect_pre_body(status: u16, headers: &HeaderMap) -> Option<Uncert
 /// Body-level checks: well-known interstitial markers. Only invoked when the
 /// body has already been read for a signal — never trigger an extra HTTP
 /// body read on this path.
+///
+/// The markers below match as substrings. The first hit wins; the order is
+/// rough-specificity-descending (longer, more uniquely identifying needles
+/// come first to short-circuit before the smaller catch-all patterns).
+///
+/// The longer WAF-fingerprint patterns are borrowed from Sherlock's hand-
+/// curated list (`sherlock_project/sherlock.py`, `WAFHitMsgs`). Each carries
+/// a `// dated …` annotation so we can audit drift over time — when a WAF
+/// rotates its challenge page format, the matching needle stops firing
+/// silently. Refresh as needed.
 pub(crate) fn detect_in_body(body: &str) -> Option<UncertainReason> {
-    // Markers below are matched as substrings. The first match wins; order
-    // is by specificity, not popularity.
     const MARKERS: &[(&str, UncertainReason)] = &[
+        // --- short, fast-path Cloudflare/captcha needles ---
         ("Just a moment...", UncertainReason::CloudflareChallenge),
         (
             "Checking your browser before accessing",
@@ -53,6 +62,27 @@ pub(crate) fn detect_in_body(body: &str) -> Option<UncertainReason> {
         ("captcha-bypass", UncertainReason::Captcha),
         (
             "Please enable cookies",
+            UncertainReason::CloudflareChallenge,
+        ),
+        // --- Sherlock-curated long-form WAF fingerprints ---
+        // Cloudflare challenge CSS payload — dated 2024-05-13 upstream.
+        (
+            "body.no-js .challenge-running{display:none}",
+            UncertainReason::CloudflareChallenge,
+        ),
+        // Cloudflare error page span — dated 2024-11-11 upstream.
+        (
+            r#"<span id="challenge-error-text">"#,
+            UncertainReason::CloudflareChallenge,
+        ),
+        // AWS WAF / CloudFront challenge — dated 2024-11-11 upstream.
+        (
+            "AwsWafIntegration.forceRefreshToken",
+            UncertainReason::CloudflareChallenge,
+        ),
+        // PerimeterX / Human Security challenge — dated 2024-04-09 upstream.
+        (
+            r#""perimeterxIdentifiers",{enumerable:"#,
             UncertainReason::CloudflareChallenge,
         ),
     ];
@@ -149,5 +179,56 @@ mod tests {
     #[test]
     fn in_body_ignores_normal_html() {
         assert!(detect_in_body("<html><body><h1>Welcome</h1></body></html>").is_none());
+    }
+
+    #[test]
+    #[allow(
+        clippy::literal_string_with_formatting_args,
+        reason = "CSS braces look like format args to clippy but aren't"
+    )]
+    fn in_body_flags_cloudflare_long_form_css_payload() {
+        // Slice from a real Cloudflare challenge page (the
+        // `.challenge-running{display:none}` rule embedded in their
+        // inline stylesheet). Sherlock-curated, 2024-05-13.
+        let body = "<style>.loading-spinner{visibility:hidden}body.no-js .challenge-running{display:none}body.dark{background-color:#222;color:#d9d9d9}</style>";
+        assert_eq!(
+            detect_in_body(body),
+            Some(UncertainReason::CloudflareChallenge)
+        );
+    }
+
+    #[test]
+    fn in_body_flags_cloudflare_error_span() {
+        // 5xx-with-200-status from Cloudflare's challenge fallback.
+        let body =
+            r#"<div class="error"><span id="challenge-error-text">Access denied</span></div>"#;
+        assert_eq!(
+            detect_in_body(body),
+            Some(UncertainReason::CloudflareChallenge)
+        );
+    }
+
+    #[test]
+    fn in_body_flags_aws_waf_challenge() {
+        // CloudFront / AWS WAF interstitial JS marker.
+        let body = "<script>window.AwsWafIntegration.forceRefreshToken();</script>";
+        assert_eq!(
+            detect_in_body(body),
+            Some(UncertainReason::CloudflareChallenge)
+        );
+    }
+
+    #[test]
+    #[allow(
+        clippy::literal_string_with_formatting_args,
+        reason = "JS object literal looks like a format arg to clippy but isn't"
+    )]
+    fn in_body_flags_perimeterx_challenge() {
+        // PerimeterX / Human Security inline bot-detection JS slice.
+        let body = r#"Object.defineProperty(r,"perimeterxIdentifiers",{enumerable:true});"#;
+        assert_eq!(
+            detect_in_body(body),
+            Some(UncertainReason::CloudflareChallenge)
+        );
     }
 }
