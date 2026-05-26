@@ -251,11 +251,15 @@ mod tests {
             "imported registry should have ≥100 sites, got {}",
             registry.len()
         );
-        // Spot-check a couple of well-known entries.
+        // Spot-check a couple of well-known entries. (HackerNews used
+        // to be here but was pruned 2026-05-26 — its Sherlock-side
+        // known_present went stale and the imported signature
+        // doctor-failed; can be restored via OVERRIDES in
+        // import_sherlock.py with a working account.)
         let names: Vec<&str> = registry.sites().iter().map(|s| s.name.as_str()).collect();
         assert!(names.contains(&"GitHub"));
-        assert!(names.contains(&"HackerNews"));
         assert!(names.contains(&"Reddit"));
+        assert!(names.contains(&"Telegram"));
     }
 
     #[test]

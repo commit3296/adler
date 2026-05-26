@@ -77,6 +77,29 @@ KNOWN_BROKEN = {
         # forum_guns, generic "404" string for Pychess), so the signal
         # fires for *every* user → NotFound for everyone. 2026-05-24.
         "forum_guns", "Pychess",
+        # 2026-05-26 nightly doctor on the merged v0.5 registry surfaced
+        # 71 more Sherlock-side breakages — split between "too permissive"
+        # (random nonsense user reports Found) and "no known-present user
+        # yielded Found" (the verified account itself doctor-fails, so the
+        # signature no longer discriminates). Run id 26477466422 covered
+        # 1443/2558 sites before the 45-min CI timeout; the remaining
+        # 1115 are still unprobed and may add more. Reinstate any of
+        # these once someone authors a working signature.
+        "1337x", "2Dimensions", "9GAG", "Academia.edu", "Airliners",
+        "Aparat", "ArtStation", "Audiojungle", "Avizo", "BabyRu", "Bazar.cz",
+        "BongaCams", "BreachSta.rs Forum", "CSSBattle", "ChaturBate",
+        "Clapper", "CloudflareCommunity", "Code Snippet Wiki", "CodeSandbox",
+        "Codechef", "Codepen", "Coinvote", "ColourLovers", "Cracked",
+        "CryptoHack", "DMOJ", "DeviantArt", "DigitalSpy", "Discogs",
+        "Exposure", "EyeEm", "F3.cool", "Fameswap", "Fandom", "Fanpop",
+        "GNOME VCS", "GameFAQs", "Gamespot", "GeeksforGeeks",
+        "Genius (Artists)", "Genius (Users)", "GetMyUni", "Giant Bomb",
+        "Gitea", "HackenProof (Hackers)", "HackerEarth", "HackerNews",
+        "Harvard Scholar", "IRC-Galleria", "Instagram", "Intigriti",
+        "Itch.io", "Jimdo", "Kik", "LeetCode", "LemmyWorld", "LessWrong",
+        "Letterboxd", "LibraryThing", "Lichess", "LinkedIn", "LottieFiles",
+        "MMORPG Forum", "babyblogRU", "devRant", "drive2", "eGPU", "fixya",
+        "freecodecamp", "kofi", "livelib",
     )
 }
 

@@ -63,6 +63,164 @@ NAME_RE = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_ .()!/+-]*$")
 UNSUPPORTED_REGEX_RE = re.compile(r"\(\?[=!<]")
 
 
+# Sites whose Maigret-imported signature is structurally broken
+# (verified via the registry doctor). Two failure modes are folded
+# into one set:
+#   * "too permissive" — a random nonsense user reports Found
+#     (the body marker or status code fires for every probe; users
+#     would see false positives across every scan).
+#   * "no known-present user yielded Found" — even the upstream's
+#     verified `usernameClaimed` doctor-fails (signature no longer
+#     discriminates).
+# Both classes are deferred until someone authors a working
+# signature; revisiting the entry is one PR away. Keyed
+# case-insensitively. Sourced from doctor run 26477466422 on
+# 2026-05-26 (covered 1443/2558 sites in 45 min before the CI
+# timeout — the remaining unprobed tranche may add more).
+KNOWN_BROKEN = {
+    name.lower()
+    for name in (
+        "0-3.RU", "1001tracklists", "101xp.com", "11x2", "162nord.org",
+        "21buttons", "23hq", "27r.ru", "2el5.ucoz.ua", "308-club.ru",
+        "3DMir.ru", "3glaz.org", "500px", "50cc.com.ua", "8tracks.com",
+        "Advego", "AirNFTs", "Alabay", "AllRecipes", "Allhockey", "Amperka",
+        "Anarcho-punk", "Anibox", "Anime-planet", "AnimeNewsNetwork",
+        "Anobii", "Anonup", "Antichat", "Antiwomen", "ApexLegends", "Appian",
+        "Aptoide", "Archive.orgParlerPosts", "Archive.orgParlerProfiles",
+        "Archive.orgTwitterProfiles", "Archlinux", "Arduino", "AreKamrbb",
+        "Armchairgm", "Artistsnclients", "Astralinux", "Astro-talks",
+        "Autolada", "Automania", "Avforums", "Avto-forum.name", "Avtomarket",
+        "B17", "Baby.ru", "BabyBlog.ru", "Barnacl", "Basecamphq",
+        "BeatStars", "Bentbox", "BitPapa", "Bitwarden", "BleachFandom",
+        "Bobrdobr", "BodyBuilding", "Boosty", "Borsch.gallery",
+        "Bratsk Forum", "Breach Sta.rs Forum", "Brusheezy", "CD-Action",
+        "CapitalcityCombats", "Cash.app", "Casial", "Cent", "Change.org",
+        "Chemport", "Chess-russia", "Clozemaster", "Codecanyon",
+        "Codementor", "ContactInBio (URL)", "Coub", "Cqham",
+        "CreativeMarket", "Cults3d", "Cydak", "DLive", "DailyMotion",
+        "Dalnoboi", "DarkNet Trust", "DeepDreamGenerator",
+        "DefenceForumIndia", "Demonscity", "Demotywatory", "Depop",
+        "Designspiration", "Desu", "Detstrana", "Dissenter", "Division2",
+        "Djangoproject.co", "Dojoverse", "Dreamstime", "Dumpor", "Ebay",
+        "Elakiri", "Elftown", "Elwo", "Enot-poloskun", "Envato", "Expono",
+        "F-droid", "F6S", "FCRubin", "FIFA FORUMS", "Fabswingers", "Faceit",
+        "Faktopedia", "FandomCommunityCentral", "Fanlore", "Fansly",
+        "Finforum", "Fiverr", "Fluther", "Flyertalk", "Fodors",
+        "Forum.jambox.ru", "ForumJizni", "ForumKinopoisk", "ForumSmotri",
+        "Forumsi", "Forumteam", "Fotka", "Fotki", "Foursquare",
+        "Freelancebay", "Freelancehunt", "Freepik", "Friendfinder-x",
+        "Fullhub", "G2g.com", "GBAtemp.net", "GGIZI", "GPS-Forum",
+        "GamesRadar", "Gamesubject", "Gapyear", "Gardrops", "Geekdoing",
+        "Geeksfor Geeks", "Genius", "Gnome-vcs", "Golangbridge",
+        "Good-music", "Google Maps", "Google Plus (archived)",
+        "Google Scholar", "Gribnikikybani", "Guns.ru", "GuruShots",
+        "HabrCareer", "HackerNoon", "Hashnode", "Hctorpedo", "Hexrpg",
+        "HiddenAnswers", "Holiday.ru", "Holopin", "Hyundaitruckclub",
+        "ITVDN Forum", "Icheckmovies", "Icobench", "ImageShack", "ImgInn",
+        "Ingvarr", "Insanejournal", "Interfaith", "Ipolska.pl", "Ispdn",
+        "Itfy", "JSFiddle", "Jer.forum24.ru", "Justforfans", "Justlanded",
+        "Karab.in", "Kickstarter", "KnigiOnline", "Kotburger", "Kriptom",
+        "KubanForum24", "Ladies", "Lemmy World", "Liberapay", "Life-dom2",
+        "Likee", "Linkkle", "LinuxMint", "LiveInternet", "LiveTrack24",
+        "Liveexpert", "Livejasmin", "LiverpoolFC", "Livios", "Lkforum",
+        "Lomography", "Love.Mail.ru", "Lovemakeup", "Lowcygier.pl",
+        "Maccentre", "Maga-Chat", "Magiimir", "Mamochki", "Mapify.travel",
+        "Mapillary Forum", "Marshmallow", "MassageAnywhere", "Matrix",
+        "Medyczka.pl", "Meendo", "MeetMe", "Megamodels.pl", "Megane2",
+        "MetaDiscourse", "Minecraftlist", "Mistrzowie", "Mobypicture",
+        "ModDB", "abho.ru", "adblockplus.org", "all-gta.info",
+        "allmobile.vo.uz", "amax-sb.ru", "animal-hope.ru", "antiscam.space",
+        "aquamen.ru", "architizer.com", "arcolinuxforum.com",
+        "artmilitaire.ru", "as8.ru", "asquero.com", "audi-belarus.by",
+        "aussiehomebrewer.com", "australianfrequentflyer.com.au",
+        "autotob.ru", "aviahistory.ucoz.ru", "avtoexamen.com", "awd.ru",
+        "azovmore.ucoz.ru", "babyboom.pl", "baltnethub.3dn.ru",
+        "barnaul-forum.ru", "baseball-reference.com", "bbs.boingboing.net",
+        "beacons.ai", "bestclips.ws", "betawiki.net", "beyond3d",
+        "big-game.ucoz.ru", "bitcoin.it", "bitpapa.com", "blogs.klerk.ru",
+        "boards.insidethestar.com", "boards.straightdope.com",
+        "bookafly.com", "bookz.su", "boominfo.org", "brute.pw",
+        "bulbapedia.bulbagarden.net", "car72.ru", "cedia-club.ru",
+        "cfd-online", "cheat-master.ru", "chelfishing.ru",
+        "chelny-diplom.ru", "chevrolet-daewoo.ru", "chsnik-kz.ucoz.kz",
+        "club-fiat.org.ua", "club-gas.ru", "club.passion.ru",
+        "codeforces.com", "coder.social", "coffeeforum.ru",
+        "community.adobe.com", "community.clearlinux.org",
+        "community.endlessos.com", "community.getpostman.com",
+        "community.gozenhost.com", "community.icons8.com",
+        "community.letsencrypt.org", "community.mydevices.com",
+        "community.p2pu.org", "community.simplilearn.com",
+        "community.sphero.com", "community.startupnation.com",
+        "community.sweatco.in", "cosmotarolog.ucoz.ru", "counter-art.ru",
+        "crafta.ua", "creationwiki.org", "crown6.org", "cruiserswiki.org",
+        "css-play4fun.ru", "cubecraft.net", "dapf.ru", "dariawiki.org",
+        "darkart3d.ru", "deeptor.ws", "demon-art.ru", "dimitrov.ucoz.ua",
+        "directx10.org", "discourse.haskell.org", "discourse.huel.com",
+        "discourse.jupyter.org", "discourse.saylor.org",
+        "discourse.snowplowanalytics.com", "discoursedb.org",
+        "discuss.bootstrapped.fm", "discuss.codecademy.com",
+        "discuss.inventables.com", "discuss.studiofow.com",
+        "discussions.ubisoft.com", "dnbforum.com", "doccarb.ucoz.ru",
+        "dolap", "domfrunze.kg", "donate.stream", "doublecmd.h1n.ru",
+        "dreamteam43.ru", "dreddmc.ru", "dumskaya.net", "dvocu.ru", "dwg",
+        "dzintarsmos09.ru", "e36club.com.ua", "edns.domains/iotex",
+        "egiki.ru", "electronic-cigarette.ru", "electroprom.my1.ru",
+        "elektrik-avto.ru", "elektron.ucoz.ua", "en.brickimedia.org",
+        "en.wikifur.com", "endoctor.ru", "espero-club.ru",
+        "exploretalent.com", "fanfiktion.de", "fanscout.com",
+        "figarohair.ru", "fire-team.clan.su", "fkclub.ru", "followus.com",
+        "ford-mondeoff.ru", "forum-ssc.ucoz.ru", "forum-ukraina.net",
+        "forum.1796web.com", "forum.alconar.ru", "forum.audacityteam.org",
+        "forum.balletfriends.ru", "forum.betsportslive.ru",
+        "forum.blackmagicdesign.com", "forum.core-electronics.com.au",
+        "forum.danetka.ru", "forum.eksmo.ru", "forum.exkavator.ru",
+        "forum.finance.ua", "forum.foe-rechner.de", "forum.garudalinux.org",
+        "forum.ghost.org", "forum.gong.bg", "forum.heroesleague.ru",
+        "forum.hr", "forum.lancerx.ru",
+        "forum.languagelearningwithnetflix.com", "forum.modding.ru",
+        "forum.mxlinux.org", "forum.nameberry.com", "forum.newlcn.com",
+        "forum.nvworld.ru", "forum.openoffice.org", "forum.palemoon.org",
+        "forum.paradox.network", "forum.pavlovskyposad.ru",
+        "forum.pkp.sfu.ca", "forum.postupim.ru", "forum.prihoz.ru",
+        "forum.rarib.ag", "forum.rmnt.ru", "forum.rollerclub.ru",
+        "forum.rosalinux.ru", "forum.rzn.info", "forum.scssoft.com",
+        "forum.shopsmith.com", "forum.shotcut.org", "forum.sketchfab.com",
+        "forum.spyderco.com", "forum.ss-iptv.com", "forum.sureai.net",
+        "forum.ua-vet.com", "forum.ubuntu-it.org", "forum.uti-puti.com.ua",
+        "forum.virtualsoccer.ru", "forum.wladimir.su", "forum.zorin.com",
+        "forumbebas.com", "forums.docker.com", "forums.drom.ru",
+        "forums.grandstream.com", "forums.linuxmint.com",
+        "forums.mageia.org", "forums.mmorpg.com", "forums.scummvm.org",
+        "forums.steinberg.net", "forums.theanimenetwork.com",
+        "forums.wrestlezone.com", "forums.zooclub.ru", "fotostrana.ru",
+        "foumds.universaldashboard.io", "frauflora.com", "free-otvet.ru",
+        "free-pass.ru", "freedom.kiev.ua", "freelance.ua",
+        "freelancehunt.ru", "freelansim.ru", "funcom", "garmin.ucoz.ru",
+        "gearheadwiki.com", "gentoo", "getmakerlog.com", "ghisler.ch",
+        "gifts.ucoz.ru", "git.tcp.direct", "goroskop.ucoz.ua",
+        "grand-magic.ru", "guitar.by", "hcv.ru", "help-baby.org",
+        "hevc-club.ucoz.net", "hikvision.msk.ru", "hiveblocks.com",
+        "hiveos.farm", "homeofsky.ucoz.ru", "horek-samara.ru", "hyprr.com",
+        "i2pforum", "iNaturalist", "ic.ucoz.ru", "imgsrc.ru",
+        "inaturalist.nz", "inaturalist.org", "indiatv-forum.ru",
+        "induste.com", "instaprofi.ru", "izobil.ru", "jeepspb.ru",
+        "kadroviku.ru", "kali.org.ru", "kam-mamochka.ru", "kashanya.com",
+        "kaz.ionyk.ru", "kazanlashkigalab.com", "khabmama.ru",
+        "kiabongo.info", "kiev-live.com", "kinohouse.ucoz.ru",
+        "kliki-doma.ru", "kpyto.pp.net.ua", "kredituemall.ru",
+        "krskforum.com", "ksmsp.ru", "l2bz.ru", "labpentestit",
+        "ladpremiya.ru", "lampoviedushi.hammarlund.ru", "lavkachudec.ru",
+        "lemfo-russia.ru", "linuxpip.org", "liozno.info", "lithotherapy",
+        "love2d.org", "lubuntu.ru", "lviv4x4.club", "mailpass.site",
+        "make-ups.ru", "mama.tomsk.ru", "mansonwiki.com", "md", "mel.fm",
+        "mfd", "microcap.forum24.ru", "mikrob.ru", "milliarderr.com",
+        "mindmachine.ru", "mineplex.com", "minesuperior.com",
+        "mir-stalkera.ru", "mir2007.ru", "mirmuzyki.ucoz.net",
+        "mistoodesa.ucoz.ua", "mix-best.ucoz.ru", "mkr-rodniki.ru",
+        "mkuniverse.ru", "mnogodetok.ru", "modnaya"
+    )
+}
+
 def maigret_engine_to_adler(maigret_engine: dict) -> dict | None:
     """Translate a Maigret engine block into Adler engine fields.
 
@@ -291,12 +449,16 @@ def main() -> int:
     skipped_no_url = 0
     skipped_no_signal = 0
     skipped_dup = 0
+    skipped_broken = 0
     for name, site in (maigret.get("sites") or {}).items():
         if not isinstance(site, dict):
             continue
         key = name.lower()
         if key in seen:
             skipped_dup += 1
+            continue
+        if key in KNOWN_BROKEN:
+            skipped_broken += 1
             continue
         if site.get("disabled") is True:
             skipped_disabled += 1
@@ -350,7 +512,7 @@ def main() -> int:
 
     print(
         f"merged: +{len(added)} sites, +{len(out_engines) - len(existing_engines)} engines "
-        f"(skipped: {skipped_dup} dup, {skipped_disabled} disabled, "
+        f"(skipped: {skipped_dup} dup, {skipped_broken} known-broken, {skipped_disabled} disabled, "
         f"{skipped_no_url} no-url, {skipped_no_signal} no-signal)"
     )
     print(f"output: {dst} ({len(sites)} sites total)")
