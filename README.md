@@ -336,13 +336,13 @@ for failing sites by diffing the present/absent responses. A nightly GitHub
 Actions workflow (`.github/workflows/doctor.yml`) runs the check across the
 whole registry and flags structural rot.
 
-An optional supplementary registry derived from
-[WhatsMyName](https://github.com/WebBreacher/WhatsMyName) (CC BY-SA 4.0) is
-shipped in `adler-core/data/sites_wmn.json` and enabled with `--with-wmn`.
-It adds a few hundred additional sites with two-sided body+status detection
-signatures. Off by default to keep the standard scan data MIT-only;
-enabling it means downstream redistribution of the merged scan output
-inherits the `ShareAlike` obligation.
+A supplementary registry derived from
+[WhatsMyName](https://github.com/WebBreacher/WhatsMyName) is shipped in
+`adler-core/data/sites_wmn.json` and is **included by default** for
+maximum coverage — it adds ~675 sites with two-sided body+status
+detection signatures. The file is licensed CC BY-SA 4.0; if you
+redistribute Adler scan output and need an MIT-only data lineage,
+pass `--no-wmn` to drop the tranche.
 
 ## Quality bar
 
@@ -379,8 +379,8 @@ The default site registry (`adler-core/data/sites.json`) is also under MIT
 (MIT). See the file's `_comment` header and the corresponding importer
 scripts in `scripts/` for attribution.
 
-The optional supplementary registry (`adler-core/data/sites_wmn.json`,
-enabled with `adler --with-wmn`) is derived from WhatsMyName and licensed
-[CC BY-SA 4.0](LICENSE-CC-BY-SA-4.0). Adler's MIT licence does not cover
-this file; downstream redistribution must preserve attribution and the
-`ShareAlike` obligation on derivative data.
+The supplementary registry (`adler-core/data/sites_wmn.json`, included
+by default; opt-out with `adler --no-wmn`) is derived from WhatsMyName
+and licensed [CC BY-SA 4.0](LICENSE-CC-BY-SA-4.0). Adler's MIT licence
+does not cover this file; downstream redistribution must preserve
+attribution and the `ShareAlike` obligation on derivative data.

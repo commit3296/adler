@@ -141,14 +141,13 @@ struct Cli {
     #[arg(long, value_name = "PATH")]
     sites: Option<PathBuf>,
 
-    /// Include the WhatsMyName-derived supplementary registry
-    /// (CC BY-SA 4.0, see `LICENSE-CC-BY-SA-4.0`). Off by default to
-    /// keep the MIT-only path the default for downstream
-    /// redistribution; enabling this means any redistribution of the
-    /// merged scan data inherits the `WhatsMyName` `ShareAlike`
-    /// obligation. Conflicts with `--sites`.
+    /// Exclude the WhatsMyName-derived supplementary registry from
+    /// the scan. By default the WMN tranche is included for maximum
+    /// coverage; pass `--no-wmn` when you specifically need an
+    /// MIT-only data lineage (the WMN file is CC BY-SA 4.0, see
+    /// `LICENSE-CC-BY-SA-4.0`). Conflicts with `--sites`.
     #[arg(long, conflicts_with = "sites")]
-    with_wmn: bool,
+    no_wmn: bool,
 
     /// Only check sites whose name contains this substring (case-insensitive).
     /// Repeatable; comma-separated values also accepted.
@@ -427,12 +426,12 @@ async fn run(cli: Cli) -> Result<ExitCode> {
         return run_add_site(&cli, &client, &url).await;
     }
 
-    let registry = match (&cli.sites, cli.with_wmn) {
+    let registry = match (&cli.sites, cli.no_wmn) {
         (Some(path), _) => Registry::load_from_path(path)
             .with_context(|| format!("loading sites from {}", path.display()))?,
-        (None, true) => Registry::default_embedded_with_wmn()
+        (None, false) => Registry::default_embedded_with_wmn()
             .context("loading embedded registry + WhatsMyName tranche")?,
-        (None, false) => Registry::default_embedded().context("loading embedded registry")?,
+        (None, true) => Registry::default_embedded().context("loading embedded registry")?,
     };
 
     if cli.list_tags {
