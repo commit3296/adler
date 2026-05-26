@@ -1163,6 +1163,27 @@
       ]
     },
     {
+      "name": "Chess",
+      "url": "https://www.chess.com/callback/user/valid?username={username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "Username is valid"
+        }
+      ],
+      "known_present": "blue",
+      "regex_check": "^[a-zA-Z0-9_]{3,25}$",
+      "tags": [
+        "gaming"
+      ]
+    },
+    {
       "name": "Choice Community",
       "url": "https://choice.community/u/{username}/summary",
       "signals": [
@@ -1706,6 +1727,25 @@
         }
       ],
       "known_present": "michael"
+    },
+    {
+      "name": "CSSBattle",
+      "url": "https://cssbattle.dev/player/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "beo"
     },
     {
       "name": "CTAN",
@@ -2435,6 +2475,26 @@
       "tags": [
         "photo"
       ]
+    },
+    {
+      "name": "Flightradar24",
+      "url": "https://my.flightradar24.com/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "jebbrooks",
+      "regex_check": "^[a-zA-Z0-9_]{3,20}$"
     },
     {
       "name": "Flipboard",
@@ -3938,6 +3998,25 @@
       "known_present": "choldgraf"
     },
     {
+      "name": "Kaggle",
+      "url": "https://www.kaggle.com/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "dansbecker"
+    },
+    {
       "name": "kaskus",
       "url": "https://www.kaskus.co.id/api/users?username={username}",
       "signals": [
@@ -4053,6 +4132,27 @@
       ],
       "known_present": "octocat",
       "regex_check": "^[a-zA-Z][a-zA-Z0-9_-]*$"
+    },
+    {
+      "name": "Kvinneguiden",
+      "url": "https://forum.kvinneguiden.no/?app=core&module=system&controller=ajax&do=usernameExists&input={username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "{\"result\":\"ok\"}"
+        }
+      ],
+      "known_present": "blue",
+      "regex_check": "^[a-zA-Z0-9_.-]{3,18}$",
+      "tags": [
+        "region:no"
+      ]
     },
     {
       "name": "kwork",
@@ -6130,6 +6230,25 @@
       "regex_check": "^[\\w@-]+?$"
     },
     {
+      "name": "Rarible",
+      "url": "https://rarible.com/marketplace/api/v4/urls/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            404
+          ]
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
       "name": "Rate Your Music",
       "url": "https://rateyourmusic.com/~{username}",
       "signals": [
@@ -6429,6 +6548,23 @@
         }
       ],
       "known_present": "griffpatch"
+    },
+    {
+      "name": "Scribd",
+      "url": "https://www.scribd.com/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "Page not found"
+        }
+      ],
+      "known_present": "blue"
     },
     {
       "name": "SEOForum",
@@ -7489,6 +7625,41 @@
         }
       ],
       "known_present": "blue"
+    },
+    {
+      "name": "Trovo",
+      "url": "https://trovo.live/s/{username}/",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "Uh Ohhh..."
+        }
+      ],
+      "known_present": "Aimilios"
+    },
+    {
+      "name": "TryHackMe",
+      "url": "https://tryhackme.com/api/user/exist/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "{\"success\":false}"
+        }
+      ],
+      "known_present": "ashu",
+      "regex_check": "^[a-zA-Z0-9.]{1,16}$"
     },
     {
       "name": "tumblr",

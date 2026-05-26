@@ -40,12 +40,12 @@ KNOWN_BROKEN = {
     name.lower()
     for name in (
         "Apple Discussions", "Archive.org", "authorSTREAM", "BoardGameGeek",
-        "Chess", "Clozemaster", "Codolio", "CSSBattle", "DailyMotion",
-        "Flightradar24", "Hashnode", "Hubski", "igromania",
-        "interpals", "Kaggle", "Kvinneguiden", "mercadolivre", "Needrom",
-        "opennet", "Rarible", "RocketTube", "RoyalCams", "Scribd", "Shelf",
-        "SlideShare", "Splice", "Spotify", "svidbook", "threads", "Trovo",
-        "TryHackMe", "Velomania", "Weblate",
+        "Clozemaster", "Codolio", "DailyMotion",
+        "Hashnode", "Hubski", "igromania",
+        "interpals", "mercadolivre", "Needrom",
+        "opennet", "RocketTube", "RoyalCams", "Shelf",
+        "SlideShare", "Splice", "Spotify", "svidbook", "threads",
+        "Velomania", "Weblate",
         # Too restrictive: marker is site-wide chrome, not a not-found
         # signal, so the site reports NotFound for everyone (verified the
         # marker appears on the homepage). 2026-05-20.
