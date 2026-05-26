@@ -9,6 +9,11 @@ pre-1.0 bump rules.
 
 ## [Unreleased]
 
+## [0.3.2](https://github.com/commit3296/adler/compare/v0.3.1...v0.3.2) - 2026-05-26
+
+### Added
+- *(doctor)* --suggest-known-present probes a pool to heal stale entries
+
 ## [0.3.1](https://github.com/commit3296/adler/compare/v0.3.0...v0.3.1) - 2026-05-24
 
 ### Added
