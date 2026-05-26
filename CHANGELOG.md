@@ -9,6 +9,17 @@ pre-1.0 bump rules.
 
 ## [Unreleased]
 
+## [0.4.0](https://github.com/commit3296/adler/compare/v0.3.2...v0.4.0) - 2026-05-26
+
+### Added
+- [**breaking**] hide NSFW sites behind opt-in --nsfw flag
+- *(registry)* import 26 response_url sites from upstream Sherlock
+- *(site)* per-site regex_check skips probes for invalid usernames
+- *(ban)* detect WAF challenge pages via Sherlock-curated body fingerprints
+
+### Fixed
+- *(security)* defuse shell-interpolation attack in validate-sites.yml
+
 ## [0.3.2](https://github.com/commit3296/adler/compare/v0.3.1...v0.3.2) - 2026-05-26
 
 ### Added
