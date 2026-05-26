@@ -41,7 +41,7 @@ KNOWN_BROKEN = {
     for name in (
         "Apple Discussions", "Archive.org", "authorSTREAM", "BoardGameGeek",
         "Chess", "Clozemaster", "Codolio", "CSSBattle", "DailyMotion",
-        "Flightradar24", "GeeksforGeeks", "Hashnode", "Hubski", "igromania",
+        "Flightradar24", "Hashnode", "Hubski", "igromania",
         "interpals", "Kaggle", "Kvinneguiden", "mercadolivre", "Needrom",
         "opennet", "Rarible", "RocketTube", "RoyalCams", "Scribd", "Shelf",
         "SlideShare", "Splice", "Spotify", "svidbook", "threads", "Trovo",
@@ -152,6 +152,34 @@ OVERRIDES: dict[str, dict] = {
     "Typeracer": {"known_present": "typeracer"},
     "Untappd": {"known_present": "untappd"},
     "Xvideos": {"known_present": "xvideos"},
+    # GeeksforGeeks: cherry-picked from Sherlock fix 2e2248a (Apr 2026).
+    # Both existing and missing profiles return 200, but the
+    # not-found page's title contains `"false   | GeeksforGeeks Profile"`.
+    # We previously had this in KNOWN_BROKEN for false-positives on the
+    # old status_code rule; the body-marker fix is clean. Username
+    # `adam` is upstream's verified `username_claimed`.
+    "GeeksforGeeks": {
+        "url": "https://auth.geeksforgeeks.org/user/{username}",
+        "signals": [
+            {"kind": "status_found", "codes": [200]},
+            {"kind": "body_absent", "text": "false   | GeeksforGeeks Profile"},
+        ],
+        "known_present": "adam",
+    },
+    # LushStories: cherry-picked from Sherlock fix 2e2248a (Apr 2026).
+    # Missing profiles redirect 302 → /login; existing profiles return
+    # 200. Our redirect-absent signal matches `/login` in the final
+    # URL after following redirects. Marked NSFW; auto-excluded unless
+    # `--nsfw` is passed.
+    "LushStories": {
+        "url": "https://www.lushstories.com/profile/{username}",
+        "signals": [
+            {"kind": "status_found", "codes": [200]},
+            {"kind": "redirect_absent", "fragment": "/login"},
+        ],
+        "known_present": "chris_brown",
+        "tags": ["nsfw"],
+    },
 }
 
 

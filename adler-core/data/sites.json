@@ -2573,6 +2573,26 @@
       "known_present": "blue"
     },
     {
+      "name": "GeeksforGeeks",
+      "url": "https://auth.geeksforgeeks.org/user/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "false   | GeeksforGeeks Profile"
+        }
+      ],
+      "known_present": "adam",
+      "tags": [
+        "dev"
+      ]
+    },
+    {
       "name": "Genius (Artists)",
       "url": "https://genius.com/artists/{username}",
       "signals": [
@@ -4214,6 +4234,26 @@
         }
       ],
       "known_present": "lottiefiles"
+    },
+    {
+      "name": "LushStories",
+      "url": "https://www.lushstories.com/profile/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "redirect_absent",
+          "fragment": "/login"
+        }
+      ],
+      "known_present": "chris_brown",
+      "tags": [
+        "nsfw"
+      ]
     },
     {
       "name": "Mamot",
