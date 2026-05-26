@@ -43,25 +43,6 @@
       "known_present": "blue"
     },
     {
-      "name": "7Cups",
-      "url": "https://www.7cups.com/@{username}",
-      "signals": [
-        {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
-          "kind": "status_not_found",
-          "codes": [
-            404
-          ]
-        }
-      ],
-      "known_present": "blue"
-    },
-    {
       "name": "9GAG",
       "url": "https://www.9gag.com/u/{username}",
       "signals": [
@@ -1746,23 +1727,6 @@
       "known_present": "briggs"
     },
     {
-      "name": "Cults3D",
-      "url": "https://cults3d.com/en/users/{username}/creations",
-      "signals": [
-        {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
-          "kind": "body_absent",
-          "text": "Oh dear, this page is not working!"
-        }
-      ],
-      "known_present": "brown"
-    },
-    {
       "name": "CurseForge",
       "url": "https://www.curseforge.com/members/{username}/projects",
       "signals": [
@@ -1822,23 +1786,6 @@
       "tags": [
         "region:ru"
       ]
-    },
-    {
-      "name": "dailykos",
-      "url": "https://www.dailykos.com/signup/check_nickname?nickname={username}",
-      "signals": [
-        {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
-          "kind": "body_absent",
-          "text": "{\"result\":true,\"message\":null}"
-        }
-      ],
-      "known_present": "blue"
     },
     {
       "name": "datingRU",
@@ -2252,25 +2199,6 @@
         }
       ],
       "known_present": "tj"
-    },
-    {
-      "name": "Envato Forum",
-      "url": "https://forums.envato.com/u/{username}",
-      "signals": [
-        {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
-          "kind": "status_not_found",
-          "codes": [
-            404
-          ]
-        }
-      ],
-      "known_present": "enabled"
     },
     {
       "name": "Erome",
@@ -5721,26 +5649,6 @@
       "known_present": "blue"
     },
     {
-      "name": "phpRU",
-      "url": "https://php.ru/forum/members/?username={username}",
-      "signals": [
-        {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
-          "kind": "body_absent",
-          "text": "Указанный пользователь не найден. Пожалуйста, введите другое имя."
-        }
-      ],
-      "known_present": "apple",
-      "tags": [
-        "region:ru"
-      ]
-    },
-    {
       "name": "pikabu",
       "url": "https://pikabu.ru/@{username}",
       "signals": [
@@ -8356,34 +8264,6 @@
       "known_present": "xvideos",
       "tags": [
         "nsfw"
-      ]
-    },
-    {
-      "name": "YandexMusic",
-      "url": "https://music.yandex/users/{username}/playlists",
-      "signals": [
-        {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
-          "kind": "body_absent",
-          "text": "Ошибка 404"
-        },
-        {
-          "kind": "body_absent",
-          "text": "<meta name=\"description\" content=\"Открывайте новую музыку каждый день."
-        },
-        {
-          "kind": "body_absent",
-          "text": "<input type=\"submit\" class=\"CheckboxCaptcha-Button\""
-        }
-      ],
-      "known_present": "ya.playlist",
-      "tags": [
-        "region:ru"
       ]
     },
     {

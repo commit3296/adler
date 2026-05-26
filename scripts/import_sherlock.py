@@ -63,6 +63,16 @@ KNOWN_BROKEN = {
         # `--nsfw` users would get false positives, so honest move is
         # to drop them until a discriminating signature exists.
         "APClips", "Pornhub", "xHamster",
+        # Cross-validated with the Sherlock community's
+        # `false_positive_exclusions.txt` (refs/heads/exclusions)
+        # against our own doctor on 2026-05-26: these six sites fail
+        # on BOTH datacenter (Hetzner/Leaseweb) and US residential
+        # (DECODO), AND our `--suggest-known-present` pool finds no
+        # working account on residential. Triple agreement →
+        # detection is genuinely broken, not just an IP issue.
+        # Reinstate once someone authors a discriminating signature.
+        "7Cups", "Cults3D", "Envato Forum",
+        "YandexMusic", "dailykos", "phpRU",
         # Too restrictive: body-marker is site-wide chrome (forum nav for
         # forum_guns, generic "404" string for Pychess), so the signal
         # fires for *every* user → NotFound for everyone. 2026-05-24.
