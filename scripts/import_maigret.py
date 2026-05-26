@@ -53,7 +53,7 @@ from urllib.parse import urlparse
 # Mirrors the schema's site-name pattern in docs/sites.schema.json.
 # Site names that don't match are skipped: Adler enforces this at load
 # time to keep names safe for shell / CLI / CSV interpolation.
-NAME_RE = re.compile(r"^[\w][\w .()!/+-]*$")
+NAME_RE = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_ .()!/+-]*$")
 
 # Rust's `regex` crate does not support lookaround. Maigret carries
 # ~60 patterns that use `(?=...)`, `(?!...)`, `(?<=...)`, `(?<!...)`.
