@@ -9,6 +9,13 @@ pre-1.0 bump rules.
 
 ## [Unreleased]
 
+## [0.5.0](https://github.com/commit3296/adler/compare/v0.4.0...v0.5.0) - 2026-05-26
+
+### Added
+- *(registry)* opt-in WhatsMyName tranche as CC-BY-SA registry
+- *(registry)* import Maigret sites and engines (439 -> 2558)
+- *(site)* [**breaking**] engine inheritance system for shared signatures
+
 ## [0.4.0](https://github.com/commit3296/adler/compare/v0.3.2...v0.4.0) - 2026-05-26
 
 ### Added
