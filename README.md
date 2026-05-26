@@ -256,8 +256,62 @@ The lever that matters is therefore concurrency, not micro-optimisation:
 
 ## Library
 
-`adler-core` is usable as a crate; see the [crate docs](https://docs.rs/adler-core)
-(`cargo doc -p adler-core --open`) for a worked example.
+`adler-core` is the runtime-agnostic engine that powers the CLI;
+it's published separately on
+[crates.io](https://crates.io/crates/adler-core) so you can embed
+username detection in your own Rust tools. Add to your `Cargo.toml`:
+
+```toml
+[dependencies]
+adler-core = "0.4"
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+```
+
+Minimal worked example — load the embedded registry, scan one
+username, print the hits:
+
+```rust
+use adler_core::{Client, ExecutorOptions, MatchKind, Registry, Username, executor};
+
+#[tokio::main]
+async fn main() -> adler_core::Result<()> {
+    let registry = Registry::default_embedded()?;
+    // filter(include, exclude, tags, exclude_tags, include_nsfw)
+    // — empty slices = no name/tag filter; `false` keeps the
+    // default NSFW auto-exclusion.
+    let sites = registry.filter(&[], &[], &[], &[], false);
+    let username = Username::new("torvalds")?;
+    let client = Client::builder().build()?;
+
+    let outcomes = executor::run(
+        &client, &sites, &username, ExecutorOptions::default(),
+    ).await;
+
+    for outcome in outcomes.iter().filter(|o| o.kind == MatchKind::Found) {
+        println!("found: {} → {}", outcome.site, outcome.url);
+    }
+    Ok(())
+}
+```
+
+See [`docs.rs/adler-core`](https://docs.rs/adler-core) for the
+full API. Notable knobs:
+
+| | |
+|---|---|
+| `Client::builder()` | timeout, redirect policy, user-agent rotation, proxy, retry, rotate-UA, throttle, cache, browser backend, NSFW gate. |
+| `Registry::filter` | include/exclude by name substring, tag, `nsfw` opt-in (the 5th `include_nsfw: bool` parameter — pass `true` to scan adult sites). |
+| `Site::request_headers` | per-site HTTP headers (e.g. Instagram's `X-IG-App-ID`); browser backends apply via `Network.setExtraHTTPHeaders`. |
+| `Site::regex_check` | per-site username-validity regex. Mismatched usernames short-circuit to `Uncertain(UsernameNotAllowed)` without a network request. |
+| `Site::known_present` | `KnownPresent::Single(String)` or `KnownPresent::Multiple(Vec<String>)`; `--doctor` passes if **any** declared username resolves to `Found`. |
+| `BrowserBackend` trait | route bot-protected sites through real Chrome. Built-in: `LocalBackend` (chromiumoxide) and `BrowserbaseBackend` (cloud CDP). |
+
+**Breaking changes since 0.1:** the `Registry::filter` signature
+grew an `include_nsfw: bool` (v0.4.0), `Site::known_present` now
+accepts a `KnownPresent` enum instead of `Option<String>` (v0.3.0),
+`Site::request_headers` and `Site::regex_check` are new fields
+(v0.2.0 / v0.4.0 respectively). The
+[CHANGELOG](CHANGELOG.md) has the migration notes for each.
 
 ## Site registry
 
