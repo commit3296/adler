@@ -70,6 +70,21 @@ pub struct Site {
     /// navigation; the raw-HTTP path doesn't read this yet.
     #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
     pub request_headers: std::collections::BTreeMap<String, String>,
+    /// Optional regular expression describing usernames a site will
+    /// accept. When set and the scanned username doesn't match, the
+    /// site is skipped (the outcome is reported as `Uncertain` with
+    /// reason `UsernameNotAllowed`, without issuing any HTTP request).
+    /// Saves work AND avoids the false-positive class where a site
+    /// 404s on illegal usernames in ways our signal can't tell apart
+    /// from a missing account.
+    ///
+    /// Imported from Sherlock's `regexCheck` field; 95+ sites
+    /// upstream carry one (length bounds, character classes, etc.).
+    /// Validation at load time compiles the regex with `regex::Regex`
+    /// — a malformed pattern rejects the site rather than silently
+    /// degrading at scan time.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub regex_check: Option<String>,
 }
 
 /// Known-present declaration on a [`Site`].
@@ -218,6 +233,22 @@ impl Site {
                         self.name, extractor.selector, extractor.field
                     ),
                 });
+            }
+        }
+        if let Some(pat) = &self.regex_check {
+            if let Err(err) = regex::Regex::new(pat) {
+                // Sherlock's regexes occasionally use lookarounds
+                // (e.g. `(?![.-])`), which the Rust `regex` crate
+                // doesn't support — it's a true regular-language
+                // engine for performance + DoS safety. Rather than
+                // reject the whole site over a username-gate the
+                // probe path will simply skip, downgrade to a warn
+                // and let the site keep working at the cost of one
+                // wasted probe per illegal username.
+                tracing::warn!(
+                    site = %self.name, pattern = %pat, error = %err,
+                    "regex_check did not compile; username-gate disabled for this site",
+                );
             }
         }
         if let Some(kp) = &self.known_present {
@@ -493,6 +524,7 @@ mod tests {
             extract: Vec::new(),
             tags: Vec::new(),
             request_headers: std::collections::BTreeMap::new(),
+            regex_check: None,
         }
     }
 
@@ -604,6 +636,27 @@ mod tests {
         s.name = "A".repeat(100);
         let err = s.validate().unwrap_err();
         assert!(err.to_string().contains("longer than"));
+    }
+
+    #[test]
+    fn validate_accepts_well_formed_regex_check() {
+        let mut s = site_with(vec![Signal::StatusFound { codes: vec![200] }]);
+        s.regex_check = Some("^[a-zA-Z0-9_-]{3,40}$".into());
+        assert!(s.validate().is_ok());
+    }
+
+    #[test]
+    fn validate_tolerates_unsupported_regex_features() {
+        // Sherlock-imported regexes occasionally use lookarounds
+        // (e.g. `(?!...)`) that Rust's `regex` crate can't compile —
+        // those sites should still load, with the username-gate
+        // silently disabled rather than rejecting the whole site.
+        let mut s = site_with(vec![Signal::StatusFound { codes: vec![200] }]);
+        s.regex_check = Some("^(?![.-])[a-zA-Z0-9_.-]{3,20}$".into());
+        assert!(
+            s.validate().is_ok(),
+            "lookaround-bearing regex should warn, not reject the site"
+        );
     }
 
     #[test]

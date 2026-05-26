@@ -20,7 +20,8 @@
           "text": "<head><title>404 Not Found</title></head>"
         }
       ],
-      "known_present": "FitGirl"
+      "known_present": "FitGirl",
+      "regex_check": "^[A-Za-z0-9]{4,12}$"
     },
     {
       "name": "2Dimensions",
@@ -115,7 +116,8 @@
           ]
         }
       ],
-      "known_present": "blue"
+      "known_present": "blue",
+      "regex_check": "^[^.]*$"
     },
     {
       "name": "addons.wago.io",
@@ -228,7 +230,8 @@
           "text": "Page not found"
         }
       ],
-      "known_present": "blue"
+      "known_present": "blue",
+      "regex_check": "^[a-z0-9][a-z0-9-]{2,32}$"
     },
     {
       "name": "AniWorld",
@@ -322,7 +325,8 @@
           ]
         }
       ],
-      "known_present": "archiveofourown"
+      "known_present": "archiveofourown",
+      "regex_check": "^[^.]*?$"
     },
     {
       "name": "Arduino Forum",
@@ -442,7 +446,8 @@
           ]
         }
       ],
-      "known_present": "blue"
+      "known_present": "blue",
+      "regex_check": "^[a-zA-Z0-9_]+$"
     },
     {
       "name": "Autofrage",
@@ -628,7 +633,8 @@
       "known_present": "torvalds",
       "tags": [
         "dev"
-      ]
+      ],
+      "regex_check": "^[a-zA-Z0-9-_]{1,30}$"
     },
     {
       "name": "Bitwarden Forum",
@@ -647,7 +653,8 @@
           ]
         }
       ],
-      "known_present": "kspearrin"
+      "known_present": "kspearrin",
+      "regex_check": "^(?![.-])[a-zA-Z0-9_.-]{3,20}$"
     },
     {
       "name": "Blipfoto",
@@ -705,7 +712,8 @@
       "known_present": "blue",
       "tags": [
         "blog"
-      ]
+      ],
+      "regex_check": "^[a-zA-Z][a-zA-Z0-9_-]*$"
     },
     {
       "name": "Bluesky",
@@ -839,7 +847,8 @@
           ]
         }
       ],
-      "known_present": "red"
+      "known_present": "red",
+      "regex_check": "[a-zA-Z0-9]{3,15}"
     },
     {
       "name": "BuzzFeed",
@@ -935,7 +944,8 @@
           ]
         }
       ],
-      "known_present": "blue"
+      "known_present": "blue",
+      "regex_check": "^[a-zA-Z0-9_-]{3,50}$"
     },
     {
       "name": "CashApp",
@@ -992,7 +1002,8 @@
           ]
         }
       ],
-      "known_present": "blue"
+      "known_present": "blue",
+      "regex_check": "^[^.]*?$"
     },
     {
       "name": "Championat",
@@ -1069,7 +1080,8 @@
       "known_present": "david",
       "tags": [
         "region:cz"
-      ]
+      ],
+      "regex_check": "^[a-zA-Z][a-zA-Z1-9_-]*$"
     },
     {
       "name": "ChaturBate",
@@ -1205,7 +1217,8 @@
           ]
         }
       ],
-      "known_present": "melliott"
+      "known_present": "melliott",
+      "regex_check": "^[a-z].*$"
     },
     {
       "name": "Code Snippet Wiki",
@@ -1316,7 +1329,8 @@
           "text": "not a registered member"
         }
       ],
-      "known_present": "rootkit7628"
+      "known_present": "rootkit7628",
+      "regex_check": "^[a-zA-Z0-9](?:[a-zA-Z0-9]|-(?=[a-zA-Z0-9])){0,38}$"
     },
     {
       "name": "Coderwall",
@@ -1352,7 +1366,8 @@
           "text": "Could not find user with username"
         }
       ],
-      "known_present": "icyjoseph"
+      "known_present": "icyjoseph",
+      "regex_check": "^[a-zA-Z0-9_-]{3,30}$"
     },
     {
       "name": "Codewars",
@@ -1524,7 +1539,8 @@
           ]
         }
       ],
-      "known_present": "blue"
+      "known_present": "blue",
+      "regex_check": "^[\\w@-]+?$"
     },
     {
       "name": "Crowdin",
@@ -1543,7 +1559,8 @@
           ]
         }
       ],
-      "known_present": "blue"
+      "known_present": "blue",
+      "regex_check": "^[a-zA-Z0-9._-]{2,255}$"
     },
     {
       "name": "Cryptomator Forum",
@@ -1636,7 +1653,8 @@
           ]
         }
       ],
-      "known_present": "mlohn"
+      "known_present": "mlohn",
+      "regex_check": "^[^\\/:*?\"<>|@]{3,50}$"
     },
     {
       "name": "d3RU",
@@ -1733,7 +1751,8 @@
           "text": "La page que vous essayez"
         }
       ],
-      "known_present": "blue"
+      "known_present": "blue",
+      "regex_check": "[a-z0-9]{4,16}"
     },
     {
       "name": "DEV Community",
@@ -1752,7 +1771,8 @@
           ]
         }
       ],
-      "known_present": "blue"
+      "known_present": "blue",
+      "regex_check": "^[a-zA-Z][a-zA-Z0-9_-]*$"
     },
     {
       "name": "DeviantArt",
@@ -1772,7 +1792,8 @@
       "known_present": "blue",
       "tags": [
         "art"
-      ]
+      ],
+      "regex_check": "^[a-zA-Z][a-zA-Z0-9_-]*$"
     },
     {
       "name": "DigitalSpy",
@@ -1789,7 +1810,8 @@
           "text": "The page you were looking for could not be found."
         }
       ],
-      "known_present": "blue"
+      "known_present": "blue",
+      "regex_check": "^\\w{3,20}$"
     },
     {
       "name": "Discogs",
@@ -1864,7 +1886,8 @@
       "known_present": "blue",
       "tags": [
         "region:no"
-      ]
+      ],
+      "regex_check": "^[a-zA-Z0-9_.-]{3,40}$"
     },
     {
       "name": "Disqus",
@@ -1942,7 +1965,8 @@
       "known_present": "dribbble",
       "tags": [
         "art"
-      ]
+      ],
+      "regex_check": "^[a-zA-Z][a-zA-Z0-9_-]*$"
     },
     {
       "name": "drive2",
@@ -2022,7 +2046,8 @@
       "known_present": "blue",
       "tags": [
         "region:de"
-      ]
+      ],
+      "regex_check": "^[^.]*?$"
     },
     {
       "name": "Eintracht Frankfurt Forum",
@@ -2044,7 +2069,8 @@
       "known_present": "mmammu",
       "tags": [
         "region:de"
-      ]
+      ],
+      "regex_check": "^[^.]*?$"
     },
     {
       "name": "Empretienda AR",
@@ -2142,7 +2168,8 @@
           ]
         }
       ],
-      "known_present": "jonasjacobsson"
+      "known_present": "jonasjacobsson",
+      "regex_check": "^[a-zA-Z0-9-]{1,63}$"
     },
     {
       "name": "EyeEm",
@@ -2319,7 +2346,8 @@
           ]
         }
       ],
-      "known_present": "blue"
+      "known_present": "blue",
+      "regex_check": "^([a-zA-Z0-9_]){1,15}$"
     },
     {
       "name": "Football",
@@ -2394,7 +2422,8 @@
           ]
         }
       ],
-      "known_present": "blue"
+      "known_present": "blue",
+      "regex_check": "^[a-zA-Z0-9_]{1,30}$"
     },
     {
       "name": "Framapiaf",
@@ -2413,7 +2442,8 @@
           ]
         }
       ],
-      "known_present": "pylapp"
+      "known_present": "pylapp",
+      "regex_check": "^[a-zA-Z0-9_]{1,30}$"
     },
     {
       "name": "freecodecamp",
@@ -2559,7 +2589,8 @@
           ]
         }
       ],
-      "known_present": "genius"
+      "known_present": "genius",
+      "regex_check": "^[a-zA-Z0-9]{5,50}$"
     },
     {
       "name": "Genius (Users)",
@@ -2578,7 +2609,8 @@
           ]
         }
       ],
-      "known_present": "genius"
+      "known_present": "genius",
+      "regex_check": "^[a-zA-Z0-9]*?$"
     },
     {
       "name": "geocaching",
@@ -2690,7 +2722,8 @@
           ]
         }
       ],
-      "known_present": "gitbook"
+      "known_present": "gitbook",
+      "regex_check": "^[\\w@-]+?$"
     },
     {
       "name": "Gitea",
@@ -2765,7 +2798,8 @@
       ],
       "tags": [
         "dev"
-      ]
+      ],
+      "regex_check": "^[a-zA-Z0-9](?:[a-zA-Z0-9]|-(?=[a-zA-Z0-9])){0,38}$"
     },
     {
       "name": "GitLab",
@@ -2840,7 +2874,8 @@
           ]
         }
       ],
-      "known_present": "jetbrains"
+      "known_present": "jetbrains",
+      "regex_check": "^(?!-)[a-zA-Z0-9-]{3,}(?<!-)$"
     },
     {
       "name": "Gravatar",
@@ -2859,7 +2894,8 @@
           ]
         }
       ],
-      "known_present": "jack"
+      "known_present": "jack",
+      "regex_check": "^((?!\\.).)*$"
     },
     {
       "name": "Gumroad",
@@ -2876,7 +2912,8 @@
           "text": "Page not found (404) - Gumroad"
         }
       ],
-      "known_present": "blue"
+      "known_present": "blue",
+      "regex_check": "^[^.]*?$"
     },
     {
       "name": "Gutefrage",
@@ -2953,7 +2990,8 @@
           "text": "Page not found"
         }
       ],
-      "known_present": "blazezaria"
+      "known_present": "blazezaria",
+      "regex_check": "^[\\w-]{,34}$"
     },
     {
       "name": "HackerEarth",
@@ -3033,7 +3071,8 @@
           "text": "Something went wrong"
         }
       ],
-      "known_present": "satznova"
+      "known_present": "satznova",
+      "regex_check": "^[^.]*?$"
     },
     {
       "name": "HackerSploit",
@@ -3316,7 +3355,8 @@
           ]
         }
       ],
-      "known_present": "blue"
+      "known_present": "blue",
+      "regex_check": "^[A-Za-z0-9]{3,35}$"
     },
     {
       "name": "Ifunny",
@@ -3501,7 +3541,8 @@
           ]
         }
       ],
-      "known_present": "blue"
+      "known_present": "blue",
+      "regex_check": "[a-z0-9_]{1,25}"
     },
     {
       "name": "Ionic Forum",
@@ -3580,7 +3621,8 @@
           ]
         }
       ],
-      "known_present": "itch"
+      "known_present": "itch",
+      "regex_check": "^[\\w@-]+?$"
     },
     {
       "name": "Itemfix",
@@ -3638,7 +3680,8 @@
           ]
         }
       ],
-      "known_present": "EraYaN"
+      "known_present": "EraYaN",
+      "regex_check": "^[a-zA-Z0-9@._-]{1,150}$"
     },
     {
       "name": "jeuxvideo",
@@ -3676,7 +3719,8 @@
           ]
         }
       ],
-      "known_present": "jenny"
+      "known_present": "jenny",
+      "regex_check": "^[\\w@-]+?$"
     },
     {
       "name": "Joplin Forum",
@@ -3811,7 +3855,8 @@
           ]
         }
       ],
-      "known_present": "octocat"
+      "known_present": "octocat",
+      "regex_check": "^[a-zA-Z][a-zA-Z0-9_-]*$"
     },
     {
       "name": "kwork",
@@ -3852,7 +3897,8 @@
           ]
         }
       ],
-      "known_present": "user1"
+      "known_present": "user1",
+      "regex_check": "^[a-zA-Z0-9_-]{3,}$"
     },
     {
       "name": "last.fm",
@@ -4023,7 +4069,8 @@
           ]
         }
       ],
-      "known_present": "paulpfeister"
+      "known_present": "paulpfeister",
+      "regex_check": "^[a-zA-Z0-9]{3,100}$"
     },
     {
       "name": "Linktree",
@@ -4040,7 +4087,8 @@
           "text": "\"statusCode\":404"
         }
       ],
-      "known_present": "anne"
+      "known_present": "anne",
+      "regex_check": "^[\\w\\.]{2,30}$"
     },
     {
       "name": "LinuxFR.org",
@@ -4081,7 +4129,8 @@
       "known_present": "blue",
       "tags": [
         "region:ru"
-      ]
+      ],
+      "regex_check": "^[a-zA-Z][a-zA-Z0-9_-]*$"
     },
     {
       "name": "livelib",
@@ -4122,7 +4171,8 @@
           ]
         }
       ],
-      "known_present": "jcs"
+      "known_present": "jcs",
+      "regex_check": "[A-Za-z0-9][A-Za-z0-9_-]{0,24}"
     },
     {
       "name": "LOR",
@@ -4185,7 +4235,8 @@
       "known_present": "anciensEnssat",
       "tags": [
         "region:fr"
-      ]
+      ],
+      "regex_check": "^[a-zA-Z0-9_]{1,30}$"
     },
     {
       "name": "mastodon.cloud",
@@ -4315,7 +4366,8 @@
           "text": "Couldn't find any profile with name"
         }
       ],
-      "known_present": "blue"
+      "known_present": "blue",
+      "regex_check": "^.{1,25}$"
     },
     {
       "name": "MixCloud",
@@ -4721,7 +4773,8 @@
           ]
         }
       ],
-      "known_present": "blue"
+      "known_present": "blue",
+      "regex_check": "^[a-zA-Z][a-zA-Z0-9_-]*$"
     },
     {
       "name": "Nextcloud Forum",
@@ -4740,7 +4793,8 @@
           ]
         }
       ],
-      "known_present": "blue"
+      "known_present": "blue",
+      "regex_check": "^(?![.-])[a-zA-Z0-9_.-]{3,20}$"
     },
     {
       "name": "NICommunityForum",
@@ -4834,7 +4888,8 @@
       "known_present": "blue",
       "tags": [
         "region:ru"
-      ]
+      ],
+      "regex_check": "^[\\w@-]+?$"
     },
     {
       "name": "NotABug.org",
@@ -5059,7 +5114,8 @@
           ]
         }
       ],
-      "known_present": "blue"
+      "known_present": "blue",
+      "regex_check": "^[^.]*?$"
     },
     {
       "name": "osu!",
@@ -5204,7 +5260,8 @@
           ]
         }
       ],
-      "known_present": "0day"
+      "known_present": "0day",
+      "regex_check": "^[\\w]{4,30}$"
     },
     {
       "name": "Pepperdeals",
@@ -5366,7 +5423,8 @@
           ]
         }
       ],
-      "known_present": "blue"
+      "known_present": "blue",
+      "regex_check": "^[^.]*?$"
     },
     {
       "name": "Pinterest",
@@ -5772,7 +5830,8 @@
       "known_present": "blue",
       "tags": [
         "region:cz"
-      ]
+      ],
+      "regex_check": "^[\\w@-]+?$"
     },
     {
       "name": "Rate Your Music",
@@ -5957,7 +6016,8 @@
           ]
         }
       ],
-      "known_present": "blue"
+      "known_present": "blue",
+      "regex_check": "^[a-zA-Z][a-zA-Z0-9_-]{1,40}"
     },
     {
       "name": "Rumble",
@@ -5993,7 +6053,8 @@
           "text": "{\"error\":\"NO_PROFILE\",\"loggedIn\":\"false\"}"
         }
       ],
-      "known_present": "L33"
+      "known_present": "L33",
+      "regex_check": "^(?! )[\\w -]{1,12}(?<! )$"
     },
     {
       "name": "satsisRU",
@@ -6165,7 +6226,8 @@
           ]
         }
       ],
-      "known_present": "blue"
+      "known_present": "blue",
+      "regex_check": "^[a-zA-Z][a-zA-Z0-9_-]*$"
     },
     {
       "name": "Slant",
@@ -6184,7 +6246,8 @@
           ]
         }
       ],
-      "known_present": "blue"
+      "known_present": "blue",
+      "regex_check": "^.{2,32}$"
     },
     {
       "name": "Slashdot",
@@ -6239,7 +6302,8 @@
           ]
         }
       ],
-      "known_present": "winchester"
+      "known_present": "winchester",
+      "regex_check": "^[a-zA-Z]{1,35}$"
     },
     {
       "name": "Smule",
@@ -6278,7 +6342,8 @@
       "known_present": "teamsnapchat",
       "tags": [
         "social"
-      ]
+      ],
+      "regex_check": "^[a-z][a-z-_.]{3,15}"
     },
     {
       "name": "social.tchncs.de",
@@ -6498,7 +6563,8 @@
           ]
         }
       ],
-      "known_present": "cambosteve"
+      "known_present": "cambosteve",
+      "regex_check": "^[^.]*?$"
     },
     {
       "name": "Sporcle",
@@ -6651,7 +6717,8 @@
           ]
         }
       ],
-      "known_present": "blue"
+      "known_present": "blue",
+      "regex_check": "^[^.]*?$"
     },
     {
       "name": "SublimeForum",
@@ -6689,7 +6756,8 @@
           ]
         }
       ],
-      "known_present": "green"
+      "known_present": "green",
+      "regex_check": "^[a-zA-Z0-9][a-zA-Z0-9_-]{1,60}$"
     },
     {
       "name": "SWAPD",
@@ -6729,7 +6797,8 @@
           "text": "If you have <strong>Telegram</strong>, you can contact <a class=\"tgme_username_link\" href=\"tg://resolve?domain="
         }
       ],
-      "known_present": "blue"
+      "known_present": "blue",
+      "regex_check": "^[a-zA-Z0-9_]{3,32}[^_]$"
     },
     {
       "name": "Tellonym.me",
@@ -6767,7 +6836,8 @@
           ]
         }
       ],
-      "known_present": "red"
+      "known_present": "red",
+      "regex_check": "^[A-Za-z0-9_]{2,32}$"
     },
     {
       "name": "Terraria Forums",
@@ -6942,7 +7012,8 @@
           ]
         }
       ],
-      "known_present": "USER"
+      "known_present": "USER",
+      "regex_check": "^[a-zA-Z0-9_.]+$"
     },
     {
       "name": "Topmate",
@@ -7021,7 +7092,8 @@
           ]
         }
       ],
-      "known_present": "admin"
+      "known_present": "admin",
+      "regex_check": "^[^.]*$"
     },
     {
       "name": "TRAKTRAIN",
@@ -7062,7 +7134,8 @@
       "known_present": "blue",
       "tags": [
         "region:ru"
-      ]
+      ],
+      "regex_check": "^[A-Za-z0-9_-]{3,16}$"
     },
     {
       "name": "Trawelling",
@@ -7142,7 +7215,8 @@
           ]
         }
       ],
-      "known_present": "bob"
+      "known_present": "bob",
+      "regex_check": "^[a-z0-9]{4,40}$"
     },
     {
       "name": "Tweakers",
@@ -7204,7 +7278,8 @@
       "tags": [
         "bot-protected",
         "social"
-      ]
+      ],
+      "regex_check": "^[a-zA-Z0-9_]{1,15}$"
     },
     {
       "name": "Typeracer",
@@ -7278,7 +7353,8 @@
           ]
         }
       ],
-      "known_present": "jenny"
+      "known_present": "jenny",
+      "regex_check": "^[a-z0-9_]{1,60}$"
     },
     {
       "name": "Untappd",
@@ -7563,7 +7639,8 @@
       "known_present": "radkabalcarova",
       "tags": [
         "region:cz"
-      ]
+      ],
+      "regex_check": "^[\\w@-]+?$"
     },
     {
       "name": "Weebly",
@@ -7582,7 +7659,8 @@
           ]
         }
       ],
-      "known_present": "blue"
+      "known_present": "blue",
+      "regex_check": "^[a-zA-Z0-9-]{1,63}$"
     },
     {
       "name": "WICG Forum",
@@ -7601,7 +7679,8 @@
           ]
         }
       ],
-      "known_present": "stefano"
+      "known_present": "stefano",
+      "regex_check": "^(?![.-])[a-zA-Z0-9_.-]{3,20}$"
     },
     {
       "name": "Wikidot",
@@ -7673,7 +7752,8 @@
           ]
         }
       ],
-      "known_present": "support"
+      "known_present": "support",
+      "regex_check": "^[\\w@-]+?$"
     },
     {
       "name": "WolframalphaForum",
@@ -7709,7 +7789,8 @@
           "text": "Page Not Found"
         }
       ],
-      "known_present": "blue"
+      "known_present": "blue",
+      "regex_check": "^[a-zA-Z0-9_.+-]{1,40}$"
     },
     {
       "name": "Wowhead",

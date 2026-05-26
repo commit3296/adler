@@ -261,6 +261,7 @@ mod tests {
             extract: Vec::new(),
             tags: Vec::new(),
             request_headers: std::collections::BTreeMap::new(),
+            regex_check: None,
         }
     }
 

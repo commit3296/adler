@@ -365,6 +365,7 @@ pub async fn scaffold_site(
         extract: Vec::new(),
         tags: Vec::new(),
         request_headers: std::collections::BTreeMap::new(),
+        regex_check: None,
     };
     Ok(suggest_fix(client, &probe).await.map(|fix| {
         (
@@ -431,6 +432,7 @@ mod tests {
             extract: Vec::new(),
             tags: Vec::new(),
             request_headers: std::collections::BTreeMap::new(),
+            regex_check: None,
         }
     }
 
@@ -741,6 +743,7 @@ mod tests {
             extract: Vec::new(),
             tags: vec!["bot-protected".into()],
             request_headers: std::collections::BTreeMap::new(),
+            regex_check: None,
         };
 
         let client = Client::builder()
@@ -920,6 +923,7 @@ mod tests {
             extract: Vec::new(),
             tags: Vec::new(),
             request_headers: std::collections::BTreeMap::new(),
+            regex_check: None,
         };
         let pool = default_candidate_pool(&site);
         assert_eq!(pool.first().map(String::as_str), Some("github"));
@@ -950,6 +954,7 @@ mod tests {
             extract: Vec::new(),
             tags: Vec::new(),
             request_headers: std::collections::BTreeMap::new(),
+            regex_check: None,
         };
         let pool = default_candidate_pool(&site);
         assert!(pool.contains(&"torvalds".to_owned()));

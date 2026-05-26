@@ -56,6 +56,12 @@ pub enum UncertainReason {
     /// A `bot-protected` site needed the browser backend but the per-scan
     /// `--browser-budget` cap was already spent on earlier sites.
     BrowserBudget,
+    /// The username doesn't satisfy the site's `regex_check`
+    /// (e.g. too short, contains forbidden characters). Reported
+    /// without issuing any HTTP request — saves both network and the
+    /// false-positive class where the site 404s on illegal usernames
+    /// in ways our signal can't tell apart from a missing account.
+    UsernameNotAllowed,
     /// The browser backend itself failed (timeout, navigation error,
     /// session drop, …) for a `bot-protected` site.
     BrowserFailed(String),
@@ -75,6 +81,7 @@ impl fmt::Display for UncertainReason {
             Self::Network(detail) => write!(f, "request: {detail}"),
             Self::BodyRead(detail) => write!(f, "body read: {detail}"),
             Self::BrowserBudget => f.write_str("browser_budget_exceeded"),
+            Self::UsernameNotAllowed => f.write_str("username_not_allowed"),
             Self::BrowserFailed(detail) => write!(f, "browser: {detail}"),
             Self::Other(detail) => f.write_str(detail),
         }

@@ -66,6 +66,16 @@
           "type": "array",
           "description": "Free-form classification tags for --tag subset scans (e.g. \"social\", \"dev\", \"region:ru\"). Conventionally lowercase.",
           "items": { "type": "string", "minLength": 1 }
+        },
+        "request_headers": {
+          "type": "object",
+          "description": "Extra HTTP headers sent with the probe (e.g. `X-IG-App-ID` for Instagram). Browser backends apply via setExtraHTTPHeaders/setUserAgentOverride; the raw-HTTP path doesn't read this yet.",
+          "additionalProperties": { "type": "string" }
+        },
+        "regex_check": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Username-validity regex (Rust `regex` syntax). Usernames not matching this pattern are skipped with `Uncertain(UsernameNotAllowed)` — no HTTP request is issued. Mirrors Sherlock's `regexCheck`."
         }
       }
     },

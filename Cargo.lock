@@ -37,6 +37,7 @@ dependencies = [
  "fastrand",
  "futures",
  "proptest",
+ "regex",
  "reqwest",
  "scraper",
  "secrecy",

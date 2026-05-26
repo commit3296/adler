@@ -186,6 +186,28 @@ impl Client {
     async fn probe_once(&self, site: &Site, username: &Username) -> CheckOutcome {
         let url = site.url_for(username);
 
+        // Site-level username constraint (Sherlock's `regexCheck`).
+        // Mismatch → skip the probe entirely. Saves a request and
+        // sidesteps the false-positive class where a site 404s on
+        // illegal usernames in a way our signal can't distinguish
+        // from a missing account. If the pattern fails to compile
+        // (Sherlock occasionally uses lookarounds, which our `regex`
+        // crate can't express), we let validate's warn-log stand
+        // and silently fall through — the rest of the probe still
+        // works.
+        if let Some(pat) = &site.regex_check {
+            if let Ok(re) = regex::Regex::new(pat) {
+                if !re.is_match(username.as_str()) {
+                    return uncertain(
+                        &site.name,
+                        url,
+                        Instant::now(),
+                        UncertainReason::UsernameNotAllowed,
+                    );
+                }
+            }
+        }
+
         // Auto-route bot-protected sites through the browser backend when
         // one is configured. Raw HTTP can't see past their JS/login wall,
         // so this is the only way they ever produce a Found verdict.
@@ -740,11 +762,57 @@ mod tests {
             extract: Vec::new(),
             tags: Vec::new(),
             request_headers: std::collections::BTreeMap::new(),
+            regex_check: None,
         }
     }
 
     fn user() -> Username {
         Username::new("alice").unwrap()
+    }
+
+    #[tokio::test]
+    async fn regex_check_short_circuits_before_any_request() {
+        // Stand up a mock that would 200 on *anything* — if probe_once
+        // failed to short-circuit on regex mismatch, the username
+        // "alice" (5 chars) would resolve to Found here.
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .respond_with(ResponseTemplate::new(200))
+            .mount(&server)
+            .await;
+        let mut site = site_with(&server, vec![Signal::StatusFound { codes: vec![200] }]);
+        // The site only accepts usernames of 8+ chars; "alice" is 5.
+        site.regex_check = Some("^[A-Za-z]{8,}$".into());
+        let outcome = build_client().check(&site, &user()).await;
+        assert_eq!(outcome.kind, MatchKind::Uncertain);
+        assert!(
+            matches!(outcome.reason, Some(UncertainReason::UsernameNotAllowed)),
+            "expected UsernameNotAllowed, got {:?}",
+            outcome.reason,
+        );
+        // No request should have hit the mock — assert by counting
+        // received_requests on the wiremock server.
+        let recvd = server.received_requests().await.unwrap_or_default();
+        assert_eq!(
+            recvd.len(),
+            0,
+            "regex_check mismatch must skip the HTTP request entirely"
+        );
+    }
+
+    #[tokio::test]
+    async fn regex_check_pass_proceeds_to_probe() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/alice"))
+            .respond_with(ResponseTemplate::new(200))
+            .mount(&server)
+            .await;
+        let mut site = site_with(&server, vec![Signal::StatusFound { codes: vec![200] }]);
+        // Pattern that matches "alice".
+        site.regex_check = Some("^[a-z]{3,}$".into());
+        let outcome = build_client().check(&site, &user()).await;
+        assert_eq!(outcome.kind, MatchKind::Found);
     }
 
     #[tokio::test]
@@ -913,6 +981,7 @@ mod tests {
             extract: Vec::new(),
             tags: Vec::new(),
             request_headers: std::collections::BTreeMap::new(),
+            regex_check: None,
         };
         let client = Client::builder()
             .timeout(Duration::from_millis(500))
@@ -1113,6 +1182,7 @@ mod tests {
             extract: Vec::new(),
             tags: Vec::new(),
             request_headers: std::collections::BTreeMap::new(),
+            regex_check: None,
         };
         let client = Client::builder()
             .timeout(Duration::from_millis(500))
@@ -1203,6 +1273,7 @@ mod tests {
             extract: Vec::new(),
             tags: Vec::new(),
             request_headers: std::collections::BTreeMap::new(),
+            regex_check: None,
         };
         let site_b = Site {
             name: "B".into(),
@@ -1213,6 +1284,7 @@ mod tests {
             extract: Vec::new(),
             tags: Vec::new(),
             request_headers: std::collections::BTreeMap::new(),
+            regex_check: None,
         };
         // 2 RPS → ~500 ms between requests. A large interval keeps the
         // assertion robust even when the first probe's own duration (which
@@ -1272,6 +1344,7 @@ mod tests {
             extract: Vec::new(),
             tags: Vec::new(),
             request_headers: std::collections::BTreeMap::new(),
+            regex_check: None,
         };
         let allowed = Site {
             name: "Yes".into(),
@@ -1282,6 +1355,7 @@ mod tests {
             extract: Vec::new(),
             tags: Vec::new(),
             request_headers: std::collections::BTreeMap::new(),
+            regex_check: None,
         };
 
         let no = client.check(&disallowed, &user()).await;

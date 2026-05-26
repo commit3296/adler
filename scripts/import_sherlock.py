@@ -284,6 +284,13 @@ def convert(entry: dict) -> dict | None:
     claimed = entry.get("username_claimed")
     if isinstance(claimed, str) and claimed:
         site["known_present"] = claimed
+    # Carry Sherlock's `regexCheck` through as our `regex_check` —
+    # 95+ upstream sites declare username constraints (length bounds,
+    # allowed character classes). The Rust loader will reject probes
+    # for usernames that don't match before issuing any HTTP request.
+    regex_check = entry.get("regexCheck")
+    if isinstance(regex_check, str) and regex_check:
+        site["regex_check"] = regex_check
     return site
 
 
