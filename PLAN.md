@@ -14,15 +14,17 @@ modern terminal UX.
 
 ---
 
-## Now (v0.3.x line)
+## Now (v0.5.x line)
 
 - Workspace: `adler-core` (library) + `adler-cli` (binary `adler`),
   both published on [crates.io](https://crates.io/crates/adler-cli);
   prebuilt binaries for five platforms attached to every GitHub
   Release; `cargo binstall adler-cli` works.
-- 411-site embedded registry, multi-signal detection
-  (status / body / redirect), `--doctor` health check with
-  `--fix` signature derivation (now browser-aware for
+- 2558-site embedded registry with shared engine inheritance for
+  forum-software families (XenForo, vBulletin, Discourse, phpBB,
+  uCoz, Flarum, op.gg — 12 engines in total). Multi-signal
+  detection (status / body / redirect), `--doctor` health check
+  with `--fix` signature derivation (now browser-aware for
   bot-protected sites), per-site `request_headers`, and a
   defensive multi-`known_present` doctor.
 - Two browser backends for `bot-protected` sites
@@ -36,9 +38,13 @@ modern terminal UX.
   and CHANGELOG entry; on merge, the matching GitHub App publishes
   both crates to crates.io and creates a `v<X.Y.Z>` GitHub Release;
   the binary upload workflow auto-triggers on the release event.
-- Current detection rate (2026-05-25, 411 sites): **67.9%
-  datacenter**, **72.3% US residential**. See README for the full
-  breakdown of what doesn't detect and why.
+- Current detection rate measured pre-merge on the 411-site
+  v0.3.x registry: **67.9% datacenter**, **72.3% US residential**.
+  The Maigret-imported tranche (2119 sites, tagged
+  `source:maigret`) is unvalidated at the time of import; the
+  nightly doctor workflow will gradually classify its structural
+  failures. See README for the breakdown of what doesn't detect
+  and why.
 
 ## Next
 
@@ -114,6 +120,14 @@ Release PR on the same gates.
 
 ## History (one line each)
 
+- **v0.5.0** (pending) — engine inheritance for shared forum
+  signatures (`Site.engine` + top-level `engines` block); Maigret
+  importer brings the registry from 439 to 2558 sites (+12
+  engines); WhatsMyName import deferred on CC-BY-SA / MIT
+  incompatibility.
+- **v0.4.0** (2026-05-24) — default-exclude NSFW with `--nsfw`
+  opt-in mirroring Sherlock; per-site `regex_check` username
+  gate; new `UncertainReason::UsernameNotAllowed`.
 - **v0.3.0** (2026-05-24) — multi-`known_present` defensive
   doctor; mock-CDP test harness; closed Phase 5 *honest limits*
   follow-ups.
