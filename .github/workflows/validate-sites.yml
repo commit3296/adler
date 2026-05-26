@@ -73,9 +73,15 @@ jobs:
 
       - name: Determine changed sites
         id: diff
+        # `BASE_SHA` is the merge-base of the PR; pulled in via env-var so
+        # the GitHub expression engine never inlines it into shell. The SHA
+        # itself is 40 hex chars and can't contain metacharacters, but the
+        # indirection avoids the whole class of injection bugs (see the
+        # Sherlock CVE 6eaec5c, May 2026).
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
-          base="${{ github.event.pull_request.base.sha }}"
-          git show "$base:adler-core/data/sites.json" > /tmp/base_sites.json 2>/dev/null \
+          git show "$BASE_SHA:adler-core/data/sites.json" > /tmp/base_sites.json 2>/dev/null \
             || echo '{"sites":[]}' > /tmp/base_sites.json
           python3 scripts/changed_sites.py /tmp/base_sites.json adler-core/data/sites.json \
             > /tmp/changed.txt || true
@@ -86,11 +92,22 @@ jobs:
 
       - name: Doctor changed sites (advisory)
         if: steps.diff.outputs.count != '0'
+        # Site names come from PR-controlled sites.json. The JSON Schema
+        # gate above and `Site::validate` both enforce a safe character
+        # class for names (`^[\w][\w .()!/+-]*$`), so `--only "$name"`
+        # can't be broken out of. The defence is layered: schema → Rust
+        # loader → this skip-on-mismatch fence below.
         run: |
           set +e
           : > /tmp/doc.txt
           while IFS= read -r name; do
             [ -z "$name" ] && continue
+            # Belt-and-braces: reject anything that didn't pass the
+            # schema/loader, in case CI somehow ran before they did.
+            if ! printf '%s' "$name" | grep -qE '^[A-Za-z0-9_][A-Za-z0-9_ .()!/+-]*$'; then
+              echo "skipping suspicious site name (failed safety regex)" >&2
+              continue
+            fi
             ./target/release/adler --doctor --only "$name" \
               --no-cache --max-retries 0 --rotate-ua --timeout 12 >> /tmp/doc.txt 2>/dev/null
           done < /tmp/changed.txt
