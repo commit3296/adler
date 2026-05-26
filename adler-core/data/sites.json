@@ -270,26 +270,6 @@
       "known_present": "jadi"
     },
     {
-      "name": "APClips",
-      "url": "https://apclips.com/{username}",
-      "signals": [
-        {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
-          "kind": "body_absent",
-          "text": "Amateur Porn Content Creators"
-        }
-      ],
-      "known_present": "apclips",
-      "tags": [
-        "nsfw"
-      ]
-    },
-    {
       "name": "Apple Developer",
       "url": "https://developer.apple.com/forums/profile/{username}",
       "signals": [
@@ -6012,28 +5992,6 @@
       "known_present": "craciu25yt"
     },
     {
-      "name": "Pornhub",
-      "url": "https://pornhub.com/users/{username}",
-      "signals": [
-        {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
-          "kind": "status_not_found",
-          "codes": [
-            404
-          ]
-        }
-      ],
-      "known_present": "blue",
-      "tags": [
-        "nsfw"
-      ]
-    },
-    {
       "name": "pr0gramm",
       "url": "https://pr0gramm.com/api/profile/info?name={username}",
       "signals": [
@@ -8377,28 +8335,6 @@
         }
       ],
       "known_present": "torvalds"
-    },
-    {
-      "name": "xHamster",
-      "url": "https://xhamster.com/users/{username}?old_browser=true",
-      "signals": [
-        {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
-          "kind": "status_not_found",
-          "codes": [
-            404
-          ]
-        }
-      ],
-      "known_present": "blue",
-      "tags": [
-        "nsfw"
-      ]
     },
     {
       "name": "Xvideos",

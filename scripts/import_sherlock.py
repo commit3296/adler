@@ -56,6 +56,13 @@ KNOWN_BROKEN = {
         # is non-discriminating; excluded until a working one is found.
         # 2026-05-24.
         "Replit.com", "RedTube", "YouPorn",
+        # Same too-permissive class as the three above — the nightly
+        # doctor run on 2026-05-26 (workflow 26438852090) reported
+        # `nonsense user … reported Found` for all three NSFW sites
+        # below. NSFW gate keeps them out of default scans, but
+        # `--nsfw` users would get false positives, so honest move is
+        # to drop them until a discriminating signature exists.
+        "APClips", "Pornhub", "xHamster",
         # Too restrictive: body-marker is site-wide chrome (forum nav for
         # forum_guns, generic "404" string for Pychess), so the signal
         # fires for *every* user → NotFound for everyone. 2026-05-24.
