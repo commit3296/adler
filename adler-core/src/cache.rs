@@ -262,6 +262,7 @@ mod tests {
             tags: Vec::new(),
             request_headers: std::collections::BTreeMap::new(),
             regex_check: None,
+            engine: None,
         }
     }
 

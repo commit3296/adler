@@ -4,19 +4,28 @@
 //! [`include_str!`]. Callers can override it with a file at runtime through
 //! [`Registry::load_from_path`].
 
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
 use std::path::Path;
 
 use serde::Deserialize;
 
 use crate::error::{Error, Result};
-use crate::site::Site;
+use crate::site::{Engine, Site};
 
 const EMBEDDED_REGISTRY: &str = include_str!("../data/sites.json");
 
 /// A loaded, validated collection of site definitions.
+///
+/// Engines (shared signature templates referenced by [`Site::engine`])
+/// are resolved into sites at load time — by the time you call
+/// [`Registry::sites`] every entry already has its inherited
+/// `signals` / `request_headers` / `regex_check` materialised. The original
+/// [`Engine`] objects are kept on the registry for re-export and
+/// inspection via [`Registry::engines`].
 #[derive(Debug, Clone, Deserialize)]
 pub struct Registry {
+    #[serde(default)]
+    engines: BTreeMap<String, Engine>,
     sites: Vec<Site>,
 }
 
@@ -26,11 +35,52 @@ impl Registry {
         Self::from_json_str(EMBEDDED_REGISTRY)
     }
 
-    /// Parse and validate a registry from a JSON string.
+    /// Parse and validate a registry from a JSON string. Engine
+    /// references on each site are resolved before validation;
+    /// a site that names an engine which doesn't exist in the
+    /// `engines` block fails loading with [`Error::InvalidSite`].
     pub fn from_json_str(json: &str) -> Result<Self> {
-        let registry: Self = serde_json::from_str(json)?;
+        let mut registry: Self = serde_json::from_str(json)?;
+        registry.resolve_engines()?;
         registry.validate()?;
         Ok(registry)
+    }
+
+    /// Inheritable engine templates, keyed by name. Useful for
+    /// introspection and for serialising the registry back out;
+    /// detection paths read the resolved fields off the sites
+    /// directly and don't need to consult this map.
+    pub fn engines(&self) -> &BTreeMap<String, Engine> {
+        &self.engines
+    }
+
+    /// Merge each engine's inheritable fields into the sites that
+    /// reference it. After this call every site's `signals`,
+    /// `request_headers` and `regex_check` reflect the effective
+    /// values used by the scanner.
+    ///
+    /// Per-site fields are authoritative: anything declared
+    /// explicitly on a site wins on conflict; only empty / unset
+    /// fields are filled from the engine.
+    fn resolve_engines(&mut self) -> Result<()> {
+        for (name, engine) in &self.engines {
+            engine.validate(name)?;
+        }
+        for site in &mut self.sites {
+            let Some(name) = &site.engine else {
+                continue;
+            };
+            let Some(engine) = self.engines.get(name) else {
+                return Err(Error::InvalidSite {
+                    reason: format!(
+                        "site {:?}: references engine {name:?} which is not defined",
+                        site.name
+                    ),
+                });
+            };
+            engine.merge_into(site);
+        }
+        Ok(())
     }
 
     /// Read a registry from a JSON file.
@@ -344,6 +394,115 @@ mod tests {
                 ("social".to_owned(), 1),
             ]
         );
+    }
+
+    #[test]
+    fn engine_inheritance_fills_empty_site_signals() {
+        // Site has no `signals` block — should inherit the engine's.
+        let json = r#"{
+            "engines": {
+                "Discourse": {
+                    "signals": [
+                        { "kind": "status_found", "codes": [200] },
+                        { "kind": "body_absent", "text": "Oops! That page doesn't exist" }
+                    ]
+                }
+            },
+            "sites": [
+                { "name": "Mozilla Forum", "url": "https://discourse.mozilla.org/u/{username}",
+                  "engine": "Discourse" }
+            ]
+        }"#;
+        let r = Registry::from_json_str(json).unwrap();
+        let site = &r.sites()[0];
+        assert_eq!(site.signals.len(), 2);
+        assert_eq!(site.engine.as_deref(), Some("Discourse"));
+        // engines map preserved
+        assert!(r.engines().contains_key("Discourse"));
+    }
+
+    #[test]
+    fn site_overrides_engine_signals_on_conflict() {
+        // Site declares its own `signals` — engine's must NOT replace them.
+        let json = r#"{
+            "engines": {
+                "Discourse": {
+                    "signals": [{ "kind": "status_found", "codes": [200] }]
+                }
+            },
+            "sites": [
+                { "name": "Custom", "url": "https://example.com/{username}",
+                  "engine": "Discourse",
+                  "signals": [
+                    { "kind": "status_found", "codes": [200] },
+                    { "kind": "status_not_found", "codes": [404] }
+                  ] }
+            ]
+        }"#;
+        let r = Registry::from_json_str(json).unwrap();
+        // The site-declared 2 signals win over the engine's 1 signal.
+        assert_eq!(r.sites()[0].signals.len(), 2);
+    }
+
+    #[test]
+    fn engine_headers_merge_with_site_headers_per_key() {
+        // Engine declares one header; site declares another. Resolved
+        // site should carry both. On per-key conflict the site wins.
+        let json = r#"{
+            "engines": {
+                "Foo": {
+                    "signals": [{ "kind": "status_found", "codes": [200] }],
+                    "request_headers": {
+                        "X-Engine": "engine-value",
+                        "User-Agent": "engine-ua"
+                    }
+                }
+            },
+            "sites": [
+                { "name": "S", "url": "https://example.com/{username}",
+                  "engine": "Foo",
+                  "request_headers": { "User-Agent": "site-ua" } }
+            ]
+        }"#;
+        let r = Registry::from_json_str(json).unwrap();
+        let h = &r.sites()[0].request_headers;
+        assert_eq!(h.get("X-Engine").map(String::as_str), Some("engine-value"));
+        assert_eq!(h.get("User-Agent").map(String::as_str), Some("site-ua"));
+    }
+
+    #[test]
+    fn missing_engine_reference_fails_load() {
+        let json = r#"{
+            "engines": {},
+            "sites": [
+                { "name": "Mock", "url": "https://example.com/{username}",
+                  "engine": "DoesNotExist" }
+            ]
+        }"#;
+        let err = Registry::from_json_str(json).unwrap_err();
+        assert!(
+            err.to_string()
+                .contains("references engine \"DoesNotExist\""),
+            "expected missing-engine error, got: {err}"
+        );
+    }
+
+    #[test]
+    fn engine_regex_check_inherited_when_site_has_none() {
+        let json = r#"{
+            "engines": {
+                "Bounded": {
+                    "signals": [{ "kind": "status_found", "codes": [200] }],
+                    "regex_check": "^[a-z]{3,16}$"
+                }
+            },
+            "sites": [
+                { "name": "S", "url": "https://example.com/{username}",
+                  "engine": "Bounded" }
+            ]
+        }"#;
+        let r = Registry::from_json_str(json).unwrap();
+        assert_eq!(r.sites()[0].regex_check.as_deref(), Some("^[a-z]{3,16}$"));
     }
 
     #[test]

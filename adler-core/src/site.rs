@@ -37,6 +37,11 @@ pub struct Site {
     /// URL template containing a `{username}` placeholder.
     pub url: UrlTemplate,
     /// Ordered list of detection signals. Aggregated per the type-level docs.
+    /// Optional in source JSON when [`Site::engine`] is set — the engine's
+    /// signals are inherited at load time. After
+    /// [`crate::Registry`] resolution this vec is always non-empty (or the
+    /// site fails `validate`).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub signals: Vec<Signal>,
     /// One or more usernames known to exist on this site. Consumed by
     /// `adler doctor` to verify the signal list still reports `Found`
@@ -85,6 +90,99 @@ pub struct Site {
     /// degrading at scan time.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub regex_check: Option<String>,
+    /// Name of a shared [`Engine`] this site inherits from (e.g.
+    /// `"Discourse"`, `"vBulletin"`). Forum-software platforms host
+    /// thousands of instances with identical detection signatures;
+    /// defining the signature once on an engine and inheriting it
+    /// keeps the registry small and the cost of a platform-wide
+    /// HTML change one fix instead of hundreds.
+    ///
+    /// At [`crate::Registry::validate`] time, engine fields are
+    /// merged *under* the site's own — anything the site declares
+    /// explicitly (`signals`, `request_headers`, `regex_check`) wins on
+    /// conflict; anything left empty / unset is filled from the
+    /// engine. An `engine: "X"` referring to a non-existent X is a
+    /// load-time error.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub engine: Option<String>,
+}
+
+/// Shared detection signature template for a family of sites that
+/// run the same forum / blog / wiki software (Discourse, vBulletin,
+/// `XenForo`, `MediaWiki`, …). Referenced from [`Site::engine`].
+///
+/// Engines carry the same kinds of fields as a [`Site`] does (just
+/// the inheritable ones — there's no per-engine `url`, that comes
+/// from the site itself). At registry load, the engine's fields
+/// are merged *under* each referring site's own fields: site wins
+/// on conflict.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[non_exhaustive]
+pub struct Engine {
+    /// Default detection signals for sites of this family.
+    /// Inherited only when the site itself declares no `signals`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub signals: Vec<Signal>,
+    /// Default extra HTTP headers (e.g. a User-Agent that the
+    /// platform accepts where the browser default gets blocked).
+    /// Merged with the site's own headers; site wins per-key.
+    #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub request_headers: std::collections::BTreeMap<String, String>,
+    /// Default username-validity regex inherited only when the site
+    /// itself doesn't declare one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub regex_check: Option<String>,
+}
+
+impl Engine {
+    /// Compile-check the engine's own constraints — the inheritable
+    /// fields are subject to the same validation as a site's would
+    /// be.
+    ///
+    /// # Errors
+    /// Returns [`Error::InvalidSite`] when the engine name is
+    /// empty, a signal carries an empty marker, or any other
+    /// constraint a [`Site::validate`] would also flag.
+    pub fn validate(&self, name: &str) -> Result<()> {
+        if name.trim().is_empty() {
+            return Err(Error::InvalidSite {
+                reason: "engine name is empty".into(),
+            });
+        }
+        for signal in &self.signals {
+            signal.validate().map_err(|reason| Error::InvalidSite {
+                reason: format!("engine {name:?}: {reason}"),
+            })?;
+        }
+        if let Some(pat) = &self.regex_check {
+            if let Err(err) = regex::Regex::new(pat) {
+                tracing::warn!(
+                    engine = %name, pattern = %pat, error = %err,
+                    "engine regex_check did not compile; gate disabled for inheriting sites",
+                );
+            }
+        }
+        Ok(())
+    }
+
+    /// Fill the inheritable empty / unset fields of `site` from
+    /// this engine. Site fields are authoritative: if the site has
+    /// any signals at all, no engine signals are merged in.
+    /// `request_headers` merge per-key (site wins on per-key
+    /// conflict).
+    pub fn merge_into(&self, site: &mut Site) {
+        if site.signals.is_empty() {
+            site.signals.clone_from(&self.signals);
+        }
+        for (k, v) in &self.request_headers {
+            site.request_headers
+                .entry(k.clone())
+                .or_insert_with(|| v.clone());
+        }
+        if site.regex_check.is_none() {
+            site.regex_check.clone_from(&self.regex_check);
+        }
+    }
 }
 
 /// Known-present declaration on a [`Site`].
@@ -525,6 +623,7 @@ mod tests {
             tags: Vec::new(),
             request_headers: std::collections::BTreeMap::new(),
             regex_check: None,
+            engine: None,
         }
     }
 

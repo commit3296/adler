@@ -11,6 +11,11 @@
       "type": "string",
       "description": "Free-text provenance/attribution note. Ignored by the loader."
     },
+    "engines": {
+      "type": "object",
+      "description": "Shared detection-signature templates referenced by `site.engine`. Forum-software platforms (Discourse, vBulletin, XenForo, …) host thousands of instances with identical detection rules; an engine defines those rules once. Site fields override engine fields on conflict.",
+      "additionalProperties": { "$ref": "#/$defs/engine" }
+    },
     "sites": {
       "type": "array",
       "minItems": 1,
@@ -21,7 +26,11 @@
     "site": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["name", "url", "signals"],
+      "required": ["name", "url"],
+      "anyOf": [
+        { "required": ["signals"] },
+        { "required": ["engine"] }
+      ],
       "properties": {
         "name": {
           "type": "string",
@@ -76,6 +85,31 @@
           "type": "string",
           "minLength": 1,
           "description": "Username-validity regex (Rust `regex` syntax). Usernames not matching this pattern are skipped with `Uncertain(UsernameNotAllowed)` — no HTTP request is issued. Mirrors Sherlock's `regexCheck`."
+        },
+        "engine": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Name of a shared engine to inherit signature fields from (must match a key in the top-level `engines` block). Engine fields fill in where the site's own equivalents are empty/unset; site fields override on conflict."
+        }
+      }
+    },
+    "engine": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Inheritable signature template for a forum/blog/wiki software family. Carries the same kinds of fields a site does, minus the per-site URL.",
+      "properties": {
+        "signals": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/signal" }
+        },
+        "request_headers": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "regex_check": {
+          "type": "string",
+          "minLength": 1
         }
       }
     },
