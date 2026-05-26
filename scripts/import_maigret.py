@@ -243,10 +243,15 @@ def maigret_site_to_adler(
         out["regex_check"] = regex_check
 
     tags = site.get("tags")
+    cleaned: set[str] = set()
     if isinstance(tags, list):
-        cleaned = sorted({t.lower() for t in tags if isinstance(t, str) and t})
-        if cleaned:
-            out["tags"] = cleaned
+        cleaned = {t.lower() for t in tags if isinstance(t, str) and t}
+    # Provenance tag — the nightly doctor uses it to scope its
+    # structural-failure classification (a Maigret-imported entry that
+    # rots on day 1 is different from a Sherlock-imported one we've
+    # been shipping for months).
+    cleaned.add("source:maigret")
+    out["tags"] = sorted(cleaned)
 
     claimed = site.get("usernameClaimed")
     if isinstance(claimed, str) and claimed:
