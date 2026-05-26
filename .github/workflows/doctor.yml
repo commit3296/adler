@@ -45,8 +45,14 @@ jobs:
         run: |
           # A ban should surface as a failure, not be retried; rotate UAs to
           # cut down on trivial blocking; never touch the cache.
+          #
+          # `--nsfw` makes the doctor validate the full registry, including
+          # the auto-excluded `nsfw`-tagged subset. Their detection rules
+          # still need to be kept healthy for users who opt in via the same
+          # flag at scan time; without it here the maintainer tool would
+          # silently stop catching their rot.
           set +e
-          ./target/release/adler --doctor \
+          ./target/release/adler --doctor --nsfw \
             --no-cache --max-retries 0 --rotate-ua --timeout 10 \
             > report.txt 2> doctor.log
           echo "doctor exit code: $?"
