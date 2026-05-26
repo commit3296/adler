@@ -315,11 +315,14 @@ accepts a `KnownPresent` enum instead of `Option<String>` (v0.3.0),
 
 ## Site registry
 
-The default registry (`adler-core/data/sites.json`, ~450 sites) is generated
-from the [Sherlock project](https://github.com/sherlock-project/sherlock)'s
-MIT-licensed `data.json` via `scripts/import_sherlock.py`. Detections are
-imported **unverified** — Sherlock's signatures rot over time. Validate them
-with the built-in health check:
+The default registry (`adler-core/data/sites.json`, ~2.5k sites) is generated
+from MIT-licensed upstream data — the
+[Sherlock project](https://github.com/sherlock-project/sherlock) (base) plus
+the [Maigret project](https://github.com/soxoj/maigret) (engine-inherited
+forum platforms and additional sites) — via `scripts/import_sherlock.py`
+and `scripts/import_maigret.py`. Detections are imported **unverified** —
+upstream signatures rot over time. Validate them with the built-in health
+check:
 
 ```bash
 adler --doctor                 # check every site's signature
@@ -332,6 +335,14 @@ longer holds. `--doctor --fix` additionally suggests a corrected signature
 for failing sites by diffing the present/absent responses. A nightly GitHub
 Actions workflow (`.github/workflows/doctor.yml`) runs the check across the
 whole registry and flags structural rot.
+
+An optional supplementary registry derived from
+[WhatsMyName](https://github.com/WebBreacher/WhatsMyName) (CC BY-SA 4.0) is
+shipped in `adler-core/data/sites_wmn.json` and enabled with `--with-wmn`.
+It adds a few hundred additional sites with two-sided body+status detection
+signatures. Off by default to keep the standard scan data MIT-only;
+enabling it means downstream redistribution of the merged scan output
+inherits the `ShareAlike` obligation.
 
 ## Quality bar
 
@@ -361,7 +372,15 @@ See [SECURITY.md](SECURITY.md) and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
 
 ## License
 
-Licensed under the [MIT License](LICENSE).
+The Adler **code** is licensed under the [MIT License](LICENSE).
 
-The bundled site registry is derived from the Sherlock project (MIT). See
-`adler-core/data/sites.json` for attribution.
+The default site registry (`adler-core/data/sites.json`) is also under MIT
+— it is derived from the Sherlock project (MIT) and the Maigret project
+(MIT). See the file's `_comment` header and the corresponding importer
+scripts in `scripts/` for attribution.
+
+The optional supplementary registry (`adler-core/data/sites_wmn.json`,
+enabled with `adler --with-wmn`) is derived from WhatsMyName and licensed
+[CC BY-SA 4.0](LICENSE-CC-BY-SA-4.0). Adler's MIT licence does not cover
+this file; downstream redistribution must preserve attribution and the
+`ShareAlike` obligation on derivative data.

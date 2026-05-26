@@ -14,6 +14,14 @@ use crate::site::{Engine, Site};
 
 const EMBEDDED_REGISTRY: &str = include_str!("../data/sites.json");
 
+/// Supplementary registry derived from the `WhatsMyName` project
+/// (`WebBreacher/WhatsMyName`, CC BY-SA 4.0). Kept as a separate
+/// constant because its data license is incompatible with the
+/// MIT-only [`EMBEDDED_REGISTRY`] above; callers opt in explicitly
+/// via [`Registry::default_embedded_with_wmn`] to keep the default
+/// MIT-clean for downstream redistribution.
+const EMBEDDED_WMN_REGISTRY: &str = include_str!("../data/sites_wmn.json");
+
 /// A loaded, validated collection of site definitions.
 ///
 /// Engines (shared signature templates referenced by [`Site::engine`])
@@ -33,6 +41,37 @@ impl Registry {
     /// Load the default site list embedded into the crate at build time.
     pub fn default_embedded() -> Result<Self> {
         Self::from_json_str(EMBEDDED_REGISTRY)
+    }
+
+    /// Load the default site list *plus* the `WhatsMyName`-derived
+    /// supplementary set. `WhatsMyName` data is licensed CC BY-SA 4.0
+    /// (see `LICENSE-CC-BY-SA-4.0` at the repo root); enabling this
+    /// path means downstream redistribution of the merged scan data
+    /// must respect the `ShareAlike` obligation. Sites contributed by
+    /// the `WhatsMyName` tranche carry the `source:wmn` tag for
+    /// provenance.
+    ///
+    /// Engines from the WMN tranche merge with the MIT tranche;
+    /// case-insensitive site-name collisions resolve in favour of the
+    /// MIT-tranche entry (the hand-curated Sherlock/Maigret-derived
+    /// signature wins; the WMN duplicate is dropped). Returns an
+    /// error only if either tranche fails its own validation —
+    /// engine references are checked across the merged set.
+    pub fn default_embedded_with_wmn() -> Result<Self> {
+        let mut base = Self::default_embedded()?;
+        let wmn: Self = serde_json::from_str(EMBEDDED_WMN_REGISTRY)?;
+        let existing: HashSet<String> = base.sites.iter().map(|s| s.name.to_lowercase()).collect();
+        for (name, engine) in wmn.engines {
+            base.engines.entry(name).or_insert(engine);
+        }
+        for site in wmn.sites {
+            if !existing.contains(&site.name.to_lowercase()) {
+                base.sites.push(site);
+            }
+        }
+        base.resolve_engines()?;
+        base.validate()?;
+        Ok(base)
     }
 
     /// Parse and validate a registry from a JSON string. Engine
@@ -217,6 +256,38 @@ mod tests {
         assert!(names.contains(&"GitHub"));
         assert!(names.contains(&"HackerNews"));
         assert!(names.contains(&"Reddit"));
+    }
+
+    #[test]
+    fn wmn_embedded_registry_loads_and_supersets_default() {
+        let base = Registry::default_embedded().unwrap();
+        let merged = Registry::default_embedded_with_wmn().expect("WMN-merged registry must load");
+        assert!(
+            merged.len() > base.len(),
+            "WMN merge must add sites: base={} merged={}",
+            base.len(),
+            merged.len()
+        );
+        // Every base-tranche name survives the merge; case-insensitive
+        // collisions resolve in favour of the MIT-tranche entry.
+        let merged_names: HashSet<String> = merged
+            .sites()
+            .iter()
+            .map(|s| s.name.to_lowercase())
+            .collect();
+        for s in base.sites() {
+            assert!(
+                merged_names.contains(&s.name.to_lowercase()),
+                "merge dropped base-tranche site {:?}",
+                s.name
+            );
+        }
+        // At least one WMN-only site carries the provenance tag.
+        let has_wmn_tag = merged
+            .sites()
+            .iter()
+            .any(|s| s.tags.iter().any(|t| t == "source:wmn"));
+        assert!(has_wmn_tag, "no site carries the source:wmn tag");
     }
 
     #[test]
