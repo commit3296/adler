@@ -304,8 +304,29 @@ def convert(entry: dict) -> dict | None:
         signals.append({"kind": "status_found", "codes": [200]})
         for msg in msgs:
             signals.append({"kind": "body_absent", "text": msg})
+    elif error_type == "response_url":
+        # Sherlock's `response_url` model: missing users 302-redirect
+        # to a fixed "you must log in" / "no such user" URL; existing
+        # ones return 200. Adler's equivalent is `redirect_absent`
+        # matching a discriminating substring of the error URL's path
+        # in the final URL after following redirects. We use the
+        # path-component of the upstream `errorUrl` as that substring
+        # (the host alone is often shared with profile URLs and would
+        # false-positive).
+        err_url = entry.get("errorUrl")
+        if not isinstance(err_url, str) or not err_url:
+            return None
+        from urllib.parse import urlparse
+        parsed = urlparse(err_url)
+        # Prefer the path; fall back to the full URL if the path is
+        # too generic (`/`) or empty.
+        fragment = parsed.path if parsed.path and parsed.path != "/" else err_url
+        if not fragment:
+            return None
+        signals.append({"kind": "status_found", "codes": [200]})
+        signals.append({"kind": "redirect_absent", "fragment": fragment})
     else:
-        # response_url and anything unknown: skip.
+        # Unknown errorType: skip.
         return None
 
     site: dict = {"url": url, "signals": signals}

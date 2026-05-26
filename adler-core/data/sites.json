@@ -469,6 +469,26 @@
       "known_present": "autofrage"
     },
     {
+      "name": "Avizo",
+      "url": "https://www.avizo.cz/{username}/",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "redirect_absent",
+          "fragment": "https://www.avizo.cz/"
+        }
+      ],
+      "known_present": "blue",
+      "tags": [
+        "region:cz"
+      ]
+    },
+    {
       "name": "AWS Skills Profile",
       "url": "https://skillsprofile.skillbuilder.aws/user/{username}/",
       "signals": [
@@ -484,6 +504,26 @@
         }
       ],
       "known_present": "mayank04pant"
+    },
+    {
+      "name": "babyblogRU",
+      "url": "https://www.babyblog.ru/user/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "redirect_absent",
+          "fragment": "https://www.babyblog.ru/"
+        }
+      ],
+      "known_present": "blue",
+      "tags": [
+        "region:ru"
+      ]
     },
     {
       "name": "BabyRu",
@@ -529,6 +569,26 @@
       "known_present": "blue",
       "tags": [
         "music"
+      ]
+    },
+    {
+      "name": "Bazar.cz",
+      "url": "https://www.bazar.cz/{username}/",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "redirect_absent",
+          "fragment": "/error404.aspx"
+        }
+      ],
+      "known_present": "pianina",
+      "tags": [
+        "region:cz"
       ]
     },
     {
@@ -776,6 +836,24 @@
       "known_present": "blue"
     },
     {
+      "name": "BOOTH",
+      "url": "https://{username}.booth.pm/",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "redirect_absent",
+          "fragment": "https://booth.pm/"
+        }
+      ],
+      "known_present": "blue",
+      "regex_check": "^[\\w@-]+?$"
+    },
+    {
       "name": "BraveCommunity",
       "url": "https://community.brave.com/u/{username}/",
       "signals": [
@@ -906,6 +984,24 @@
         }
       ],
       "known_present": "always_fixing"
+    },
+    {
+      "name": "Carbonmade",
+      "url": "https://{username}.carbonmade.com",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "redirect_absent",
+          "fragment": "/fourohfour"
+        }
+      ],
+      "known_present": "jenny",
+      "regex_check": "^[\\w@-]+?$"
     },
     {
       "name": "Career.habr",
@@ -1274,6 +1370,23 @@
       "known_present": "blue"
     },
     {
+      "name": "Codechef",
+      "url": "https://www.codechef.com/users/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "redirect_absent",
+          "fragment": "https://www.codechef.com/"
+        }
+      ],
+      "known_present": "blue"
+    },
+    {
       "name": "Codeforces",
       "url": "https://codeforces.com/api/user.info?handles={username}",
       "signals": [
@@ -1430,6 +1543,24 @@
       "known_present": "blue"
     },
     {
+      "name": "Contently",
+      "url": "https://{username}.contently.com/",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "redirect_absent",
+          "fragment": "https://contently.com"
+        }
+      ],
+      "known_present": "jordanteicher",
+      "regex_check": "^[a-zA-Z][a-zA-Z0-9_-]*$"
+    },
+    {
       "name": "Coroflot",
       "url": "https://www.coroflot.com/{username}",
       "signals": [
@@ -1483,6 +1614,23 @@
         }
       ],
       "known_present": "mbozzi"
+    },
+    {
+      "name": "Cracked",
+      "url": "https://www.cracked.com/members/{username}/",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "redirect_absent",
+          "fragment": "https://www.cracked.com/"
+        }
+      ],
+      "known_present": "blue"
     },
     {
       "name": "Cracked Forum",
@@ -1561,6 +1709,23 @@
       ],
       "known_present": "blue",
       "regex_check": "^[a-zA-Z0-9._-]{2,255}$"
+    },
+    {
+      "name": "CryptoHack",
+      "url": "https://cryptohack.org/user/{username}/",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "redirect_absent",
+          "fragment": "https://cryptohack.org/"
+        }
+      ],
+      "known_present": "blue"
     },
     {
       "name": "Cryptomator Forum",
@@ -1794,6 +1959,23 @@
         "art"
       ],
       "regex_check": "^[a-zA-Z][a-zA-Z0-9_-]*$"
+    },
+    {
+      "name": "devRant",
+      "url": "https://devrant.com/users/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "redirect_absent",
+          "fragment": "https://devrant.com/"
+        }
+      ],
+      "known_present": "blue"
     },
     {
       "name": "DigitalSpy",
@@ -2246,6 +2428,23 @@
         }
       ],
       "known_present": "Jungypoo"
+    },
+    {
+      "name": "Fanpop",
+      "url": "https://www.fanpop.com/fans/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "redirect_absent",
+          "fragment": "https://www.fanpop.com/"
+        }
+      ],
+      "known_present": "blue"
     },
     {
       "name": "Finanzfrage",
@@ -2842,6 +3041,24 @@
       ]
     },
     {
+      "name": "GNOME VCS",
+      "url": "https://gitlab.gnome.org/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "redirect_absent",
+          "fragment": "/{}"
+        }
+      ],
+      "known_present": "adam",
+      "regex_check": "^(?!-)[a-zA-Z0-9_.-]{2,255}(?<!\\.)$"
+    },
+    {
       "name": "GoodReads",
       "url": "https://www.goodreads.com/{username}",
       "signals": [
@@ -2896,6 +3113,23 @@
       ],
       "known_present": "jetbrains",
       "regex_check": "^(?!-)[a-zA-Z0-9-]{3,}(?<!-)$"
+    },
+    {
+      "name": "Grailed",
+      "url": "https://www.grailed.com/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "redirect_absent",
+          "fragment": "/{}"
+        }
+      ],
+      "known_present": "blue"
     },
     {
       "name": "Gravatar",
@@ -3584,6 +3818,23 @@
       "known_present": "theblue222"
     },
     {
+      "name": "IRC-Galleria",
+      "url": "https://irc-galleria.net/user/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "redirect_absent",
+          "fragment": "/users/search"
+        }
+      ],
+      "known_present": "appas"
+    },
+    {
       "name": "irecommend",
       "url": "https://irecommend.ru/users/{username}",
       "signals": [
@@ -3859,6 +4110,23 @@
       "known_present": "blue"
     },
     {
+      "name": "kofi",
+      "url": "https://ko-fi.com/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "redirect_absent",
+          "fragment": "/art"
+        }
+      ],
+      "known_present": "yeahkenny"
+    },
+    {
       "name": "Kongregate",
       "url": "https://www.kongregate.com/accounts/{username}",
       "signals": [
@@ -4020,6 +4288,23 @@
       "known_present": "blue"
     },
     {
+      "name": "LessWrong",
+      "url": "https://www.lesswrong.com/users/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "redirect_absent",
+          "fragment": "https://www.lesswrong.com/"
+        }
+      ],
+      "known_present": "habryka"
+    },
+    {
       "name": "Letterboxd",
       "url": "https://letterboxd.com/{username}",
       "signals": [
@@ -4128,6 +4413,23 @@
         }
       ],
       "known_present": "pylapp"
+    },
+    {
+      "name": "Listed",
+      "url": "https://listed.to/@{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "redirect_absent",
+          "fragment": "/@{}"
+        }
+      ],
+      "known_present": "listed"
     },
     {
       "name": "LiveJournal",
@@ -4873,6 +5175,23 @@
       "known_present": "green"
     },
     {
+      "name": "Ninja Kiwi",
+      "url": "https://ninjakiwi.com/profile/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "redirect_absent",
+          "fragment": "/profile/{}"
+        }
+      ],
+      "known_present": "Kyruko"
+    },
+    {
       "name": "NintendoLife",
       "url": "https://www.nintendolife.com/users/{username}",
       "signals": [
@@ -5209,6 +5528,23 @@
         }
       ],
       "known_present": "pylapp"
+    },
+    {
+      "name": "Packagist",
+      "url": "https://packagist.org/packages/{username}/",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "redirect_absent",
+          "fragment": "/search/"
+        }
+      ],
+      "known_present": "psr"
     },
     {
       "name": "Pastebin",
@@ -5659,6 +5995,23 @@
       "known_present": "swiftstickler"
     },
     {
+      "name": "Polymart",
+      "url": "https://polymart.org/user/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "redirect_absent",
+          "fragment": "/user/-1"
+        }
+      ],
+      "known_present": "craciu25yt"
+    },
+    {
       "name": "Pornhub",
       "url": "https://pornhub.com/users/{username}",
       "signals": [
@@ -5738,6 +6091,26 @@
       "known_present": "jenny"
     },
     {
+      "name": "prog.hu",
+      "url": "https://prog.hu/azonosito/info/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "redirect_absent",
+          "fragment": "/azonosito/info/{}"
+        }
+      ],
+      "known_present": "Sting",
+      "tags": [
+        "region:hu"
+      ]
+    },
+    {
       "name": "programming.dev",
       "url": "https://programming.dev/u/{username}",
       "signals": [
@@ -5810,6 +6183,23 @@
         }
       ],
       "known_present": "andrea"
+    },
+    {
+      "name": "PSNProfiles.com",
+      "url": "https://psnprofiles.com/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "redirect_absent",
+          "fragment": "https://psnprofiles.com/?psnId={}"
+        }
+      ],
+      "known_present": "blue"
     },
     {
       "name": "PyPi",
@@ -5985,6 +6375,24 @@
         }
       ],
       "known_present": "reisefrage"
+    },
+    {
+      "name": "ResearchGate",
+      "url": "https://www.researchgate.net/profile/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "redirect_absent",
+          "fragment": "/directory/profiles"
+        }
+      ],
+      "known_present": "John_Smith",
+      "regex_check": "\\w+_\\w+"
     },
     {
       "name": "ReverbNation",
@@ -7546,6 +7954,27 @@
       "known_present": "tokitsukaze"
     },
     {
+      "name": "VK",
+      "url": "https://vk.com/{username}",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "redirect_absent",
+          "fragment": "/profile/{}"
+        }
+      ],
+      "known_present": "brown",
+      "tags": [
+        "region:ru",
+        "social"
+      ]
+    },
+    {
       "name": "VLR",
       "url": "https://www.vlr.gg/user/{username}",
       "signals": [
@@ -7831,6 +8260,44 @@
       ],
       "known_present": "blue",
       "regex_check": "^[a-zA-Z0-9_.+-]{1,40}$"
+    },
+    {
+      "name": "WordPress",
+      "url": "https://{username}.wordpress.com/",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "redirect_absent",
+          "fragment": "wordpress.com/typo/"
+        }
+      ],
+      "known_present": "blue",
+      "regex_check": "^[a-zA-Z][a-zA-Z0-9_-]*$",
+      "tags": [
+        "blog"
+      ]
+    },
+    {
+      "name": "WordPressOrg",
+      "url": "https://profiles.wordpress.org/{username}/",
+      "signals": [
+        {
+          "kind": "status_found",
+          "codes": [
+            200
+          ]
+        },
+        {
+          "kind": "redirect_absent",
+          "fragment": "https://wordpress.org"
+        }
+      ],
+      "known_present": "blue"
     },
     {
       "name": "Wowhead",
