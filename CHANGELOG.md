@@ -9,6 +9,14 @@ pre-1.0 bump rules.
 
 ## [Unreleased]
 
+## [0.6.0](https://github.com/commit3296/adler/compare/v0.5.0...v0.6.0) - 2026-05-26
+
+### Added
+- *(cli)* [**breaking**] include WhatsMyName tranche by default, rename flag to --no-wmn
+
+### Chore
+- *(registry)* [**breaking**] prune 570 sites surfaced by 2026-05-26 doctor run
+
 ## [0.5.0](https://github.com/commit3296/adler/compare/v0.4.0...v0.5.0) - 2026-05-26
 
 ### Added
