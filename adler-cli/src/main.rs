@@ -3,6 +3,7 @@
 mod report;
 
 use std::io::{self, IsTerminal as _, Write};
+use std::net::SocketAddr;
 use std::num::{NonZeroU32, NonZeroUsize};
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -48,7 +49,7 @@ struct Cli {
     /// Username to search for. With `--add-site`, this is an account that
     /// EXISTS on the site (used to derive the signature). Not required with
     /// `--doctor`, `--cache-clear`, `--list-sites`, or `--completions`.
-    #[arg(required_unless_present_any = ["doctor", "cache_clear", "list_sites", "list_tags", "completions", "add_site", "input"])]
+    #[arg(required_unless_present_any = ["doctor", "cache_clear", "list_sites", "list_tags", "completions", "add_site", "input", "web"])]
     username: Option<String>,
 
     /// Scan every username in this file (one per line; blank lines and lines
@@ -293,6 +294,26 @@ struct Cli {
     /// to this file, for an accountable trail of what was queried.
     #[arg(long, value_name = "PATH")]
     audit_log: Option<PathBuf>,
+
+    /// Start the web UI server instead of running a scan. Binds to
+    /// `127.0.0.1:8765` by default — override with `--web-bind`.
+    /// Browse to <http://localhost:8765> once it starts.
+    ///
+    /// The server hosts a JSON + Server-Sent Events API that the
+    /// `SolidJS` frontend (or any HTTP client) drives. See `adler --web
+    /// --help` for endpoint details.
+    #[arg(long, conflicts_with_all = [
+        "watch", "input", "doctor", "list_sites", "list_tags",
+        "completions", "add_site", "cache_clear", "correlate",
+    ])]
+    web: bool,
+
+    /// Address the web server listens on (`host:port`). Implies
+    /// `--web`. Default `127.0.0.1:8765`. Binding a non-loopback
+    /// address exposes the API without authentication — only set
+    /// this on a trusted network.
+    #[arg(long, value_name = "ADDR", requires = "web")]
+    web_bind: Option<SocketAddr>,
 }
 
 /// Built-in User-Agent pool used by `--rotate-ua`. Realistic recent
@@ -483,12 +504,83 @@ async fn run(cli: Cli) -> Result<ExitCode> {
 
     let client = build_client(&cli).await?;
 
+    if cli.web {
+        return run_web(&cli, sites, client).await;
+    }
+
     if cli.doctor {
         let color = cli.color.resolve(io::stdout().is_terminal());
         return run_doctor(&client, &sites, cli.fix, cli.suggest_known_present, color).await;
     }
 
     run_scan(&cli, &client, &sites).await
+}
+
+/// `--web`: start the embedded HTTP API server and block until shutdown.
+///
+/// The site list and HTTP client are pre-built so the server honors
+/// the same filtering / proxy / browser-backend flags the CLI exposes
+/// for one-shot scans.
+async fn run_web(cli: &Cli, sites: Vec<Site>, client: Client) -> Result<ExitCode> {
+    let bind = cli
+        .web_bind
+        .unwrap_or_else(|| SocketAddr::from(([127, 0, 0, 1], 8765)));
+    let scans_dir = adler_server::default_scans_dir();
+    let config = adler_server::AppConfig {
+        bind,
+        scan_capacity: 32,
+        scans_dir: Some(scans_dir.clone()),
+    };
+    print_web_banner(bind, sites.len(), &scans_dir);
+    adler_server::serve(sites, client, config)
+        .await
+        .context("running web server")?;
+    Ok(ExitCode::SUCCESS)
+}
+
+/// Pretty boot banner. Falls back to plain ASCII when stderr isn't
+/// a terminal (piped logs, CI capture) so we don't poison scrapers
+/// with bare escape codes.
+fn print_web_banner(bind: SocketAddr, site_count: usize, scans_dir: &std::path::Path) {
+    let tty = io::stderr().is_terminal();
+    let red = if tty { "\x1b[1;31m" } else { "" };
+    let bold = if tty { "\x1b[1m" } else { "" };
+    let dim = if tty { "\x1b[2m" } else { "" };
+    let r = if tty { "\x1b[0m" } else { "" };
+
+    let line_pad = "  ";
+    eprintln!();
+    eprintln!("{line_pad}{red}ADLER{r}{dim}  ·  OSINT username search{r}");
+    eprintln!();
+    eprintln!("{line_pad}{dim}→{r}  {bold}http://{bind}{r}");
+    eprintln!(
+        "{line_pad}{dim}→{r}  {} sites in catalogue",
+        format_with_commas(site_count),
+    );
+    eprintln!(
+        "{line_pad}{dim}→{r}  history at {}{}{}",
+        dim,
+        scans_dir.display(),
+        r,
+    );
+    eprintln!();
+    eprintln!("{line_pad}{dim}Ctrl-C to stop · ADLER_LOG=debug for verbose logs{r}");
+    eprintln!();
+}
+
+/// Tiny "1234567 → 1,234,567" formatter — avoids pulling in a number
+/// formatting crate for one call site.
+fn format_with_commas(n: usize) -> String {
+    let s = n.to_string();
+    let bytes = s.as_bytes();
+    let mut out = String::with_capacity(bytes.len() + bytes.len() / 3);
+    for (i, b) in bytes.iter().enumerate() {
+        if i > 0 && (bytes.len() - i) % 3 == 0 {
+            out.push(',');
+        }
+        out.push(char::from(*b));
+    }
+    out
 }
 
 /// Drive a username scan (with permutation variants), then emit results.

@@ -24,6 +24,7 @@ pkg-fmt = "tgz"
 
 [dependencies]
 adler-core = { path = "../adler-core", version = "0.8.0" }
+adler-server = { path = "../adler-server", version = "0.8.0" }
 anyhow.workspace = true
 clap.workspace = true
 secrecy.workspace = true
