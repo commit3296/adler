@@ -103,9 +103,46 @@ contributor doesn't re-tread the same ground:
   prints a suggested signature; an `--apply` flag could patch
   `sites.json` directly (still gated on a contributor review of
   the resulting PR).
-- **TUI polish** — colour-blind palette toggle, alternate
-  master-detail layout for narrow terminals, persistent saved
-  filters.
+### Web UI — shipped
+
+The `--tui` flag was retired in favour of a browser-based UI that
+covers the same interactive-browse use case with richer rendering
+and real-time streaming of results.
+
+- [x] `adler-server` crate — axum + Server-Sent Events. Endpoints:
+  `/api/health`, `/api/sites`, `/api/scans`, `POST /api/scan`,
+  `GET /api/scan/:id`, `GET /api/scan/:id/stream`,
+  `POST /api/scan/:id/retry`. Per-scan filter body mirrors the CLI
+  flags one-for-one. Persists finished scans under
+  `$XDG_CACHE_HOME/adler/scans/` so history survives restarts.
+- [x] `adler --web` flag launches the server on
+  `127.0.0.1:8765` (override with `--web-bind`), respecting the same
+  `--only` / `--exclude` / `--tag` / `--top` filters as one-shot
+  scans. Banner + structured boot log; TTY-aware colours.
+- [x] `adler-web/` — SolidJS + Vite + TypeScript SPA. Hero / scan
+  view / diff view, hash-routed (`#/scan/:id`, `#/diff/:a/:b`),
+  rAF-batched SSE ingestion, per-bucket reactive store, live
+  category groupings, per-row retry, datacenter-IP hint, localStorage
+  prefs, full keyboard shortcuts.
+- [x] `adler-web/src/ui/` — portable component library (tokens +
+  Button / IconButton / Input / SearchInput / Chip / Tabs / Modal /
+  Toast / Kbd / Icon). Used by all app components; documented in
+  `adler-web/src/ui/README.md`.
+- [x] `rust-embed` snapshots `adler-web/dist/` into the final binary
+  so `adler --web` ships a self-contained UI. CI / release builds
+  pre-run `npm ci && npm run build` to populate `dist/`.
+
+### Web UI — next
+
+- [ ] Picker for "Compare with previous" — currently auto-picks the
+  most recent finished scan of the same username; a dropdown would
+  let the user choose which historical scan to diff against.
+- [ ] Server-side filter changes during running scan (e.g. "narrow
+  scope to dev sites only"). Today the catalogue is frozen at scan
+  start; a cancel-and-restart-with-overlap would be friendlier.
+- [ ] Multi-username batch (analogous to `--input file.txt` in the
+  CLI). The store can already model multiple scans in history; the
+  UI just needs a textarea-input mode.
 
 ---
 
