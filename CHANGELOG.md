@@ -9,6 +9,16 @@ pre-1.0 bump rules.
 
 ## [Unreleased]
 
+## [0.7.0](https://github.com/commit3296/adler/compare/v0.6.0...v0.7.0) - 2026-05-27
+
+### Added
+- *(site)* structured protection field with kind enum (R3)
+- *(site)* POST request support with templated body (R14)
+- *(site)* strip_bad_char username normalisation (R9)
+
+### Changed
+- *(client)* HEAD-only probe when no signal needs the body (R13)
+
 ## [0.6.0](https://github.com/commit3296/adler/compare/v0.5.0...v0.6.0) - 2026-05-26
 
 ### Added
