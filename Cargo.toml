@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["adler-core", "adler-cli"]
+members = ["adler-core", "adler-cli", "adler-server"]
 
 [workspace.package]
 version = "0.8.0"
@@ -57,6 +57,28 @@ secrecy = "0.10"
 async-trait = "0.1"
 url = "2"
 futures = "0.3"
+# Web server (adler-server crate): axum router + SSE. tower-http only
+# pulls the features we actually need (CORS for the Vite dev-server,
+# request tracing).
+axum = { version = "0.7", default-features = false, features = [
+    "http1",
+    "json",
+    "matched-path",
+    "tokio",
+    "tracing",
+    "query",
+] }
+tower = { version = "0.5", default-features = false, features = ["util"] }
+tower-http = { version = "0.5", default-features = false, features = [
+    "cors",
+    "trace",
+] }
+tokio-stream = { version = "0.1", default-features = false }
+async-stream = "0.3"
+# Embed the SolidJS `adler-web/dist/` bundle into the binary so
+# `adler --web` ships a self-contained UI.
+rust-embed = { version = "8", default-features = false, features = ["debug-embed"] }
+mime_guess = "2"
 
 # Dev-deps
 wiremock = "0.6"
