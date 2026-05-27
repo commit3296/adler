@@ -408,6 +408,14 @@ impl ColorChoice {
 
 #[tokio::main]
 async fn main() -> ExitCode {
+    // `adler` with no arguments at all → friendly orientation, not
+    // clap's terse "required arguments were not provided" error.
+    // Every other invocation (typo, bad flag, missing value for an
+    // explicit flag) still goes through clap's normal validation.
+    if std::env::args_os().len() == 1 {
+        print_quickstart();
+        return ExitCode::SUCCESS;
+    }
     let cli = Cli::parse();
     init_tracing();
     match run(cli).await {
@@ -417,6 +425,43 @@ async fn main() -> ExitCode {
             ExitCode::from(2)
         }
     }
+}
+
+/// Bare-`adler`-invocation orientation. Mirrors the web banner's
+/// visual idiom (red brand, dim sub-text, TTY-aware).
+fn print_quickstart() {
+    let bin = std::env::args()
+        .next()
+        .as_deref()
+        .and_then(|p| {
+            std::path::Path::new(p)
+                .file_name()
+                .and_then(|f| f.to_str())
+                .map(str::to_owned)
+        })
+        .unwrap_or_else(|| "adler".to_owned());
+    let tty = io::stderr().is_terminal();
+    let red = if tty { "\x1b[1;31m" } else { "" };
+    let bold = if tty { "\x1b[1m" } else { "" };
+    let dim = if tty { "\x1b[2m" } else { "" };
+    let r = if tty { "\x1b[0m" } else { "" };
+
+    eprintln!();
+    eprintln!("  {red}ADLER{r}{dim}  ·  OSINT username search across many sites{r}");
+    eprintln!();
+    eprintln!("  {bold}Quick scan{r}");
+    eprintln!("    {dim}${r} {bin} {bold}torvalds{r}");
+    eprintln!();
+    eprintln!("  {bold}Web UI{r}");
+    eprintln!("    {dim}${r} {bin} {bold}--web{r}            {dim}# http://127.0.0.1:8765{r}");
+    eprintln!();
+    eprintln!("  {bold}Other modes{r}");
+    eprintln!("    {dim}${r} {bin} --doctor           {dim}# registry health check{r}");
+    eprintln!("    {dim}${r} {bin} --list-sites       {dim}# enumerate bundled sites{r}");
+    eprintln!("    {dim}${r} {bin} --add-site <URL>   {dim}# scaffold a new site entry{r}");
+    eprintln!();
+    eprintln!("  {dim}See `{bin} --help` for filters, output formats, and the full flag list.{r}");
+    eprintln!();
 }
 
 /// Install the stderr tracing subscriber.
