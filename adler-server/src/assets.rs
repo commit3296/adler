@@ -1,11 +1,12 @@
-//! Static SPA assets — `adler-web/dist/` embedded into the binary via
-//! `rust-embed`.
+//! Static SPA assets — `adler-server/dist/` embedded into the binary
+//! via `rust-embed`.
 //!
-//! The build pipeline is two-step: `cd adler-web && npm run build`
-//! produces `dist/`, then `cargo build -p adler-server` snapshots
-//! every file in that directory into the resulting object code. After
-//! that the Rust binary is fully self-contained — no separate static
-//! file deployment needed.
+//! The bundle lives *inside* this crate so that a standalone
+//! `cargo install adler-server` (or path-dep build) finds it. In the
+//! workspace, `build.rs` mirrors `../adler-web/dist/` into the local
+//! `dist/` whenever the sibling exists, so contributors only need to
+//! run `npm run build` in `adler-web/` and `cargo build -p
+//! adler-server` picks the refreshed bundle up automatically.
 //!
 //! Routes attached here:
 //!   - `GET /` and any SPA route → `dist/index.html`
@@ -23,7 +24,7 @@ use axum::routing::get;
 use rust_embed::RustEmbed;
 
 #[derive(RustEmbed)]
-#[folder = "../adler-web/dist/"]
+#[folder = "dist/"]
 struct Asset;
 
 pub(crate) fn attach(router: Router) -> Router {

@@ -1,0 +1,4 @@
+# Mirrored from ../adler-web/dist/ by build.rs at compile time, or
+# populated by the release pipeline before `cargo publish`. Either
+# way, never check the built bundle into git.
+/dist/

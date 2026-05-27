@@ -10,13 +10,18 @@ description = "HTTP API + SSE streaming for the Adler OSINT username-search engi
 categories = ["web-programming::http-server", "command-line-utilities"]
 keywords = ["osint", "username", "sherlock", "axum", "sse"]
 readme = "../README.md"
-# Internal workspace member — embedded into `adler-cli` via rust-embed
-# of the sibling `adler-web/dist/` directory. Publishing standalone
-# would require shipping the frontend build (or a separate
-# build-script that runs `npm`), neither of which fits the
-# crates.io distribution model today. Re-enable when there's a
-# concrete external consumer that wants to embed the API server.
-publish = false
+# The crate ships with a self-contained SPA bundle in `dist/` (mirrored
+# from `../adler-web/dist/` by `build.rs` at workspace build time;
+# pre-populated by the release pipeline before `cargo publish`). The
+# `include` list pins exactly what lands in the `.crate` tarball — the
+# `Cargo.toml`-default would skip `dist/` because it's gitignored.
+include = [
+    "src/**/*",
+    "build.rs",
+    "dist/**/*",
+    "Cargo.toml",
+    "../README.md",
+]
 
 [dependencies]
 adler-core = { path = "../adler-core", version = "0.8.0" }
