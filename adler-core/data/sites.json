@@ -1620,28 +1620,6 @@
       "known_present": "alex"
     },
     {
-      "name": "APClips",
-      "url": "https://apclips.com/{username}",
-      "signals": [
-        {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
-          "kind": "body_absent",
-          "text": "Amateur Porn Content Creators"
-        }
-      ],
-      "tags": [
-        "porn",
-        "source:maigret",
-        "video"
-      ],
-      "known_present": "onlybbyraq"
-    },
-    {
       "name": "apelmon.od.ua",
       "url": "http://apelmon.od.ua/index/8-0-{username}",
       "engine": "uCoz",
@@ -1919,7 +1897,10 @@
           ]
         }
       ],
-      "known_present": "system"
+      "known_present": "system",
+      "tags": [
+        "bot-protected"
+      ]
     },
     {
       "name": "are.na",
@@ -3759,7 +3740,10 @@
           ]
         }
       ],
-      "known_present": "hightowerlssd"
+      "known_present": "hightowerlssd",
+      "tags": [
+        "bot-protected"
+      ]
     },
     {
       "name": "CGTrader",
@@ -4143,6 +4127,7 @@
         }
       ],
       "tags": [
+        "bot-protected",
         "source:maigret"
       ],
       "known_present": "admin"
@@ -5268,7 +5253,10 @@
           ]
         }
       ],
-      "known_present": "briggs"
+      "known_present": "briggs",
+      "tags": [
+        "bot-protected"
+      ]
     },
     {
       "name": "CTFtime",
@@ -5291,6 +5279,7 @@
         "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
       },
       "tags": [
+        "bot-protected",
         "hacking",
         "source:maigret"
       ],
@@ -6667,6 +6656,7 @@
         }
       ],
       "tags": [
+        "bot-protected",
         "education",
         "source:maigret"
       ],
@@ -7348,31 +7338,6 @@
       "known_present": "alex"
     },
     {
-      "name": "Eporner",
-      "url": "https://www.eporner.com/profile/{username}/",
-      "signals": [
-        {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
-          "kind": "body_absent",
-          "text": "<strong>Profile not found.</strong>"
-        },
-        {
-          "kind": "body_present",
-          "text": "Dashboard"
-        }
-      ],
-      "tags": [
-        "es",
-        "source:maigret"
-      ],
-      "known_present": "adam"
-    },
-    {
       "name": "ercevo.ru",
       "url": "http://ercevo.ru/index/8-0-{username}",
       "engine": "uCoz",
@@ -7615,30 +7580,6 @@
         "source:maigret"
       ],
       "known_present": "admin"
-    },
-    {
-      "name": "Fancentro",
-      "url": "https://fancentro.com/{username}/",
-      "signals": [
-        {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
-          "kind": "body_absent",
-          "text": "Sorry, this page isn't available"
-        },
-        {
-          "kind": "body_present",
-          "text": "FanCentro</title>"
-        }
-      ],
-      "tags": [
-        "source:maigret"
-      ],
-      "known_present": "uehkon89"
     },
     {
       "name": "fanficslandia.com",
@@ -8130,6 +8071,7 @@
         }
       ],
       "tags": [
+        "bot-protected",
         "photo",
         "source:maigret"
       ],
@@ -8326,7 +8268,10 @@
           ]
         }
       ],
-      "known_present": "torvalds"
+      "known_present": "torvalds",
+      "tags": [
+        "bot-protected"
+      ]
     },
     {
       "name": "Forum Ophilia",
@@ -8353,6 +8298,7 @@
       "url": "http://forum-dollplanet.ru/search.php?author={username}",
       "engine": "phpBB/Search",
       "tags": [
+        "bot-protected",
         "forum",
         "ru",
         "source:maigret"
@@ -9148,6 +9094,7 @@
         }
       ],
       "tags": [
+        "bot-protected",
         "source:maigret"
       ],
       "known_present": "adam"
@@ -10678,25 +10625,6 @@
       "known_present": "blue"
     },
     {
-      "name": "Hackaday",
-      "url": "https://hackaday.io/{username}",
-      "signals": [
-        {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
-          "kind": "status_not_found",
-          "codes": [
-            404
-          ]
-        }
-      ],
-      "known_present": "adam"
-    },
-    {
       "name": "hackapp.ucoz.ru",
       "url": "http://hackapp.ucoz.ru/index/8-0-{username}",
       "engine": "uCoz",
@@ -10891,6 +10819,7 @@
       ],
       "regex_check": "^[^\\.\\u3040-\\u30ff\\u3400-\\u4dbf\\u4e00-\\u9fff\\uac00-\\ud7af\\uf900-\\ufaff]+$",
       "tags": [
+        "bot-protected",
         "hacking",
         "source:maigret"
       ],
@@ -11913,6 +11842,7 @@
       ],
       "known_present": "admin",
       "tags": [
+        "bot-protected",
         "region:cz"
       ]
     },
@@ -13005,6 +12935,7 @@
         }
       ],
       "tags": [
+        "bot-protected",
         "source:maigret"
       ],
       "known_present": "test"
@@ -14674,6 +14605,7 @@
       "url": "http://www.megapolis.org/forum/search.php?author={username}",
       "engine": "phpBB/Search",
       "tags": [
+        "bot-protected",
         "forum",
         "source:maigret"
       ],
@@ -15317,6 +15249,7 @@
         }
       ],
       "tags": [
+        "bot-protected",
         "gaming",
         "source:maigret"
       ],
@@ -15420,17 +15353,6 @@
       ]
     },
     {
-      "name": "moto-arena.ru",
-      "url": "https://moto-arena.ru/search.php?author={username}",
-      "engine": "phpBB/Search",
-      "tags": [
-        "forum",
-        "ru",
-        "source:maigret"
-      ],
-      "known_present": "admin"
-    },
-    {
       "name": "moto-master.ucoz.ru",
       "url": "https://moto-master.ucoz.ru/index/8-0-{username}",
       "engine": "uCoz",
@@ -15444,6 +15366,7 @@
       "url": "http://moto-travels.ru/index/8-0-{username}",
       "engine": "uCoz",
       "tags": [
+        "bot-protected",
         "ru",
         "source:maigret"
       ],
@@ -15454,6 +15377,7 @@
       "url": "http://moto26.ru/forum/search.php?author={username}",
       "engine": "phpBB/Search",
       "tags": [
+        "bot-protected",
         "forum",
         "ru",
         "source:maigret"
@@ -15465,6 +15389,7 @@
       "url": "https://www.motoforum.ru/forum/search.php?author={username}",
       "engine": "phpBB/Search",
       "tags": [
+        "bot-protected",
         "forum",
         "ru",
         "source:maigret"
@@ -15472,34 +15397,11 @@
       "known_present": "red"
     },
     {
-      "name": "Motokiller",
-      "url": "https://mklr.pl/user/{username}",
-      "signals": [
-        {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
-          "kind": "body_absent",
-          "text": "Nie znaleziono użytkownika o podanym loginie."
-        },
-        {
-          "kind": "body_present",
-          "text": "Zamieszcza materiały od:"
-        }
-      ],
-      "tags": [
-        "source:maigret"
-      ],
-      "known_present": "test"
-    },
-    {
       "name": "motoomsk.ru",
       "url": "http://motoomsk.ru/index/8-0-{username}",
       "engine": "uCoz",
       "tags": [
+        "bot-protected",
         "source:maigret"
       ],
       "known_present": "alex"
@@ -15768,6 +15670,7 @@
         }
       ],
       "tags": [
+        "bot-protected",
         "music",
         "source:maigret"
       ],
@@ -15790,7 +15693,10 @@
           ]
         }
       ],
-      "known_present": "arrangeme"
+      "known_present": "arrangeme",
+      "tags": [
+        "bot-protected"
+      ]
     },
     {
       "name": "music-one.my1.ru",
@@ -15806,6 +15712,7 @@
       "url": "http://music-rock.ru/member.php?username={username}",
       "engine": "vBulletin",
       "tags": [
+        "bot-protected",
         "forum",
         "ru",
         "source:maigret"
@@ -15857,6 +15764,7 @@
       "url": "http://muz-fresh.ucoz.kz/index/8-0-{username}",
       "engine": "uCoz",
       "tags": [
+        "bot-protected",
         "kz",
         "source:maigret"
       ],
@@ -15889,6 +15797,7 @@
         }
       ],
       "tags": [
+        "bot-protected",
         "ru",
         "source:maigret"
       ],
@@ -15940,44 +15849,12 @@
         }
       ],
       "tags": [
+        "bot-protected",
         "gb",
         "hk",
         "source:maigret"
       ],
       "known_present": "adam"
-    },
-    {
-      "name": "myce.wiki",
-      "url": "https://myce.wiki/author/{username}",
-      "signals": [
-        {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
-          "kind": "body_present",
-          "text": "<span class=\"td-author-post-count\">"
-        },
-        {
-          "kind": "body_present",
-          "text": "<span class=\"td-author-comments-count\">"
-        }
-      ],
-      "tags": [
-        "source:maigret"
-      ],
-      "known_present": "vroom"
-    },
-    {
-      "name": "mychildren.ucoz.ru",
-      "url": "http://mychildren.ucoz.ru/index/8-0-{username}",
-      "engine": "uCoz",
-      "tags": [
-        "source:maigret"
-      ],
-      "known_present": "admin"
     },
     {
       "name": "Mydealz",
@@ -16023,6 +15900,7 @@
       "url": "http://myfootball-1.ucoz.ua/index/8-0-{username}",
       "engine": "uCoz",
       "tags": [
+        "bot-protected",
         "source:maigret"
       ],
       "known_present": "admin"
@@ -16069,6 +15947,7 @@
       ],
       "tags": [
         "bg",
+        "bot-protected",
         "forum",
         "ru",
         "source:maigret"
@@ -16142,6 +16021,7 @@
         }
       ],
       "tags": [
+        "bot-protected",
         "networking",
         "source:maigret"
       ],
@@ -16241,6 +16121,7 @@
         }
       ],
       "tags": [
+        "bot-protected",
         "news",
         "ru",
         "source:maigret"
@@ -16264,7 +16145,10 @@
           ]
         }
       ],
-      "known_present": "blue"
+      "known_present": "blue",
+      "tags": [
+        "bot-protected"
+      ]
     },
     {
       "name": "mytechbook.ucoz.ru",
@@ -16333,6 +16217,7 @@
         }
       ],
       "tags": [
+        "bot-protected",
         "shopping",
         "source:maigret"
       ],
@@ -16343,6 +16228,7 @@
       "url": "http://n-ataeva.ru/index/8-0-{username}",
       "engine": "uCoz",
       "tags": [
+        "bot-protected",
         "source:maigret"
       ],
       "known_present": "alex"
@@ -16468,6 +16354,7 @@
       ],
       "regex_check": "^.{3,16}$",
       "tags": [
+        "bot-protected",
         "gaming",
         "source:maigret"
       ],
@@ -16500,7 +16387,10 @@
           ]
         }
       ],
-      "known_present": "namu"
+      "known_present": "namu",
+      "tags": [
+        "bot-protected"
+      ]
     },
     {
       "name": "naruto-base.tv",
@@ -16544,7 +16434,10 @@
           "text": "Was this your nation? It may have ceased to exist due to inactivity, but can rise again!"
         }
       ],
-      "known_present": "the_holy_principality_of_saint_mark"
+      "known_present": "the_holy_principality_of_saint_mark",
+      "tags": [
+        "bot-protected"
+      ]
     },
     {
       "name": "NationStates Region",
@@ -16561,7 +16454,10 @@
           "text": "does not exist."
         }
       ],
-      "known_present": "the_west_pacific"
+      "known_present": "the_west_pacific",
+      "tags": [
+        "bot-protected"
+      ]
     },
     {
       "name": "Naturalnews",
@@ -16586,27 +16482,6 @@
         "source:maigret"
       ],
       "known_present": "healthranger"
-    },
-    {
-      "name": "Naturalworld",
-      "url": "https://naturalworld.guru/forum/search.php?keywords=&terms=all&author={username}",
-      "signals": [
-        {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
-          "kind": "body_absent",
-          "text": "Подходящих тем или сообщений не найдено."
-        }
-      ],
-      "tags": [
-        "ru",
-        "source:maigret"
-      ],
-      "known_present": "mrseo"
     },
     {
       "name": "Naver",
@@ -16635,6 +16510,7 @@
       "url": "https://navimba.com/search.php?author={username}",
       "engine": "phpBB/Search",
       "tags": [
+        "bot-protected",
         "source:maigret"
       ],
       "known_present": "admin"
@@ -16649,33 +16525,11 @@
       "known_present": "alex"
     },
     {
-      "name": "Needrom",
-      "url": "https://www.needrom.com/author/{username}/",
-      "signals": [
-        {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
-          "kind": "status_not_found",
-          "codes": [
-            404
-          ]
-        }
-      ],
-      "regex_check": "^[^\\u3040-\\u30ff\\u3400-\\u4dbf\\u4e00-\\u9fff\\uac00-\\ud7af\\uf900-\\ufaff]+$",
-      "tags": [
-        "source:maigret"
-      ],
-      "known_present": "needrom"
-    },
-    {
       "name": "nelubit.ru",
       "url": "https://nelubit.ru/search.php?author={username}",
       "engine": "phpBB/Search",
       "tags": [
+        "bot-protected",
         "forum",
         "source:maigret"
       ],
@@ -16699,6 +16553,7 @@
         }
       ],
       "tags": [
+        "bot-protected",
         "forum",
         "gaming",
         "source:maigret"
@@ -16746,6 +16601,7 @@
         }
       ],
       "tags": [
+        "bot-protected",
         "source:maigret",
         "tech"
       ],
@@ -16775,6 +16631,7 @@
         }
       ],
       "tags": [
+        "bot-protected",
         "ru",
         "source:maigret"
       ],
@@ -16798,7 +16655,10 @@
         }
       ],
       "known_present": "blue",
-      "regex_check": "^[a-zA-Z][a-zA-Z0-9_-]*$"
+      "regex_check": "^[a-zA-Z][a-zA-Z0-9_-]*$",
+      "tags": [
+        "bot-protected"
+      ]
     },
     {
       "name": "Newreporter",
@@ -16828,6 +16688,7 @@
       "url": "http://news.toretsk.online/index/8-0-{username}",
       "engine": "uCoz",
       "tags": [
+        "bot-protected",
         "ru",
         "source:maigret"
       ],
@@ -16851,7 +16712,10 @@
         }
       ],
       "known_present": "blue",
-      "regex_check": "^(?![.-])[a-zA-Z0-9_.-]{3,20}$"
+      "regex_check": "^(?![.-])[a-zA-Z0-9_.-]{3,20}$",
+      "tags": [
+        "bot-protected"
+      ]
     },
     {
       "name": "nf-club.ru",
@@ -16978,50 +16842,6 @@
       "known_present": "alex"
     },
     {
-      "name": "Niftygateway",
-      "url": "https://niftygateway.com/profile/{username}",
-      "signals": [
-        {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
-          "kind": "body_absent",
-          "text": "not_found"
-        },
-        {
-          "kind": "body_absent",
-          "text": " User profile not located in our system."
-        },
-        {
-          "kind": "body_present",
-          "text": "profile_url"
-        },
-        {
-          "kind": "body_present",
-          "text": "name"
-        },
-        {
-          "kind": "body_present",
-          "text": "profile_pic_url"
-        },
-        {
-          "kind": "body_present",
-          "text": "verified"
-        },
-        {
-          "kind": "body_present",
-          "text": "bio"
-        }
-      ],
-      "tags": [
-        "source:maigret"
-      ],
-      "known_present": "admin"
-    },
-    {
       "name": "Nightbot",
       "url": "https://api.nightbot.tv/1/channels/t/{username}",
       "signals": [
@@ -17069,28 +16889,12 @@
       "url": "https://www.nikoncafe.com/members/?username={username}",
       "engine": "XenForo",
       "tags": [
+        "bot-protected",
         "forum",
         "photo",
         "source:maigret"
       ],
       "known_present": "alex"
-    },
-    {
-      "name": "Ninja Kiwi",
-      "url": "https://ninjakiwi.com/profile/{username}",
-      "signals": [
-        {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
-          "kind": "redirect_absent",
-          "fragment": "/profile/{}"
-        }
-      ],
-      "known_present": "Kyruko"
     },
     {
       "name": "Nintendo Life",
@@ -17135,28 +16939,6 @@
       "known_present": "goku"
     },
     {
-      "name": "nitrc.org",
-      "url": "https://nitrc.org/users/{username}/",
-      "signals": [
-        {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
-          "kind": "status_not_found",
-          "codes": [
-            404
-          ]
-        }
-      ],
-      "tags": [
-        "source:maigret"
-      ],
-      "known_present": "admin"
-    },
-    {
       "name": "Nitro Type",
       "url": "https://www.nitrotype.com/racer/{username}",
       "signals": [
@@ -17195,15 +16977,6 @@
       "known_present": "jianclash"
     },
     {
-      "name": "niva-club.net",
-      "url": "https://www.niva-club.net/search.php?author={username}",
-      "engine": "phpBB/Search",
-      "tags": [
-        "source:maigret"
-      ],
-      "known_present": "red"
-    },
-    {
       "name": "Nixp",
       "url": "https://www.nixp.ru/user/{username}",
       "signals": [
@@ -17234,29 +17007,6 @@
         "source:maigret"
       ],
       "known_present": "alex"
-    },
-    {
-      "name": "Nkj",
-      "url": "https://www.nkj.ru/forum/user/{username}/",
-      "signals": [
-        {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
-          "kind": "status_not_found",
-          "codes": [
-            404
-          ]
-        }
-      ],
-      "tags": [
-        "ru",
-        "source:maigret"
-      ],
-      "known_present": "adam"
     },
     {
       "name": "NN.RU",
@@ -17306,33 +17056,11 @@
       "regex_check": "^[\\w@-]+?$"
     },
     {
-      "name": "Noblogs",
-      "url": "https://noblogs.org/members/{username}/",
-      "signals": [
-        {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
-          "kind": "status_not_found",
-          "codes": [
-            404
-          ]
-        }
-      ],
-      "tags": [
-        "blog",
-        "source:maigret"
-      ],
-      "known_present": "ushi"
-    },
-    {
       "name": "nod32-forever.clan.su",
       "url": "http://nod32-forever.clan.su/index/8-0-{username}",
       "engine": "uCoz",
       "tags": [
+        "bot-protected",
         "source:maigret"
       ],
       "known_present": "alex"
@@ -17345,16 +17073,6 @@
         "source:maigret"
       ],
       "known_present": "admin"
-    },
-    {
-      "name": "nokia-love.ru",
-      "url": "http://nokia-love.ru/index/8-0-{username}",
-      "engine": "uCoz",
-      "tags": [
-        "ru",
-        "source:maigret"
-      ],
-      "known_present": "alex"
     },
     {
       "name": "nokia6233.ucoz.ru",
@@ -17399,25 +17117,6 @@
       "known_present": "alex"
     },
     {
-      "name": "NotABug.org",
-      "url": "https://notabug.org/{username}/followers",
-      "signals": [
-        {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
-          "kind": "status_not_found",
-          "codes": [
-            404
-          ]
-        }
-      ],
-      "known_present": "red"
-    },
-    {
       "name": "note",
       "url": "https://note.com/{username}",
       "signals": [
@@ -17435,16 +17134,6 @@
         }
       ],
       "known_present": "blue"
-    },
-    {
-      "name": "NotebookReview",
-      "url": "http://forum.notebookreview.com/members/?username={username}",
-      "engine": "XenForo",
-      "tags": [
-        "forum",
-        "source:maigret"
-      ],
-      "known_present": "adam"
     },
     {
       "name": "Nothing Community",
@@ -17493,6 +17182,7 @@
       ],
       "known_present": "kennethsweezy",
       "tags": [
+        "bot-protected",
         "dev"
       ]
     },
@@ -17514,6 +17204,7 @@
         }
       ],
       "tags": [
+        "bot-protected",
         "coding",
         "source:maigret"
       ],
@@ -17524,6 +17215,7 @@
       "url": "http://www.nucastle.co.uk/members/?username={username}",
       "engine": "XenForo",
       "tags": [
+        "bot-protected",
         "forum",
         "source:maigret"
       ],
@@ -17545,6 +17237,7 @@
         }
       ],
       "tags": [
+        "bot-protected",
         "forum",
         "ru",
         "source:maigret"
@@ -17685,6 +17378,7 @@
       "url": "http://odonvv.ru/index/8-0-{username}",
       "engine": "uCoz",
       "tags": [
+        "bot-protected",
         "source:maigret"
       ],
       "known_present": "alex"
@@ -17751,6 +17445,7 @@
       "url": "https://offline.by/forum/memberlist.php?username={username}",
       "engine": "phpBB",
       "tags": [
+        "bot-protected",
         "forum",
         "ru",
         "source:maigret"
@@ -17786,6 +17481,7 @@
       "url": "http://www.oilcareer.ru/index/8-0-{username}",
       "engine": "uCoz",
       "tags": [
+        "bot-protected",
         "ru",
         "source:maigret"
       ],
@@ -17852,17 +17548,9 @@
       "url": "http://old.rubezhnoe.com/index/8-0-{username}",
       "engine": "uCoz",
       "tags": [
+        "bot-protected",
         "source:maigret",
         "ua"
-      ],
-      "known_present": "alex"
-    },
-    {
-      "name": "oldones.org",
-      "url": "http://oldones.org/index/8-0-{username}",
-      "engine": "uCoz",
-      "tags": [
-        "source:maigret"
       ],
       "known_present": "alex"
     },
@@ -17887,34 +17575,6 @@
         "source:maigret"
       ],
       "known_present": "adam"
-    },
-    {
-      "name": "Olx.pl",
-      "url": "https://www.olx.pl/oferty/uzytkownik/{username}/",
-      "signals": [
-        {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
-          "kind": "body_absent",
-          "text": "Przepraszamy, ale nie możemy znaleźć takiej strony..."
-        },
-        {
-          "kind": "body_absent",
-          "text": "Nie znaleziono"
-        },
-        {
-          "kind": "body_present",
-          "text": "Obserwuj wyszukiwanie"
-        }
-      ],
-      "tags": [
-        "source:maigret"
-      ],
-      "known_present": "test"
     },
     {
       "name": "omg.lol",
@@ -17957,16 +17617,6 @@
       "known_present": "adam"
     },
     {
-      "name": "onanizm.club",
-      "url": "http://onanizm.club/members/?username={username}",
-      "engine": "XenForo",
-      "tags": [
-        "forum",
-        "source:maigret"
-      ],
-      "known_present": "alex"
-    },
-    {
       "name": "once-upon-a-time-tv.ru",
       "url": "http://once-upon-a-time-tv.ru/index/8-0-{username}",
       "engine": "uCoz",
@@ -17978,50 +17628,6 @@
     {
       "name": "online-movies.3dn.ru",
       "url": "http://online-movies.3dn.ru/index/8-0-{username}",
-      "engine": "uCoz",
-      "tags": [
-        "source:maigret"
-      ],
-      "known_present": "alex"
-    },
-    {
-      "name": "OnlyFans",
-      "url": "https://onlyfans.com/{username}",
-      "signals": [
-        {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
-          "kind": "status_not_found",
-          "codes": [
-            404
-          ]
-        }
-      ],
-      "request_headers": {
-        "accept": "application/json, text/plain, */*",
-        "app-token": "33d57ade8c02dbc5a333db99ff9ae26a",
-        "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-        "user-id": "0",
-        "x-bc": "0a106d301866494c873ae3a05bc3c97cee59a749",
-        "time": "1777640509001",
-        "sign": "57203:0fb90afb3459bf965b3d29c6084e24518a381d23:640:69cfa6d8",
-        "referer": "https://onlyfans.com/",
-        "cookie": "__cf_bm=YovfzPN0T_wg6F60L5eZKPOQvlGESws3UDGgEkmPb9A-1776790253-1.0.1.1-KRZgptNe5P9epBZSdITa12VfTEDlDdLckPY3I2FDAacvCPxOj0PqeK86J5mcC7UQ_TM8_O24bAh21ElYINovqk2386EoJYyLmknHJ5UsFts"
-      },
-      "regex_check": "^[a-zA-Z0-9._-]{3,50}$",
-      "tags": [
-        "porn",
-        "source:maigret"
-      ],
-      "known_present": "onlyfans"
-    },
-    {
-      "name": "ooo.do.am",
-      "url": "http://ooo.do.am/index/8-0-{username}",
       "engine": "uCoz",
       "tags": [
         "source:maigret"
@@ -18223,6 +17829,7 @@
         }
       ],
       "tags": [
+        "bot-protected",
         "ru",
         "source:maigret"
       ],
@@ -18298,16 +17905,6 @@
       "known_present": "sindresorhus"
     },
     {
-      "name": "openframeworks",
-      "url": "https://forum.openframeworks.cc/u/{username}/summary",
-      "engine": "Discourse",
-      "tags": [
-        "forum",
-        "source:maigret"
-      ],
-      "known_present": "red"
-    },
-    {
       "name": "OpenGameArt",
       "url": "https://opengameart.org/users/{username}",
       "signals": [
@@ -18344,33 +17941,10 @@
         }
       ],
       "tags": [
+        "bot-protected",
         "source:maigret"
       ],
       "known_present": "adam"
-    },
-    {
-      "name": "OpenSea",
-      "url": "https://opensea.io/{username}",
-      "signals": [
-        {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
-          "kind": "status_not_found",
-          "codes": [
-            404
-          ]
-        }
-      ],
-      "tags": [
-        "crypto",
-        "nft",
-        "source:maigret"
-      ],
-      "known_present": "opensea"
     },
     {
       "name": "Opensource",
@@ -18390,17 +17964,6 @@
         }
       ],
       "known_present": "admin"
-    },
-    {
-      "name": "openssource.info",
-      "url": "https://openssource.info/members/?username={username}",
-      "engine": "XenForo",
-      "tags": [
-        "forum",
-        "ru",
-        "source:maigret"
-      ],
-      "known_present": "alex"
     },
     {
       "name": "OpenStreetMap",
@@ -18466,29 +18029,6 @@
       "known_present": "adam"
     },
     {
-      "name": "operationsports",
-      "url": "https://forums.operationsports.com/{username}",
-      "signals": [
-        {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
-          "kind": "status_not_found",
-          "codes": [
-            404
-          ]
-        }
-      ],
-      "tags": [
-        "forum",
-        "source:maigret"
-      ],
-      "known_present": "adam"
-    },
-    {
       "name": "opinion.ucoz.ru",
       "url": "http://opinion.ucoz.ru/index/8-0-{username}",
       "engine": "uCoz",
@@ -18517,66 +18057,10 @@
         }
       ],
       "tags": [
+        "bot-protected",
         "source:maigret"
       ],
       "known_present": "txmustang302"
-    },
-    {
-      "name": "oshwlab.com",
-      "url": "https://oshwlab.com/{username}",
-      "signals": [
-        {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
-          "kind": "body_absent",
-          "text": "<body>"
-        },
-        {
-          "kind": "body_absent",
-          "text": "error-wrap"
-        },
-        {
-          "kind": "body_absent",
-          "text": "error-part"
-        },
-        {
-          "kind": "body_absent",
-          "text": "btn-blue"
-        },
-        {
-          "kind": "body_absent",
-          "text": "  <title>error</title>"
-        },
-        {
-          "kind": "body_present",
-          "text": "profile"
-        },
-        {
-          "kind": "body_present",
-          "text": " style="
-        },
-        {
-          "kind": "body_present",
-          "text": " title="
-        },
-        {
-          "kind": "body_present",
-          "text": "Twitter"
-        },
-        {
-          "kind": "body_present",
-          "text": "profile-header"
-        }
-      ],
-      "tags": [
-        "source:maigret",
-        "tech"
-      ],
-      "known_present": "zoey123"
     },
     {
       "name": "oskolfishing.ucoz.ru",
@@ -18614,31 +18098,6 @@
         }
       ],
       "known_present": "blue"
-    },
-    {
-      "name": "Otechie",
-      "url": "https://otechie.com/{username}",
-      "signals": [
-        {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
-          "kind": "body_absent",
-          "text": "Page not found!"
-        },
-        {
-          "kind": "body_present",
-          "text": "Start Conversation"
-        }
-      ],
-      "tags": [
-        "finance",
-        "source:maigret"
-      ],
-      "known_present": "neurobin"
     },
     {
       "name": "Otzovik",
@@ -18723,6 +18182,7 @@
         }
       ],
       "tags": [
+        "bot-protected",
         "source:maigret"
       ],
       "known_present": "uehkon89"
@@ -18805,31 +18265,10 @@
         }
       ],
       "tags": [
+        "bot-protected",
         "source:maigret"
       ],
       "known_present": "StopAdMedia"
-    },
-    {
-      "name": "oyoy.com",
-      "url": "https://oyoy.com/{username}",
-      "signals": [
-        {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
-          "kind": "status_not_found",
-          "codes": [
-            404
-          ]
-        }
-      ],
-      "tags": [
-        "source:maigret"
-      ],
-      "known_present": "test"
     },
     {
       "name": "ozcardtrader.com.au",
@@ -18837,6 +18276,7 @@
       "engine": "XenForo",
       "tags": [
         "au",
+        "bot-protected",
         "forum",
         "source:maigret",
         "sport"
@@ -18864,6 +18304,7 @@
       ],
       "tags": [
         "auto",
+        "bot-protected",
         "source:maigret"
       ],
       "known_present": "John122"
@@ -18892,6 +18333,7 @@
       "url": "http://p8ntballer-forums.com/members/?username={username}",
       "engine": "XenForo",
       "tags": [
+        "bot-protected",
         "forum",
         "source:maigret"
       ],
@@ -18932,6 +18374,7 @@
         }
       ],
       "tags": [
+        "bot-protected",
         "source:maigret"
       ],
       "known_present": "adam"
@@ -18954,6 +18397,7 @@
         }
       ],
       "tags": [
+        "bot-protected",
         "source:maigret"
       ],
       "known_present": "test"
@@ -18993,31 +18437,6 @@
       "known_present": "alex"
     },
     {
-      "name": "Paltalk",
-      "url": "https://www.paltalk.com/people/users/{username}",
-      "signals": [
-        {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
-          "kind": "body_absent",
-          "text": "<h1>Sorry, the profile you were looking for was not found</h1>"
-        },
-        {
-          "kind": "body_present",
-          "text": ">Member since<!-- --> <!-- -->"
-        }
-      ],
-      "tags": [
-        "messaging",
-        "source:maigret"
-      ],
-      "known_present": "red"
-    },
-    {
       "name": "Pandia",
       "url": "https://pandia.ru/user/profile/{username}",
       "signals": [
@@ -19046,6 +18465,7 @@
       "url": "http://pankreatitu.ucoz.net/index/8-0-{username}",
       "engine": "uCoz",
       "tags": [
+        "bot-protected",
         "source:maigret"
       ],
       "known_present": "alex"
@@ -19083,17 +18503,6 @@
         "source:maigret"
       ],
       "known_present": "vitalik"
-    },
-    {
-      "name": "Parkrocker",
-      "url": "https://www.parkrocker.net/members/?username={username}",
-      "engine": "XenForo",
-      "tags": [
-        "de",
-        "forum",
-        "source:maigret"
-      ],
-      "known_present": "diablo0106"
     },
     {
       "name": "partner.3dn.ru",
@@ -19147,6 +18556,7 @@
         }
       ],
       "tags": [
+        "bot-protected",
         "nl",
         "source:maigret"
       ],
@@ -19174,15 +18584,6 @@
         "source:maigret"
       ],
       "known_present": "p0ly"
-    },
-    {
-      "name": "parusa-magellana.ru",
-      "url": "http://parusa-magellana.ru/index/8-0-{username}",
-      "engine": "uCoz",
-      "tags": [
-        "source:maigret"
-      ],
-      "known_present": "red"
     },
     {
       "name": "Pastebin",
@@ -19259,6 +18660,7 @@
       ],
       "known_present": "blue",
       "tags": [
+        "bot-protected",
         "creator"
       ]
     },
@@ -19401,6 +18803,7 @@
         "Referer": "https://peername.com"
       },
       "tags": [
+        "bot-protected",
         "crypto",
         "source:maigret"
       ],
@@ -19427,6 +18830,7 @@
         "Referer": "https://peername.com"
       },
       "tags": [
+        "bot-protected",
         "crypto",
         "source:maigret"
       ],
@@ -19453,6 +18857,7 @@
         "Referer": "https://peername.com"
       },
       "tags": [
+        "bot-protected",
         "crypto",
         "source:maigret"
       ],
@@ -19479,6 +18884,7 @@
         "Referer": "https://peername.com"
       },
       "tags": [
+        "bot-protected",
         "crypto",
         "source:maigret"
       ],
@@ -19505,6 +18911,7 @@
         "Referer": "https://peername.com"
       },
       "tags": [
+        "bot-protected",
         "crypto",
         "source:maigret"
       ],
@@ -19531,6 +18938,7 @@
         "Referer": "https://peername.com"
       },
       "tags": [
+        "bot-protected",
         "crypto",
         "source:maigret"
       ],
@@ -19557,6 +18965,7 @@
         "Referer": "https://peername.com"
       },
       "tags": [
+        "bot-protected",
         "crypto",
         "source:maigret"
       ],
@@ -19605,27 +19014,6 @@
       ],
       "known_present": "0day",
       "regex_check": "^[\\w]{4,30}$"
-    },
-    {
-      "name": "PeopleIgn",
-      "url": "https://people.ign.com/{username}",
-      "signals": [
-        {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
-          "kind": "body_absent",
-          "text": "title>IGN Error 404 - Not Found</title>"
-        }
-      ],
-      "tags": [
-        "gaming",
-        "source:maigret"
-      ],
-      "known_present": "adam"
     },
     {
       "name": "Pepper NL",
@@ -19803,6 +19191,7 @@
       "url": "https://pw.mail.ru/forums/member.php?username={username}",
       "engine": "vBulletin",
       "tags": [
+        "bot-protected",
         "forum",
         "gaming",
         "ru",
@@ -19834,33 +19223,10 @@
       "url": "http://personagra-ta.ru/index/8-0-{username}",
       "engine": "uCoz",
       "tags": [
+        "bot-protected",
         "source:maigret"
       ],
       "known_present": "alex"
-    },
-    {
-      "name": "Pewex.pl",
-      "url": "https://retro.pewex.pl/user/{username}",
-      "signals": [
-        {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
-          "kind": "body_absent",
-          "text": "Nie znaleziono użytkownika o podanym loginie."
-        },
-        {
-          "kind": "body_present",
-          "text": "Zamieszcza eksponaty od:"
-        }
-      ],
-      "tags": [
-        "source:maigret"
-      ],
-      "known_present": "test"
     },
     {
       "name": "Pexels",
@@ -19880,6 +19246,7 @@
         }
       ],
       "tags": [
+        "bot-protected",
         "photo",
         "source:maigret"
       ],
@@ -19901,6 +19268,7 @@
         }
       ],
       "tags": [
+        "bot-protected",
         "ru",
         "source:maigret"
       ],
@@ -19912,15 +19280,6 @@
       "engine": "XenForo",
       "tags": [
         "forum",
-        "source:maigret"
-      ],
-      "known_present": "alex"
-    },
-    {
-      "name": "photoaura.ucoz.ru",
-      "url": "http://photoaura.ucoz.ru/index/8-0-{username}",
-      "engine": "uCoz",
-      "tags": [
         "source:maigret"
       ],
       "known_present": "alex"
@@ -19976,6 +19335,7 @@
         }
       ],
       "tags": [
+        "bot-protected",
         "forum",
         "source:maigret"
       ],
@@ -20032,35 +19392,11 @@
       ],
       "regex_check": "^[^\\.]+$",
       "tags": [
+        "bot-protected",
         "photo",
         "source:maigret"
       ],
       "known_present": "orientcement"
-    },
-    {
-      "name": "Picsart",
-      "url": "https://picsart.com/u/{username}",
-      "signals": [
-        {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
-          "kind": "body_absent",
-          "text": "user_not_found"
-        },
-        {
-          "kind": "body_present",
-          "text": "\"status\":\"success\""
-        }
-      ],
-      "tags": [
-        "photo",
-        "source:maigret"
-      ],
-      "known_present": "adam"
     },
     {
       "name": "picturepush.com",
@@ -20138,30 +19474,7 @@
         }
       ],
       "tags": [
-        "source:maigret"
-      ],
-      "known_present": "test"
-    },
-    {
-      "name": "Piekielni",
-      "url": "https://piekielni.pl/user/{username}",
-      "signals": [
-        {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
-          "kind": "body_absent",
-          "text": "Nie znaleziono użytkownika o podanym loginie."
-        },
-        {
-          "kind": "body_present",
-          "text": "Zamieszcza historie od:"
-        }
-      ],
-      "tags": [
+        "bot-protected",
         "source:maigret"
       ],
       "known_present": "test"
@@ -20221,33 +19534,12 @@
         }
       ],
       "tags": [
+        "bot-protected",
         "ru",
         "sharing",
         "source:maigret"
       ],
       "known_present": "Avezenit"
-    },
-    {
-      "name": "pinataisland.info",
-      "url": "https://pinataisland.info/viva/User:{username}",
-      "signals": [
-        {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
-          "kind": "status_not_found",
-          "codes": [
-            404
-          ]
-        }
-      ],
-      "tags": [
-        "source:maigret"
-      ],
-      "known_present": "adam"
     },
     {
       "name": "Pinkbike",
@@ -20267,7 +19559,10 @@
         }
       ],
       "known_present": "blue",
-      "regex_check": "^[^.]*?$"
+      "regex_check": "^[^.]*?$",
+      "tags": [
+        "bot-protected"
+      ]
     },
     {
       "name": "Pinterest",
@@ -20399,36 +19694,11 @@
         }
       ],
       "tags": [
+        "bot-protected",
         "photo",
         "source:maigret"
       ],
       "known_present": "mami_ishioka"
-    },
-    {
-      "name": "Planetaexcel",
-      "url": "https://www.planetaexcel.ru/forum/index.php?PAGE_NAME=profile_view&UID={username}",
-      "signals": [
-        {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
-          "kind": "status_not_found",
-          "codes": [
-            404
-          ]
-        }
-      ],
-      "request_headers": {
-        "User-Agent": "python-requests/2.25.1"
-      },
-      "tags": [
-        "ru",
-        "source:maigret"
-      ],
-      "known_present": "adam"
     },
     {
       "name": "PlanetMinecraft",
@@ -20458,6 +19728,7 @@
         }
       ],
       "tags": [
+        "bot-protected",
         "gaming",
         "source:maigret"
       ],
@@ -20490,25 +19761,6 @@
         "source:maigret"
       ],
       "known_present": "alex"
-    },
-    {
-      "name": "PlayStore",
-      "url": "https://play.google.com/store/apps/developer?id={username}",
-      "signals": [
-        {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
-          "kind": "status_not_found",
-          "codes": [
-            404
-          ]
-        }
-      ],
-      "known_present": "Facebook"
     },
     {
       "name": "Playstrategy",
@@ -20616,6 +19868,7 @@
       "url": "http://pochikimyk.ucoz.ru/index/8-0-{username}",
       "engine": "uCoz",
       "tags": [
+        "bot-protected",
         "source:maigret"
       ],
       "known_present": "admin"
@@ -20637,6 +19890,7 @@
       ],
       "known_present": "hacker",
       "tags": [
+        "bot-protected",
         "nsfw"
       ]
     },
@@ -20676,36 +19930,11 @@
       "url": "http://podsnezhniksad.ucoz.com/index/8-0-{username}",
       "engine": "uCoz",
       "tags": [
+        "bot-protected",
         "ru",
         "source:maigret"
       ],
       "known_present": "admin"
-    },
-    {
-      "name": "Poembook",
-      "url": "https://poembook.ru/any?query={username}",
-      "signals": [
-        {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
-          "kind": "body_absent",
-          "text": "Извините, по вашему запросу ничего не найдено! :("
-        },
-        {
-          "kind": "body_present",
-          "text": "poembook.ru/profile/"
-        }
-      ],
-      "regex_check": "^[^\\.]+$",
-      "tags": [
-        "ru",
-        "source:maigret"
-      ],
-      "known_present": "DIKANNA"
     },
     {
       "name": "pogz5615.ucoz.ru",
@@ -20736,6 +19965,7 @@
         }
       ],
       "tags": [
+        "bot-protected",
         "forum",
         "gaming",
         "source:maigret"
@@ -20781,6 +20011,7 @@
         }
       ],
       "tags": [
+        "bot-protected",
         "source:maigret"
       ],
       "known_present": "ducensor"
@@ -20802,7 +20033,10 @@
           ]
         }
       ],
-      "known_present": "james"
+      "known_present": "james",
+      "tags": [
+        "bot-protected"
+      ]
     },
     {
       "name": "Polczat.pl",
@@ -20824,6 +20058,7 @@
         }
       ],
       "tags": [
+        "bot-protected",
         "source:maigret"
       ],
       "known_present": "test"
@@ -20848,6 +20083,7 @@
         }
       ],
       "tags": [
+        "bot-protected",
         "source:maigret"
       ],
       "known_present": "janek"
@@ -20873,22 +20109,12 @@
       ],
       "regex_check": "^[^\\.]+$",
       "tags": [
+        "bot-protected",
         "forum",
         "ru",
         "source:maigret"
       ],
       "known_present": "adam"
-    },
-    {
-      "name": "Politikforum",
-      "url": "http://www.politikforum.ru/member.php?username={username}",
-      "engine": "vBulletin",
-      "tags": [
-        "forum",
-        "ru",
-        "source:maigret"
-      ],
-      "known_present": "kostya"
     },
     {
       "name": "politsrach.ru",
@@ -20921,28 +20147,10 @@
         }
       ],
       "tags": [
+        "bot-protected",
         "source:maigret"
       ],
       "known_present": "josh"
-    },
-    {
-      "name": "Polygon",
-      "url": "https://www.polygon.com/users/{username}",
-      "signals": [
-        {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
-          "kind": "status_not_found",
-          "codes": [
-            404
-          ]
-        }
-      ],
-      "known_present": "swiftstickler"
     },
     {
       "name": "Polymarket",
@@ -20982,13 +20190,17 @@
           "fragment": "/user/-1"
         }
       ],
-      "known_present": "craciu25yt"
+      "known_present": "craciu25yt",
+      "tags": [
+        "bot-protected"
+      ]
     },
     {
       "name": "popjustice",
       "url": "https://forum.popjustice.com/members/?username={username}",
       "engine": "XenForo",
       "tags": [
+        "bot-protected",
         "co",
         "forum",
         "sg",
@@ -21004,55 +20216,6 @@
         "source:maigret"
       ],
       "known_present": "admin"
-    },
-    {
-      "name": "Porevo",
-      "url": "https://porevo.site/index.php?{username}",
-      "signals": [
-        {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
-          "kind": "body_absent",
-          "text": "last_news"
-        },
-        {
-          "kind": "body_present",
-          "text": "profile_all"
-        }
-      ],
-      "tags": [
-        "porn",
-        "source:maigret"
-      ],
-      "known_present": "ejdolon"
-    },
-    {
-      "name": "PornhubPornstars",
-      "url": "https://www.pornhub.com/pornstar/{username}",
-      "signals": [
-        {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
-          "kind": "body_absent",
-          "text": "Error Page Not Found"
-        },
-        {
-          "kind": "body_present",
-          "text": "Pornstar Rank"
-        }
-      ],
-      "tags": [
-        "source:maigret"
-      ],
-      "known_present": "riley-reid"
     },
     {
       "name": "portal-cs-1-6.3dn.ru",
@@ -21092,6 +20255,7 @@
       "url": "http://poshtovik.ucoz.ru/index/8-0-{username}",
       "engine": "uCoz",
       "tags": [
+        "bot-protected",
         "source:maigret"
       ],
       "known_present": "admin"
@@ -21114,6 +20278,7 @@
         }
       ],
       "tags": [
+        "bot-protected",
         "ru",
         "source:maigret"
       ],
@@ -21124,6 +20289,7 @@
       "url": "http://poteryashka.spb.ru/index/8-0-{username}",
       "engine": "uCoz",
       "tags": [
+        "bot-protected",
         "source:maigret"
       ],
       "known_present": "alex"
@@ -21136,16 +20302,6 @@
         "source:maigret"
       ],
       "known_present": "alex"
-    },
-    {
-      "name": "pozdrawlandiya.ru",
-      "url": "http://pozdrawlandiya.ru/index/8-0-{username}",
-      "engine": "uCoz",
-      "tags": [
-        "ru",
-        "source:maigret"
-      ],
-      "known_present": "admin"
     },
     {
       "name": "pr0gramm",
@@ -21221,6 +20377,7 @@
       "url": "http://privateinvestor2000.com/index/8-0-{username}",
       "engine": "uCoz",
       "tags": [
+        "bot-protected",
         "source:maigret"
       ],
       "known_present": "alex"
@@ -21240,6 +20397,7 @@
       "url": "http://pro-cats.ru/index/8-0-{username}",
       "engine": "uCoz",
       "tags": [
+        "bot-protected",
         "ru",
         "source:maigret"
       ],
@@ -21309,6 +20467,7 @@
         }
       ],
       "tags": [
+        "bot-protected",
         "ru",
         "source:maigret"
       ],
@@ -21430,6 +20589,7 @@
       ],
       "known_present": "Sting",
       "tags": [
+        "bot-protected",
         "region:hu"
       ]
     },
@@ -21471,7 +20631,10 @@
           "text": "Error!"
         }
       ],
-      "known_present": "pylapp"
+      "known_present": "pylapp",
+      "tags": [
+        "bot-protected"
+      ]
     },
     {
       "name": "Prokoni",
@@ -21493,17 +20656,6 @@
         "source:maigret"
       ],
       "known_present": "adam"
-    },
-    {
-      "name": "promalp.ru",
-      "url": "http://promalp.ru/search.php?author={username}",
-      "engine": "phpBB/Search",
-      "tags": [
-        "forum",
-        "ru",
-        "source:maigret"
-      ],
-      "known_present": "alex"
     },
     {
       "name": "Promodescuentos",
@@ -21589,28 +20741,6 @@
       "known_present": "andrea"
     },
     {
-      "name": "Proshkolu",
-      "url": "https://proshkolu.ru/user/{username}/",
-      "signals": [
-        {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
-          "kind": "body_absent",
-          "text": "Пользователь не найден"
-        }
-      ],
-      "regex_check": "^[^\\u3040-\\u30ff\\u3400-\\u4dbf\\u4e00-\\u9fff\\uac00-\\ud7af\\uf900-\\ufaff]+$",
-      "tags": [
-        "ru",
-        "source:maigret"
-      ],
-      "known_present": "adam"
-    },
-    {
       "name": "prosmart.3dn.ru",
       "url": "http://prosmart.3dn.ru/index/8-0-{username}",
       "engine": "uCoz",
@@ -21635,6 +20765,7 @@
         }
       ],
       "tags": [
+        "bot-protected",
         "kg",
         "ru",
         "source:maigret"
@@ -21664,6 +20795,7 @@
         "X-Pm-Appversion": "web-account@4.28.2"
       },
       "tags": [
+        "bot-protected",
         "source:maigret"
       ],
       "known_present": "adam"
@@ -21676,29 +20808,6 @@
         "source:maigret"
       ],
       "known_present": "admin"
-    },
-    {
-      "name": "Proza.ru",
-      "url": "https://www.proza.ru/avtor/{username}",
-      "signals": [
-        {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
-          "kind": "body_absent",
-          "text": "Автор не найден"
-        }
-      ],
-      "regex_check": "^[^\\u3040-\\u30ff\\u3400-\\u4dbf\\u4e00-\\u9fff\\uac00-\\ud7af\\uf900-\\ufaff]+$",
-      "tags": [
-        "ru",
-        "source:maigret",
-        "writing"
-      ],
-      "known_present": "gpola"
     },
     {
       "name": "Prv.pl",
@@ -21729,6 +20838,7 @@
       "url": "http://pskovfaunaclub.ucoz.ru/index/8-0-{username}",
       "engine": "uCoz",
       "tags": [
+        "bot-protected",
         "source:maigret"
       ],
       "known_present": "alex"
@@ -21748,7 +20858,10 @@
           "fragment": "https://psnprofiles.com/?psnId={}"
         }
       ],
-      "known_present": "blue"
+      "known_present": "blue",
+      "tags": [
+        "bot-protected"
+      ]
     },
     {
       "name": "psy-music.ru",
@@ -21762,33 +20875,11 @@
       "known_present": "admin"
     },
     {
-      "name": "Psychologies.ru",
-      "url": "http://www.psychologies.ru/personal/{username}",
-      "signals": [
-        {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
-          "kind": "status_not_found",
-          "codes": [
-            404
-          ]
-        }
-      ],
-      "tags": [
-        "ru",
-        "source:maigret"
-      ],
-      "known_present": "adam"
-    },
-    {
       "name": "psychotype.info",
       "url": "http://psychotype.info/index/8-0-{username}",
       "engine": "uCoz",
       "tags": [
+        "bot-protected",
         "source:maigret"
       ],
       "known_present": "alex"
@@ -21843,6 +20934,7 @@
       "url": "http://pubert.company/index/8-0-{username}",
       "engine": "uCoz",
       "tags": [
+        "bot-protected",
         "source:maigret"
       ],
       "known_present": "alex"
@@ -21908,6 +21000,7 @@
       "url": "http://puru.do.am/index/8-0-{username}",
       "engine": "uCoz",
       "tags": [
+        "bot-protected",
         "source:maigret"
       ],
       "known_present": "admin"
@@ -21947,26 +21040,6 @@
       "known_present": "alex"
     },
     {
-      "name": "Pychess",
-      "url": "https://www.pychess.org/@/{username}",
-      "signals": [
-        {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
-          "kind": "body_absent",
-          "text": "404"
-        }
-      ],
-      "tags": [
-        "source:maigret"
-      ],
-      "known_present": "gbtami"
-    },
-    {
       "name": "Pyha",
       "url": "https://pyha.ru/users/{username}",
       "signals": [
@@ -21988,28 +21061,6 @@
         "source:maigret"
       ],
       "known_present": "Sinkler"
-    },
-    {
-      "name": "PyPi",
-      "url": "https://pypi.org/_includes/administer-user-include/{username}",
-      "signals": [
-        {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
-          "kind": "status_not_found",
-          "codes": [
-            404
-          ]
-        }
-      ],
-      "known_present": "Blue",
-      "tags": [
-        "dev"
-      ]
     },
     {
       "name": "Python.org Discussions",
@@ -22148,6 +21199,7 @@
         }
       ],
       "tags": [
+        "bot-protected",
         "pl",
         "source:maigret"
       ],
@@ -22190,30 +21242,6 @@
       "known_present": "swerg"
     },
     {
-      "name": "Quitter.pl",
-      "url": "https://quitter.pl/profile/{username}",
-      "signals": [
-        {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
-          "kind": "body_absent",
-          "text": "Nie znaleziono"
-        },
-        {
-          "kind": "body_present",
-          "text": "@quitter.pl"
-        }
-      ],
-      "tags": [
-        "source:maigret"
-      ],
-      "known_present": "divmod"
-    },
-    {
       "name": "Quizlet",
       "url": "https://quizlet.com/{username}",
       "signals": [
@@ -22233,6 +21261,7 @@
         }
       ],
       "tags": [
+        "bot-protected",
         "source:maigret"
       ],
       "known_present": "blue"
@@ -22253,6 +21282,7 @@
         }
       ],
       "tags": [
+        "bot-protected",
         "education",
         "source:maigret"
       ],
@@ -22274,6 +21304,7 @@
         }
       ],
       "tags": [
+        "bot-protected",
         "forum",
         "ru",
         "source:maigret"
@@ -22290,62 +21321,11 @@
       "known_present": "admin"
     },
     {
-      "name": "Radio-uchebnik",
-      "url": "http://radio-uchebnik.ru/forum/search.php?keywords=&terms=all&author={username}",
-      "signals": [
-        {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
-          "kind": "body_absent",
-          "text": "Подходящих тем или сообщений не найдено."
-        }
-      ],
-      "tags": [
-        "ru",
-        "source:maigret"
-      ],
-      "known_present": "sasha"
-    },
-    {
-      "name": "Radioscanner",
-      "url": "http://www.radioscanner.ru/forum/index.php?posterName={username}&action=search&searchGo=1",
-      "signals": [
-        {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
-          "kind": "body_absent",
-          "text": "Ничего не найдено!"
-        }
-      ],
-      "tags": [
-        "ru",
-        "source:maigret"
-      ],
-      "known_present": "bob"
-    },
-    {
-      "name": "radioskot",
-      "url": "https://radioskot.ru/index/8-0-{username}",
-      "engine": "uCoz",
-      "tags": [
-        "ru",
-        "source:maigret"
-      ],
-      "known_present": "red"
-    },
-    {
       "name": "railforums.co.uk",
       "url": "https://www.railforums.co.uk/members/?username={username}",
       "engine": "XenForo",
       "tags": [
+        "bot-protected",
         "forum",
         "jp",
         "source:maigret"
@@ -22399,6 +21379,7 @@
       "url": "http://www.rapforce.net/index/8-0-{username}",
       "engine": "uCoz",
       "tags": [
+        "bot-protected",
         "fr",
         "ru",
         "source:maigret"
@@ -22410,6 +21391,7 @@
       "url": "https://rapidapi.com/blog/author/{username}/",
       "engine": "Wordpress/Author",
       "tags": [
+        "bot-protected",
         "coding",
         "source:maigret"
       ],
@@ -22439,25 +21421,6 @@
       "known_present": "adam"
     },
     {
-      "name": "Rarible",
-      "url": "https://rarible.com/marketplace/api/v4/urls/{username}",
-      "signals": [
-        {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
-          "kind": "status_not_found",
-          "codes": [
-            404
-          ]
-        }
-      ],
-      "known_present": "blue"
-    },
-    {
       "name": "Rasa",
       "url": "https://forum.rasa.com/u/{username}/summary",
       "engine": "Discourse",
@@ -22472,6 +21435,7 @@
       "url": "http://rasskazovskie.ru/index/8-0-{username}",
       "engine": "uCoz",
       "tags": [
+        "bot-protected",
         "ru",
         "source:maigret"
       ],
@@ -22504,7 +21468,10 @@
           ]
         }
       ],
-      "known_present": "blue"
+      "known_present": "blue",
+      "tags": [
+        "bot-protected"
+      ]
     },
     {
       "name": "rationalwiki.org",
@@ -22524,6 +21491,7 @@
         }
       ],
       "tags": [
+        "bot-protected",
         "source:maigret"
       ],
       "known_present": "adam"
@@ -22569,6 +21537,7 @@
         }
       ],
       "tags": [
+        "bot-protected",
         "source:maigret"
       ],
       "known_present": "admin"
@@ -22588,6 +21557,7 @@
       "url": "http://razvilnoe.ru/index/8-0-{username}",
       "engine": "uCoz",
       "tags": [
+        "bot-protected",
         "source:maigret"
       ],
       "known_present": "alex"
@@ -22634,15 +21604,6 @@
       "known_present": "ncw"
     },
     {
-      "name": "rcprim.ru",
-      "url": "http://rcprim.ru/index/8-0-{username}",
-      "engine": "uCoz",
-      "tags": [
-        "source:maigret"
-      ],
-      "known_present": "admin"
-    },
-    {
       "name": "real-sp.ucoz.com",
       "url": "http://real-sp.ucoz.com/index/8-0-{username}",
       "engine": "uCoz",
@@ -22678,6 +21639,7 @@
       "url": "http://realitygaming.fr/members/?username={username}",
       "engine": "XenForo",
       "tags": [
+        "bot-protected",
         "forum",
         "fr",
         "source:maigret"
@@ -22737,15 +21699,6 @@
       "known_present": "alex"
     },
     {
-      "name": "red-forum.com",
-      "url": "https://red-forum.com/members/?username={username}",
-      "engine": "XenForo",
-      "tags": [
-        "source:maigret"
-      ],
-      "known_present": "alex"
-    },
-    {
       "name": "Redbubble",
       "url": "https://www.redbubble.com/people/{username}",
       "signals": [
@@ -22793,6 +21746,7 @@
       ],
       "known_present": "reddit",
       "tags": [
+        "bot-protected",
         "social"
       ]
     },
@@ -22820,18 +21774,6 @@
         "source:maigret"
       ],
       "known_present": "dollyjeey"
-    },
-    {
-      "name": "Reibert",
-      "url": "https://reibert.info/members/?username={username}",
-      "engine": "XenForo",
-      "tags": [
-        "forum",
-        "ru",
-        "source:maigret",
-        "ua"
-      ],
-      "known_present": "green"
     },
     {
       "name": "Reincarnationforum",
@@ -22877,6 +21819,7 @@
       "url": "http://religionlaw.ru/index/8-0-{username}",
       "engine": "uCoz",
       "tags": [
+        "bot-protected",
         "source:maigret"
       ],
       "known_present": "admin"
@@ -22886,6 +21829,7 @@
       "url": "https://www.religiousforums.com/members/?username={username}",
       "engine": "XenForo",
       "tags": [
+        "bot-protected",
         "forum",
         "source:maigret"
       ],
@@ -22905,6 +21849,7 @@
       "url": "http://remzona-ekb.ucoz.ru/index/8-0-{username}",
       "engine": "uCoz",
       "tags": [
+        "bot-protected",
         "source:maigret"
       ],
       "known_present": "alex"
@@ -22932,51 +21877,6 @@
       "known_present": "adam"
     },
     {
-      "name": "Repl.it",
-      "url": "https://repl.it/@{username}",
-      "signals": [
-        {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
-          "kind": "body_absent",
-          "text": "404"
-        }
-      ],
-      "tags": [
-        "coding",
-        "source:maigret"
-      ],
-      "known_present": "blue"
-    },
-    {
-      "name": "Replit",
-      "url": "https://replit.com/@{username}",
-      "signals": [
-        {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
-          "kind": "status_not_found",
-          "codes": [
-            404
-          ]
-        }
-      ],
-      "regex_check": "^[^\\u3040-\\u30ff\\u3400-\\u4dbf\\u4e00-\\u9fff\\uac00-\\ud7af\\uf900-\\ufaff]+$",
-      "tags": [
-        "coding",
-        "source:maigret"
-      ],
-      "known_present": "blue"
-    },
-    {
       "name": "ResearchGate",
       "url": "https://www.researchgate.net/profile/{username}",
       "signals": [
@@ -22992,49 +21892,16 @@
         }
       ],
       "known_present": "John_Smith",
-      "regex_check": "\\w+_\\w+"
-    },
-    {
-      "name": "ResidentAdvisor",
-      "url": "https://www.residentadvisor.net/profile/{username}",
-      "signals": [
-        {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
-          "kind": "body_absent",
-          "text": "Forgot your password?"
-        },
-        {
-          "kind": "body_present",
-          "text": "You need to be logged in to view the profile"
-        }
-      ],
+      "regex_check": "\\w+_\\w+",
       "tags": [
-        "music",
-        "source:maigret"
-      ],
-      "known_present": "uncle_ohm"
+        "bot-protected"
+      ]
     },
     {
       "name": "resource-mta.3dn.ru",
       "url": "http://resource-mta.3dn.ru/index/8-0-{username}",
       "engine": "uCoz",
       "tags": [
-        "source:maigret"
-      ],
-      "known_present": "alex"
-    },
-    {
-      "name": "rest.feo.ru",
-      "url": "https://rest.feo.ru/forum/search.php?author={username}",
-      "engine": "phpBB/Search",
-      "tags": [
-        "forum",
-        "ru",
         "source:maigret"
       ],
       "known_present": "alex"
@@ -23061,6 +21928,7 @@
       "url": "https://forum.reverse4you.org/u/{username}/summary",
       "engine": "Discourse",
       "tags": [
+        "bot-protected",
         "forum",
         "lk",
         "ru",
@@ -23068,30 +21936,6 @@
         "ua"
       ],
       "known_present": "darwin"
-    },
-    {
-      "name": "Revolut.me",
-      "url": "https://revolut.me/{username}",
-      "signals": [
-        {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
-          "kind": "status_not_found",
-          "codes": [
-            404
-          ]
-        }
-      ],
-      "tags": [
-        "finance",
-        "fintech",
-        "source:maigret"
-      ],
-      "known_present": "adamp"
     },
     {
       "name": "ridemonkey.com",
@@ -23128,6 +21972,7 @@
         }
       ],
       "tags": [
+        "bot-protected",
         "cr",
         "forum",
         "source:maigret"
@@ -23159,16 +22004,6 @@
       "known_present": "blazej"
     },
     {
-      "name": "rive.app",
-      "url": "https://rive.app/a/{username}",
-      "engine": "engine404",
-      "tags": [
-        "design",
-        "source:maigret"
-      ],
-      "known_present": "alex"
-    },
-    {
       "name": "Rlocman",
       "url": "https://www.rlocman.ru/forum/member.php?username={username}",
       "engine": "vBulletin",
@@ -23191,27 +22026,6 @@
       "known_present": "adam"
     },
     {
-      "name": "Rngf",
-      "url": "http://www.rngf.ru/profile.php?mode=viewprofile&u={username}",
-      "signals": [
-        {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
-          "kind": "body_absent",
-          "text": "Извините, такого пользователя не существует"
-        }
-      ],
-      "tags": [
-        "ru",
-        "source:maigret"
-      ],
-      "known_present": "green"
-    },
-    {
       "name": "Ro-ru",
       "url": "https://ro-ru.ru/search.php?keywords=&terms=all&author={username}",
       "signals": [
@@ -23227,6 +22041,7 @@
         }
       ],
       "tags": [
+        "bot-protected",
         "ru",
         "source:maigret"
       ],
@@ -23267,6 +22082,7 @@
         }
       ],
       "tags": [
+        "bot-protected",
         "forum",
         "ru",
         "source:maigret"
@@ -23274,32 +22090,11 @@
       "known_present": "sned"
     },
     {
-      "name": "Rodgersforum",
-      "url": "https://rodgersforum.borda.ru/?32-{username}",
-      "signals": [
-        {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
-          "kind": "body_absent",
-          "text": "профиль забанен или удален"
-        }
-      ],
-      "tags": [
-        "forum",
-        "ru",
-        "source:maigret"
-      ],
-      "known_present": "hata1979"
-    },
-    {
       "name": "rodobozhie.ru",
       "url": "http://rodobozhie.ru/index/8-0-{username}",
       "engine": "uCoz",
       "tags": [
+        "bot-protected",
         "ru",
         "source:maigret"
       ],
@@ -23358,45 +22153,6 @@
       "known_present": "alex"
     },
     {
-      "name": "RoyalCams",
-      "url": "https://royalcams.com/profile/{username}",
-      "signals": [
-        {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
-          "kind": "body_absent",
-          "text": "- RoyalCams</title>"
-        },
-        {
-          "kind": "body_present",
-          "text": "<title>Informação e página"
-        }
-      ],
-      "request_headers": {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:133.0) Gecko/20100101 Firefox/133.0",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.5",
-        "Referer": "https://pt.royalcams.com/",
-        "Upgrade-Insecure-Requests": "1",
-        "Sec-Fetch-Dest": "document",
-        "Sec-Fetch-Mode": "navigate",
-        "Sec-Fetch-Site": "same-origin",
-        "Sec-Fetch-User": "?1"
-      },
-      "tags": [
-        "gr",
-        "ng",
-        "ru",
-        "source:maigret",
-        "webcam"
-      ],
-      "known_present": "asuna-black"
-    },
-    {
       "name": "RRForums",
       "url": "http://au.rrforums.net/cgi-bin/forum/board-profile.pl?action=view_profile&profile={username}-users",
       "signals": [
@@ -23423,6 +22179,7 @@
       "url": "http://www.rt20.getbb.ru/search.php?author={username}",
       "engine": "phpBB/Search",
       "tags": [
+        "bot-protected",
         "forum",
         "ru",
         "source:maigret"
@@ -23434,6 +22191,7 @@
       "url": "http://www.rt21.getbb.ru/search.php?author={username}",
       "engine": "phpBB/Search",
       "tags": [
+        "bot-protected",
         "forum",
         "ru",
         "source:maigret"
@@ -23456,6 +22214,7 @@
         }
       ],
       "tags": [
+        "bot-protected",
         "ru",
         "source:maigret"
       ],
@@ -23508,6 +22267,7 @@
         }
       ],
       "tags": [
+        "bot-protected",
         "source:maigret"
       ],
       "known_present": "uehkon89"
@@ -23560,7 +22320,10 @@
           ]
         }
       ],
-      "known_present": "John"
+      "known_present": "John",
+      "tags": [
+        "bot-protected"
+      ]
     },
     {
       "name": "Rumblechannel",
@@ -23582,6 +22345,7 @@
         }
       ],
       "tags": [
+        "bot-protected",
         "source:maigret"
       ],
       "known_present": "HodgeTwins"
@@ -23606,6 +22370,7 @@
         }
       ],
       "tags": [
+        "bot-protected",
         "source:maigret"
       ],
       "known_present": "SimonParkes"
@@ -23718,6 +22483,7 @@
         }
       ],
       "tags": [
+        "bot-protected",
         "ru",
         "source:maigret"
       ],
@@ -23757,6 +22523,7 @@
       "url": "https://www.russpuss.ru/profile/{username}/",
       "engine": "engine404",
       "tags": [
+        "bot-protected",
         "erotic",
         "forum",
         "ru",
@@ -23807,16 +22574,6 @@
       "known_present": "admin"
     },
     {
-      "name": "safesurvival.net",
-      "url": "https://www.safesurvival.net/members/?username={username}",
-      "engine": "XenForo",
-      "tags": [
-        "forum",
-        "source:maigret"
-      ],
-      "known_present": "alex"
-    },
-    {
       "name": "SakhalinName",
       "url": "https://sakhalin.name/{username}/",
       "signals": [
@@ -23840,6 +22597,7 @@
         }
       ],
       "tags": [
+        "bot-protected",
         "ru",
         "source:maigret"
       ],
@@ -23862,27 +22620,6 @@
         "source:maigret"
       ],
       "known_present": "alex"
-    },
-    {
-      "name": "Salon24.pl",
-      "url": "https://www.salon24.pl/u/{username}/",
-      "signals": [
-        {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
-          "kind": "body_present",
-          "text": "- salon24.pl</title>"
-        }
-      ],
-      "regex_check": "^[^\\u3040-\\u30ff\\u3400-\\u4dbf\\u4e00-\\u9fff\\uac00-\\ud7af\\uf900-\\ufaff]+$",
-      "tags": [
-        "source:maigret"
-      ],
-      "known_present": "test"
     },
     {
       "name": "salutm.ru",
@@ -23933,6 +22670,7 @@
       "url": "http://samp-rus.com/index/8-0-{username}",
       "engine": "uCoz",
       "tags": [
+        "bot-protected",
         "source:maigret",
         "ua"
       ],
@@ -23952,50 +22690,18 @@
       "url": "http://samsungmobile.pp.net.ua/index/8-0-{username}",
       "engine": "uCoz",
       "tags": [
+        "bot-protected",
         "source:maigret",
         "ua"
       ],
       "known_present": "alex"
     },
     {
-      "name": "sanatatur.ru",
-      "url": "http://sanatatur.ru/forum/search.php?author={username}",
-      "engine": "phpBB/Search",
-      "tags": [
-        "forum",
-        "ru",
-        "source:maigret"
-      ],
-      "known_present": "alex"
-    },
-    {
-      "name": "sanatorii",
-      "url": "http://forum.sanatorii.by/search.php?keywords=&terms=all&author={username}",
-      "signals": [
-        {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
-          "kind": "body_absent",
-          "text": "Подходящих тем или сообщений не найдено."
-        }
-      ],
-      "tags": [
-        "by",
-        "forum",
-        "ru",
-        "source:maigret"
-      ],
-      "known_present": "pavlovich"
-    },
-    {
       "name": "santeh-sinfo.ru",
       "url": "http://santeh-sinfo.ru/index/8-0-{username}",
       "engine": "uCoz",
       "tags": [
+        "bot-protected",
         "source:maigret"
       ],
       "known_present": "admin"
@@ -24020,6 +22726,7 @@
         }
       ],
       "tags": [
+        "bot-protected",
         "source:maigret"
       ],
       "known_present": "annaliese"
@@ -24061,6 +22768,7 @@
         }
       ],
       "tags": [
+        "bot-protected",
         "ru",
         "source:maigret",
         "ua"
@@ -24084,23 +22792,17 @@
           ]
         }
       ],
-      "known_present": "red"
+      "known_present": "red",
+      "tags": [
+        "bot-protected"
+      ]
     },
     {
       "name": "satwarez.ru",
       "url": "http://satwarez.ru/index/8-0-{username}",
       "engine": "uCoz",
       "tags": [
-        "source:maigret"
-      ],
-      "known_present": "alex"
-    },
-    {
-      "name": "savingadvice.com",
-      "url": "https://savingadvice.com/author/{username}/",
-      "engine": "Wordpress/Author",
-      "tags": [
-        "finance",
+        "bot-protected",
         "source:maigret"
       ],
       "known_present": "alex"
@@ -24175,6 +22877,7 @@
       ],
       "tags": [
         "art",
+        "bot-protected",
         "design",
         "source:maigret"
       ],
@@ -24217,6 +22920,7 @@
       "url": "http://school-23elista.ucoz.ru/index/8-0-{username}",
       "engine": "uCoz",
       "tags": [
+        "bot-protected",
         "ru",
         "source:maigret"
       ],
@@ -24240,6 +22944,7 @@
         }
       ],
       "tags": [
+        "bot-protected",
         "ru",
         "source:maigret"
       ],
@@ -24259,17 +22964,8 @@
       "url": "http://school2dobrinka.ru/index/8-0-{username}",
       "engine": "uCoz",
       "tags": [
+        "bot-protected",
         "education",
-        "ru",
-        "source:maigret"
-      ],
-      "known_present": "alex"
-    },
-    {
-      "name": "school9korolev.moy.su",
-      "url": "http://school9korolev.moy.su/index/8-0-{username}",
-      "engine": "uCoz",
-      "tags": [
         "ru",
         "source:maigret"
       ],
@@ -24280,20 +22976,10 @@
       "url": "http://schoolteacher.moy.su/index/8-0-{username}",
       "engine": "uCoz",
       "tags": [
+        "bot-protected",
         "source:maigret"
       ],
       "known_present": "admin"
-    },
-    {
-      "name": "sciax2.it",
-      "url": "https://www.sciax2.it/forum/members/?username={username}",
-      "engine": "XenForo",
-      "tags": [
-        "forum",
-        "source:maigret",
-        "tr"
-      ],
-      "known_present": "alex"
     },
     {
       "name": "scooter-helper.ucoz.ru",
@@ -24352,6 +23038,7 @@
       "url": "https://community.screwfix.com/members/?username={username}",
       "engine": "XenForo",
       "tags": [
+        "bot-protected",
         "forum",
         "gb",
         "source:maigret"
@@ -24359,27 +23046,11 @@
       "known_present": "adam"
     },
     {
-      "name": "Scribd",
-      "url": "https://www.scribd.com/{username}",
-      "signals": [
-        {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
-          "kind": "body_absent",
-          "text": "Page not found"
-        }
-      ],
-      "known_present": "blue"
-    },
-    {
       "name": "scuba",
       "url": "http://forum.scuba-divers.ru/memberlist.php?username={username}",
       "engine": "phpBB",
       "tags": [
+        "bot-protected",
         "forum",
         "ru",
         "source:maigret"
@@ -24464,6 +23135,7 @@
         }
       ],
       "tags": [
+        "bot-protected",
         "source:maigret"
       ],
       "known_present": "Boymariste"
@@ -24594,6 +23266,7 @@
         }
       ],
       "tags": [
+        "bot-protected",
         "music",
         "source:maigret"
       ],
@@ -24651,6 +23324,7 @@
         }
       ],
       "tags": [
+        "bot-protected",
         "source:maigret"
       ],
       "known_present": "admin"
@@ -24669,6 +23343,7 @@
       "url": "http://shadow-belgorod.ucoz.ru/index/8-0-{username}",
       "engine": "uCoz",
       "tags": [
+        "bot-protected",
         "source:maigret"
       ],
       "known_present": "admin"
@@ -24693,6 +23368,7 @@
         }
       ],
       "tags": [
+        "bot-protected",
         "source:maigret"
       ],
       "known_present": "chococarmela"
@@ -24711,6 +23387,7 @@
       "url": "http://shansonportal.ru/index/8-0-{username}",
       "engine": "uCoz",
       "tags": [
+        "bot-protected",
         "source:maigret"
       ],
       "known_present": "admin"
@@ -24811,21 +23488,11 @@
       "known_present": "adam"
     },
     {
-      "name": "shipmodeling.ru",
-      "url": "https://www.shipmodeling.ru/phpbb/search.php?author={username}",
-      "engine": "phpBB/Search",
-      "tags": [
-        "forum",
-        "ru",
-        "source:maigret"
-      ],
-      "known_present": "alex"
-    },
-    {
       "name": "ships.ucoz.ru",
       "url": "http://ships.ucoz.ru/index/8-0-{username}",
       "engine": "uCoz",
       "tags": [
+        "bot-protected",
         "source:maigret"
       ],
       "known_present": "alex"
@@ -24835,6 +23502,7 @@
       "url": "http://shipsondesk.info/index/8-0-{username}",
       "engine": "uCoz",
       "tags": [
+        "bot-protected",
         "source:maigret"
       ],
       "known_present": "alex"
@@ -24857,15 +23525,6 @@
         }
       ],
       "known_present": "blue"
-    },
-    {
-      "name": "shkola3.3dn.ru",
-      "url": "http://shkola3.3dn.ru/index/8-0-{username}",
-      "engine": "uCoz",
-      "tags": [
-        "source:maigret"
-      ],
-      "known_present": "alex"
     },
     {
       "name": "shkolnikov.clan.su",
@@ -24991,17 +23650,6 @@
       "known_present": "john"
     },
     {
-      "name": "siava.ru",
-      "url": "https://siava.ru/forum/search.php?author={username}",
-      "engine": "phpBB/Search",
-      "tags": [
-        "forum",
-        "ru",
-        "source:maigret"
-      ],
-      "known_present": "alex"
-    },
-    {
       "name": "sibcoins.ucoz.ru",
       "url": "http://sibcoins.ucoz.ru/index/8-0-{username}",
       "engine": "uCoz",
@@ -25009,28 +23657,6 @@
         "source:maigret"
       ],
       "known_present": "alex"
-    },
-    {
-      "name": "sibmama",
-      "url": "https://forum.sibmama.ru/profile.php?mode=viewprofile&u={username}",
-      "signals": [
-        {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
-          "kind": "body_absent",
-          "text": "Извините"
-        }
-      ],
-      "tags": [
-        "forum",
-        "ru",
-        "source:maigret"
-      ],
-      "known_present": "adam"
     },
     {
       "name": "sign-forum.ru",
@@ -25070,16 +23696,6 @@
       "known_present": "alex"
     },
     {
-      "name": "Silver-collector",
-      "url": "https://www.silver-collector.com/u/{username}/summary",
-      "engine": "Discourse",
-      "tags": [
-        "forum",
-        "source:maigret"
-      ],
-      "known_present": "red"
-    },
-    {
       "name": "simf-mama.ucoz.ua",
       "url": "http://simf-mama.ucoz.ua/index/8-0-{username}",
       "engine": "uCoz",
@@ -25108,6 +23724,7 @@
         }
       ],
       "tags": [
+        "bot-protected",
         "source:maigret"
       ],
       "known_present": "eipuru_"
@@ -25158,6 +23775,7 @@
       "url": "http://skorozamuj.com/index/8-0-{username}",
       "engine": "uCoz",
       "tags": [
+        "bot-protected",
         "source:maigret"
       ],
       "known_present": "admin"
@@ -25178,20 +23796,11 @@
       "url": "https://skynetzone.net/members/?username={username}",
       "engine": "XenForo",
       "tags": [
+        "bot-protected",
         "forum",
         "source:maigret"
       ],
       "known_present": "alex"
-    },
-    {
-      "name": "Skyrimforums",
-      "url": "https://skyrimforums.org/members/?username={username}",
-      "engine": "XenForo",
-      "tags": [
-        "forum",
-        "source:maigret"
-      ],
-      "known_present": "adam"
     },
     {
       "name": "Slack",
@@ -25240,7 +23849,10 @@
         }
       ],
       "known_present": "blue",
-      "regex_check": "^.{2,32}$"
+      "regex_check": "^.{2,32}$",
+      "tags": [
+        "bot-protected"
+      ]
     },
     {
       "name": "Slant.co",
@@ -25262,6 +23874,7 @@
         }
       ],
       "tags": [
+        "bot-protected",
         "source:maigret"
       ],
       "known_present": "bob"
@@ -25281,7 +23894,10 @@
           "text": "user you requested does not exist"
         }
       ],
-      "known_present": "blue"
+      "known_present": "blue",
+      "tags": [
+        "bot-protected"
+      ]
     },
     {
       "name": "Slides",
@@ -25303,60 +23919,11 @@
       "known_present": "blue"
     },
     {
-      "name": "SlideShare",
-      "url": "https://www.slideshare.net/{username}",
-      "signals": [
-        {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
-          "kind": "body_absent",
-          "text": "blankProfile"
-        },
-        {
-          "kind": "body_absent",
-          "text": "username-available"
-        },
-        {
-          "kind": "body_absent",
-          "text": "robots"
-        },
-        {
-          "kind": "body_absent",
-          "text": "noindex,nofollow"
-        },
-        {
-          "kind": "body_present",
-          "text": "user-name"
-        },
-        {
-          "kind": "body_present",
-          "text": "pageInfo"
-        },
-        {
-          "kind": "body_present",
-          "text": "listitem"
-        },
-        {
-          "kind": "body_present",
-          "text": "strippedTitle"
-        }
-      ],
-      "tags": [
-        "documents",
-        "sharing",
-        "source:maigret"
-      ],
-      "known_present": "KumarSurya7"
-    },
-    {
       "name": "slivap.ru",
       "url": "https://slivap.ru/members/?username={username}",
       "engine": "XenForo",
       "tags": [
+        "bot-protected",
         "forum",
         "ru",
         "source:maigret"
@@ -25442,6 +24009,7 @@
       "url": "http://sms.portalsms.ru/index/8-0-{username}",
       "engine": "uCoz",
       "tags": [
+        "bot-protected",
         "source:maigret"
       ],
       "known_present": "alex"
@@ -25464,7 +24032,10 @@
         }
       ],
       "known_present": "winchester",
-      "regex_check": "^[a-zA-Z]{1,35}$"
+      "regex_check": "^[a-zA-Z]{1,35}$",
+      "tags": [
+        "bot-protected"
+      ]
     },
     {
       "name": "Smule",
@@ -25619,6 +24190,7 @@
       "url": "https://soborno.ru/search.php?author={username}",
       "engine": "phpBB/Search",
       "tags": [
+        "bot-protected",
         "forum",
         "ru",
         "source:maigret"
@@ -25630,6 +24202,7 @@
       "url": "http://soc-life.com/index/8-0-{username}",
       "engine": "uCoz",
       "tags": [
+        "bot-protected",
         "source:maigret"
       ],
       "known_present": "alex"
@@ -25690,32 +24263,11 @@
       "known_present": "adam"
     },
     {
-      "name": "society6.com",
-      "url": "https://society6.com/{username}/all",
-      "signals": [
-        {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
-          "kind": "status_not_found",
-          "codes": [
-            404
-          ]
-        }
-      ],
-      "tags": [
-        "source:maigret"
-      ],
-      "known_present": "adam"
-    },
-    {
       "name": "socioforum.su",
       "url": "https://www.socioforum.su/search.php?author={username}",
       "engine": "phpBB/Search",
       "tags": [
+        "bot-protected",
         "forum",
         "ru",
         "source:maigret"
@@ -25745,6 +24297,7 @@
       "url": "http://softal.3dn.ru/index/8-0-{username}",
       "engine": "uCoz",
       "tags": [
+        "bot-protected",
         "source:maigret"
       ],
       "known_present": "admin"
@@ -25850,6 +24403,7 @@
       "url": "http://soslujivzi.ru/index/8-0-{username}",
       "engine": "uCoz",
       "tags": [
+        "bot-protected",
         "source:maigret"
       ],
       "known_present": "alex"
@@ -25893,17 +24447,10 @@
           ]
         }
       ],
-      "known_present": "blue"
-    },
-    {
-      "name": "sourceruns",
-      "url": "https://forums.sourceruns.org/u/{username}/summary",
-      "engine": "Discourse",
+      "known_present": "blue",
       "tags": [
-        "forum",
-        "source:maigret"
-      ],
-      "known_present": "cubedude"
+        "bot-protected"
+      ]
     },
     {
       "name": "southbayriders.com",
@@ -25931,6 +24478,7 @@
         }
       ],
       "tags": [
+        "bot-protected",
         "ru",
         "source:maigret"
       ],

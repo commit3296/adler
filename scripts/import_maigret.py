@@ -217,7 +217,33 @@ KNOWN_BROKEN = {
         "mindmachine.ru", "mineplex.com", "minesuperior.com",
         "mir-stalkera.ru", "mir2007.ru", "mirmuzyki.ucoz.net",
         "mistoodesa.ucoz.ua", "mix-best.ucoz.ru", "mkr-rodniki.ru",
-        "mkuniverse.ru", "mnogodetok.ru", "modnaya"
+        "mkuniverse.ru", "mnogodetok.ru", "modnaya",
+        # 2026-05-27 doctor pass #2 (workflow ran post-v0.6 prune).
+        # 80 more Maigret-side sigs in the too-permissive or
+        # stale-known-present classes — same treatment as above.
+        # The 153 Maigret sites that timed out with Uncertain
+        # (likely Cloudflare from the CI runner) are NOT here —
+        # they were tagged `bot-protected` directly in sites.json
+        # for opt-out filtering instead of being dropped outright.
+        "APClips", "Eporner", "Fancentro", "Motokiller", "Naturalworld",
+        "Needrom", "Niftygateway", "Nkj", "Noblogs", "NotebookReview",
+        "Olx.pl", "OnlyFans", "OpenSea", "Otechie", "Paltalk", "Parkrocker",
+        "PeopleIgn", "Pewex.pl", "Picsart", "Piekielni", "Planetaexcel",
+        "Poembook", "Politikforum", "Porevo", "PornhubPornstars",
+        "Proshkolu", "Proza.ru", "Psychologies.ru", "Pychess", "Quitter.pl",
+        "Radio-uchebnik", "Radioscanner", "Reibert", "Repl.it", "Replit",
+        "ResidentAdvisor", "Revolut.me", "Rngf", "Rodgersforum", "RoyalCams",
+        "Salon24.pl", "Silver-collector", "Skyrimforums", "SlideShare",
+        "moto-arena.ru", "myce.wiki", "mychildren.ucoz.ru", "nitrc.org",
+        "niva-club.net", "nokia-love.ru", "oldones.org", "onanizm.club",
+        "ooo.do.am", "openframeworks", "openssource.info", "operationsports",
+        "oshwlab.com", "oyoy.com", "parusa-magellana.ru",
+        "photoaura.ucoz.ru", "pinataisland.info", "pozdrawlandiya.ru",
+        "promalp.ru", "radioskot", "rcprim.ru", "red-forum.com",
+        "rest.feo.ru", "rive.app", "safesurvival.net", "sanatatur.ru",
+        "sanatorii", "savingadvice.com", "school9korolev.moy.su",
+        "sciax2.it", "shipmodeling.ru", "shkola3.3dn.ru", "siava.ru",
+        "sibmama", "society6.com", "sourceruns"
     )
 }
 

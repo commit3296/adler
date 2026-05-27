@@ -100,6 +100,18 @@ KNOWN_BROKEN = {
         "Letterboxd", "LibraryThing", "Lichess", "LinkedIn", "LottieFiles",
         "MMORPG Forum", "babyblogRU", "devRant", "drive2", "eGPU", "fixya",
         "freecodecamp", "kofi", "livelib",
+        # 2026-05-27 doctor pass #2 (workflow ran post-v0.6 prune).
+        # 8 more Sherlock-side sigs surfaced as structurally broken
+        # (too-permissive: false positives across every probe; or
+        # stale username_claimed where the upstream-pinned account
+        # 404s with the registered signature). The companion 30
+        # Sherlock sites that doctor-failed with Uncertain (likely
+        # Cloudflare-blocked from CI) are NOT here — they got the
+        # `bot-protected` tag instead, so `--exclude-tag
+        # bot-protected` keeps them out of fast scans while
+        # residential probes can still hit them.
+        "Hackaday", "Ninja Kiwi", "NotABug.org", "PlayStore", "Polygon",
+        "PyPi", "Rarible", "Scribd",
     )
 }
 
