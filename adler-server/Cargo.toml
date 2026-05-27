@@ -10,6 +10,13 @@ description = "HTTP API + SSE streaming for the Adler OSINT username-search engi
 categories = ["web-programming::http-server", "command-line-utilities"]
 keywords = ["osint", "username", "sherlock", "axum", "sse"]
 readme = "../README.md"
+# Internal workspace member — embedded into `adler-cli` via rust-embed
+# of the sibling `adler-web/dist/` directory. Publishing standalone
+# would require shipping the frontend build (or a separate
+# build-script that runs `npm`), neither of which fits the
+# crates.io distribution model today. Re-enable when there's a
+# concrete external consumer that wants to embed the API server.
+publish = false
 
 [dependencies]
 adler-core = { path = "../adler-core", version = "0.8.0" }
