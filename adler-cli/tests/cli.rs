@@ -875,15 +875,6 @@ async fn input_quiet_emits_username_tab_url() {
     );
 }
 
-#[test]
-fn input_rejects_tui() {
-    adler()
-        .args(["--input", "/tmp/whatever.txt", "--tui"])
-        .assert()
-        .code(2)
-        .stderr(str::contains("not compatible with --tui"));
-}
-
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn explain_prints_signal_evidence_and_json_always_has_it() {
     let server = MockServer::start().await;

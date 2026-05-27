@@ -1,7 +1,6 @@
 //! Adler CLI entry point.
 
 mod report;
-mod tui;
 
 use std::io::{self, IsTerminal as _, Write};
 use std::num::{NonZeroU32, NonZeroUsize};
@@ -55,7 +54,7 @@ struct Cli {
     /// Scan every username in this file (one per line; blank lines and lines
     /// starting with `#` are skipped, duplicates removed). A positional
     /// username, if given, is scanned too. Output is grouped per username;
-    /// not compatible with `--tui` / `--correlate` / `--format html`.
+    /// not compatible with `--correlate` / `--format html`.
     #[arg(long, value_name = "PATH")]
     input: Option<PathBuf>,
 
@@ -274,11 +273,6 @@ struct Cli {
     #[arg(long)]
     correlate: bool,
 
-    /// Browse results in an interactive terminal UI after the scan.
-    /// Requires an interactive terminal; ignores `--format`.
-    #[arg(long, conflicts_with = "format")]
-    tui: bool,
-
     /// Skip the result cache for this run (no read, no write).
     #[arg(long)]
     no_cache: bool,
@@ -394,7 +388,7 @@ impl ColorChoice {
 #[tokio::main]
 async fn main() -> ExitCode {
     let cli = Cli::parse();
-    init_tracing(cli.tui);
+    init_tracing();
     match run(cli).await {
         Ok(code) => code,
         Err(err) => {
@@ -405,14 +399,7 @@ async fn main() -> ExitCode {
 }
 
 /// Install the stderr tracing subscriber.
-///
-/// Skipped under `--tui`: the interactive UI owns the terminal, so log lines
-/// written to stderr would scribble over the rendered frame (and aren't
-/// visible anyway). Run without `--tui` to see logs.
-fn init_tracing(tui: bool) {
-    if tui {
-        return;
-    }
+fn init_tracing() {
     let filter =
         EnvFilter::try_from_env("ADLER_LOG").unwrap_or_else(|_| EnvFilter::new("adler=info"));
     fmt()
@@ -529,13 +516,6 @@ async fn run_scan(cli: &Cli, client: &Client, sites: &[Site]) -> Result<ExitCode
         return run_watch(cli, client, sites, &username, username_raw, options).await;
     }
 
-    if cli.tui {
-        if !io::stdout().is_terminal() {
-            anyhow::bail!("--tui requires an interactive terminal");
-        }
-        return run_tui_live(cli, client, sites, &username, options).await;
-    }
-
     // Load the cache once for the whole run (all permutation variants share
     // it), not per variant. --enrich / --correlate want fresh data, so they
     // bypass it. Each variant is a distinct username key within the cache.
@@ -552,7 +532,6 @@ async fn run_scan(cli: &Cli, client: &Client, sites: &[Site]) -> Result<ExitCode
     };
     // Interactive text streams each row live as it resolves; everything else
     // (piped text, JSON/NDJSON/HTML) collects first and emits at the end.
-    // (`--tui` returned earlier.)
     let live = matches!(cli.format, OutputFormat::Text) && stdout_tty;
 
     let started = Instant::now();
@@ -609,41 +588,6 @@ async fn run_scan(cli: &Cli, client: &Client, sites: &[Site]) -> Result<ExitCode
     }
 
     Ok(code)
-}
-
-/// `--tui`: scan and browse concurrently. The scan runs as a background task
-/// streaming each outcome over a channel; the (blocking) TUI event loop drains
-/// the channel and renders live. Quitting the TUI aborts the scan. The result
-/// cache is bypassed here (interactive exploration wants fresh data).
-async fn run_tui_live(
-    cli: &Cli,
-    client: &Client,
-    sites: &[Site],
-    username: &Username,
-    options: ExecutorOptions,
-) -> Result<ExitCode> {
-    let variants = permute(username, cli.permute.into());
-    let (tx, rx) = std::sync::mpsc::channel::<CheckOutcome>();
-    let client = client.clone();
-    let sites = sites.to_vec();
-
-    let scan = tokio::spawn(async move {
-        for variant in &variants {
-            let tx = tx.clone();
-            executor::run_with_progress(&client, &sites, variant, options.clone(), move |o| {
-                let _ = tx.send(o.clone());
-            })
-            .await;
-        }
-        // Dropping the last sender disconnects rx → clears "scanning…".
-    });
-
-    let tui_result = tokio::task::spawn_blocking(move || tui::run_live(&rx)).await;
-    scan.abort(); // stop probing if the user quit before the scan finished
-    tui_result
-        .context("TUI task panicked")?
-        .context("running TUI")?;
-    Ok(ExitCode::SUCCESS)
 }
 
 /// New / removed found accounts between two scans of the same username.
@@ -704,9 +648,6 @@ async fn run_watch(
     username_raw: &str,
     options: ExecutorOptions,
 ) -> Result<ExitCode> {
-    if cli.tui {
-        anyhow::bail!("--watch is not compatible with --tui");
-    }
     let path = watch_snapshot_path(cli, username_raw);
 
     if let Some(secs) = cli.interval {
@@ -841,9 +782,6 @@ async fn run_batch(
     input: &std::path::Path,
     options: ExecutorOptions,
 ) -> Result<ExitCode> {
-    if cli.tui {
-        anyhow::bail!("--input is not compatible with --tui");
-    }
     if cli.correlate {
         anyhow::bail!("--input is not compatible with --correlate");
     }
@@ -1555,7 +1493,6 @@ fn print_hint(out: &mut impl Write, cli: &Cli, color: bool) -> io::Result<()> {
     if !cli.enrich && !cli.correlate {
         tips.push("--enrich for profiles");
     }
-    tips.push("--tui to browse");
     tips.push("--format json to script");
     let line = format!("tip: {}", tips.join(" · "));
     if color {
