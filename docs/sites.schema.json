@@ -104,6 +104,17 @@
           "type": "string",
           "minLength": 1,
           "description": "Request body to send when `request_method` is POST. The literal `{username}` is substituted with the probe username. Sent with `Content-Type: application/json` by default; sites needing a different type declare it via `request_headers`."
+        },
+        "protection": {
+          "type": "array",
+          "description": "Specific anti-bot mechanisms the site is known to deploy. Sites with any entry here route through the browser backend even without the legacy `bot-protected` tag. Future router logic can pick a backend per-mechanism (cloudscraper vs. full browser vs. skip).",
+          "items": {
+            "enum": [
+              "cloudflare", "cloudfront", "ddos-guard",
+              "cf-js-challenge", "cf-firewall", "tls-fingerprint",
+              "anubis", "captcha", "user-agent", "user-auth"
+            ]
+          }
         }
       }
     },

@@ -679,9 +679,11 @@
       ],
       "tags": [
         "bot-protected",
-        "protection:cloudflare",
         "social",
         "source:wmn"
+      ],
+      "protection": [
+        "cloudflare"
       ]
     },
     {
@@ -1648,9 +1650,11 @@
       ],
       "tags": [
         "bot-protected",
-        "protection:cloudflare",
         "social",
         "source:wmn"
+      ],
+      "protection": [
+        "cloudflare"
       ]
     },
     {
@@ -3045,8 +3049,10 @@
       "tags": [
         "bot-protected",
         "gaming",
-        "protection:cloudflare",
         "source:wmn"
+      ],
+      "protection": [
+        "cloudflare"
       ]
     },
     {
@@ -3455,8 +3461,10 @@
       "tags": [
         "bot-protected",
         "coding",
-        "protection:cloudflare",
         "source:wmn"
+      ],
+      "protection": [
+        "cloudflare"
       ]
     },
     {
@@ -4854,8 +4862,10 @@
       "tags": [
         "bot-protected",
         "finance",
-        "protection:cloudflare",
         "source:wmn"
+      ],
+      "protection": [
+        "cloudflare"
       ]
     },
     {
@@ -4992,8 +5002,10 @@
       "tags": [
         "bot-protected",
         "business",
-        "protection:cloudflare",
         "source:wmn"
+      ],
+      "protection": [
+        "cloudflare"
       ]
     },
     {
@@ -5197,9 +5209,11 @@
       ],
       "tags": [
         "bot-protected",
-        "protection:ddos-guard",
         "social",
         "source:wmn"
+      ],
+      "protection": [
+        "ddos-guard"
       ]
     },
     {
@@ -5435,8 +5449,10 @@
       "tags": [
         "bot-protected",
         "finance",
-        "protection:cloudflare",
         "source:wmn"
+      ],
+      "protection": [
+        "cloudflare"
       ]
     },
     {
@@ -5812,8 +5828,10 @@
       "tags": [
         "bot-protected",
         "nsfw",
-        "protection:cloudfront",
         "source:wmn"
+      ],
+      "protection": [
+        "cloudfront"
       ]
     },
     {
@@ -5949,9 +5967,11 @@
       ],
       "tags": [
         "bot-protected",
-        "protection:cloudfront",
         "source:wmn",
         "tech"
+      ],
+      "protection": [
+        "cloudfront"
       ]
     },
     {
@@ -6121,9 +6141,11 @@
       ],
       "tags": [
         "bot-protected",
-        "protection:ddos-guard",
         "social",
         "source:wmn"
+      ],
+      "protection": [
+        "ddos-guard"
       ]
     },
     {
@@ -6465,8 +6487,10 @@
       "tags": [
         "bot-protected",
         "coding",
-        "protection:cloudflare",
         "source:wmn"
+      ],
+      "protection": [
+        "cloudflare"
       ]
     },
     {
@@ -6568,9 +6592,11 @@
       ],
       "tags": [
         "bot-protected",
-        "protection:cloudflare",
         "social",
         "source:wmn"
+      ],
+      "protection": [
+        "cloudflare"
       ]
     },
     {
@@ -6604,9 +6630,11 @@
       ],
       "tags": [
         "bot-protected",
-        "protection:cloudflare",
         "social",
         "source:wmn"
+      ],
+      "protection": [
+        "cloudflare"
       ]
     },
     {
@@ -6978,8 +7006,10 @@
       "tags": [
         "bot-protected",
         "gaming",
-        "protection:cloudflare",
         "source:wmn"
+      ],
+      "protection": [
+        "cloudflare"
       ]
     },
     {
@@ -7117,8 +7147,10 @@
       "tags": [
         "bot-protected",
         "music",
-        "protection:cloudflare",
         "source:wmn"
+      ],
+      "protection": [
+        "cloudflare"
       ]
     },
     {
@@ -7153,8 +7185,10 @@
       "tags": [
         "bot-protected",
         "music",
-        "protection:cloudflare",
         "source:wmn"
+      ],
+      "protection": [
+        "cloudflare"
       ]
     },
     {
@@ -7432,8 +7466,10 @@
       },
       "tags": [
         "coding",
-        "protection:user-agent",
         "source:wmn"
+      ],
+      "protection": [
+        "user-agent"
       ]
     },
     {
@@ -7470,8 +7506,10 @@
       },
       "tags": [
         "coding",
-        "protection:user-agent",
         "source:wmn"
+      ],
+      "protection": [
+        "user-agent"
       ]
     },
     {
@@ -7574,8 +7612,10 @@
       "tags": [
         "bot-protected",
         "coding",
-        "protection:anubis",
         "source:wmn"
+      ],
+      "protection": [
+        "anubis"
       ]
     },
     {
@@ -9550,9 +9590,11 @@
       ],
       "tags": [
         "bot-protected",
-        "protection:cloudflare",
         "social",
         "source:wmn"
+      ],
+      "protection": [
+        "cloudflare"
       ]
     },
     {
@@ -10161,9 +10203,11 @@
       ],
       "tags": [
         "bot-protected",
-        "protection:cloudflare",
         "social",
         "source:wmn"
+      ],
+      "protection": [
+        "cloudflare"
       ]
     },
     {
@@ -10334,9 +10378,11 @@
       ],
       "tags": [
         "bot-protected",
-        "protection:cloudflare",
         "social",
         "source:wmn"
+      ],
+      "protection": [
+        "cloudflare"
       ]
     },
     {
@@ -10709,8 +10755,10 @@
       "tags": [
         "bot-protected",
         "finance",
-        "protection:cloudflare",
         "source:wmn"
+      ],
+      "protection": [
+        "cloudflare"
       ]
     },
     {
@@ -12143,8 +12191,10 @@
       },
       "tags": [
         "news",
-        "protection:user-agent",
         "source:wmn"
+      ],
+      "protection": [
+        "user-agent"
       ]
     },
     {
@@ -14828,8 +14878,10 @@
       "tags": [
         "bot-protected",
         "coding",
-        "protection:cloudflare",
         "source:wmn"
+      ],
+      "protection": [
+        "cloudflare"
       ]
     },
     {
@@ -15677,9 +15729,11 @@
       ],
       "tags": [
         "bot-protected",
-        "protection:cloudflare",
         "social",
         "source:wmn"
+      ],
+      "protection": [
+        "cloudflare"
       ]
     },
     {
@@ -16088,8 +16142,10 @@
       "tags": [
         "bot-protected",
         "hobby",
-        "protection:cloudflare",
         "source:wmn"
+      ],
+      "protection": [
+        "cloudflare"
       ]
     },
     {
@@ -18097,8 +18153,10 @@
       "tags": [
         "bot-protected",
         "coding",
-        "protection:cloudflare",
         "source:wmn"
+      ],
+      "protection": [
+        "cloudflare"
       ]
     },
     {
@@ -18372,8 +18430,10 @@
       "tags": [
         "bot-protected",
         "coding",
-        "protection:cloudflare",
         "source:wmn"
+      ],
+      "protection": [
+        "cloudflare"
       ]
     },
     {
@@ -19320,9 +19380,11 @@
       ],
       "tags": [
         "bot-protected",
-        "protection:cloudflare",
         "social",
         "source:wmn"
+      ],
+      "protection": [
+        "cloudflare"
       ]
     },
     {
@@ -23021,8 +23083,10 @@
       "tags": [
         "bot-protected",
         "misc",
-        "protection:cloudflare",
         "source:wmn"
+      ],
+      "protection": [
+        "cloudflare"
       ]
     },
     {

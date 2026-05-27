@@ -266,6 +266,7 @@ mod tests {
             strip_bad_char: None,
             request_method: crate::site::HttpMethod::Get,
             request_body: None,
+            protection: Vec::new(),
         }
     }
 

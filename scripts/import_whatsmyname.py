@@ -117,15 +117,34 @@ def convert(entry: dict) -> dict | None:
     if isinstance(cat, str) and cat:
         ck = cat.lower()
         tags.add(CATEGORY_TAG_MAP.get(ck, ck))
-    protection = entry.get("protection")
-    if isinstance(protection, list):
-        for p in protection:
-            if isinstance(p, str) and p:
-                low = p.lower()
-                if low in {"cloudflare", "cloudfront", "ddos-guard", "captcha", "anubis"}:
-                    tags.add("bot-protected")
+    # Map WMN's `protection` array to two things:
+    #   1) the legacy `bot-protected` tag for routing (back-compat)
+    #   2) the new `protection: [ProtectionKind]` field for richer
+    #      future routing (R3). Only known kinds make it into the
+    #      structured field — unknown strings stay as `protection:foo`
+    #      tags for forward-compat.
+    KNOWN_KINDS = {
+        "cloudflare", "cloudfront", "ddos-guard",
+        "cf-js-challenge", "cf-firewall", "tls-fingerprint",
+        "anubis", "captcha", "user-agent", "user-auth",
+    }
+    raw_protection = entry.get("protection")
+    structured: list[str] = []
+    if isinstance(raw_protection, list):
+        for p in raw_protection:
+            if not (isinstance(p, str) and p):
+                continue
+            low = p.lower().replace("_", "-")
+            if low in {"cloudflare", "cloudfront", "ddos-guard", "captcha", "anubis"}:
+                tags.add("bot-protected")
+            if low in KNOWN_KINDS:
+                if low not in structured:
+                    structured.append(low)
+            else:
                 tags.add(f"protection:{low}")
     out["tags"] = sorted(tags)
+    if structured:
+        out["protection"] = sorted(structured)
 
     return out
 

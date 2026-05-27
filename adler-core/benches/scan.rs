@@ -37,6 +37,7 @@ fn make_sites(server: &MockServer) -> Vec<Site> {
             strip_bad_char: None,
             request_method: adler_core::HttpMethod::Get,
             request_body: None,
+            protection: Vec::new(),
         })
         .collect()
 }

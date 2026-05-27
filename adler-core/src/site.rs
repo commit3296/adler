@@ -125,6 +125,59 @@ pub struct Site {
     /// is typically the JSON `{"query":"...","variables":{"name":"{username}"}}`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub request_body: Option<String>,
+    /// Specific anti-bot mechanisms the site is known to deploy. A
+    /// richer alternative to the flat `bot-protected` tag — knowing
+    /// *which* protection a site uses lets future routing pick the
+    /// right backend (`Cloudflare` → cloudscraper-style bypass,
+    /// `CfFirewall` → full browser, `UserAuth` → skip, …) instead
+    /// of the all-or-nothing `bot-protected` decision.
+    ///
+    /// Independent of [`Site::tags`]: the existing `bot-protected`
+    /// tag stays as a back-compat shorthand and routes through the
+    /// browser backend exactly as before. When this vector is
+    /// non-empty Adler also treats the site as bot-protected
+    /// regardless of the tag.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub protection: Vec<ProtectionKind>,
+}
+
+/// A specific anti-bot mechanism a site is known to deploy. Used to
+/// route probes to the right backend (raw HTTP, cloudscraper, full
+/// browser) and to inform users what blocks reliable detection.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+#[non_exhaustive]
+pub enum ProtectionKind {
+    /// Standard Cloudflare WAF — challenge pages, `cf_clearance`
+    /// cookie. Bypassable by cloudscraper-style HTTP-level solvers
+    /// (e.g. `FlareSolverr`) without a full browser.
+    Cloudflare,
+    /// AWS `CloudFront` edge protection. Often UA-strictness only.
+    Cloudfront,
+    /// `DDoS-Guard` (used by some Russian/CIS hosts). Similar
+    /// challenge model to Cloudflare.
+    DdosGuard,
+    /// Cloudflare's JS-challenge ("I am under attack" mode).
+    /// Needs a JS-executing backend.
+    CfJsChallenge,
+    /// Cloudflare's WAF firewall blocking by signature, requiring
+    /// a real browser fingerprint to clear.
+    CfFirewall,
+    /// JA3/JA4 TLS-fingerprint matching (servers that classify the
+    /// client by its TLS handshake shape, not its UA).
+    TlsFingerprint,
+    /// `Anubis` proof-of-work challenge. Used by codeberg + a
+    /// growing number of FOSS projects to discourage scraping.
+    Anubis,
+    /// Generic captcha challenge (hCaptcha, reCAPTCHA, …). Almost
+    /// always blocking — `Uncertain` is the honest answer.
+    Captcha,
+    /// Trivial UA-strictness: rejects unknown User-Agent strings
+    /// but lets through a real-browser UA. Cheapest to bypass.
+    UserAgent,
+    /// Endpoint requires authentication; no anonymous probe path
+    /// exists. Practically unscrapable for OSINT.
+    UserAuth,
 }
 
 /// HTTP method used to probe a site. Only GET and POST are supported.
@@ -681,6 +734,7 @@ mod tests {
             strip_bad_char: None,
             request_method: crate::site::HttpMethod::Get,
             request_body: None,
+            protection: Vec::new(),
         }
     }
 

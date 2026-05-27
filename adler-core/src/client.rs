@@ -141,11 +141,11 @@ impl Client {
     /// callers get the same `Option<RawResponse>` shape either way.
     pub async fn fetch_for_doctor(&self, site: &Site, url: &str) -> Option<RawResponse> {
         if let Some(backend) = self.browser.as_deref() {
-            if site
+            let has_tag = site
                 .tags
                 .iter()
-                .any(|t| t.eq_ignore_ascii_case(BOT_PROTECTED_TAG))
-            {
+                .any(|t| t.eq_ignore_ascii_case(BOT_PROTECTED_TAG));
+            if has_tag || !site.protection.is_empty() {
                 let parsed = url::Url::parse(url).ok()?;
                 match backend
                     .fetch(&parsed, &site.request_headers, BROWSER_TIMEOUT)
@@ -211,12 +211,15 @@ impl Client {
         // Auto-route bot-protected sites through the browser backend when
         // one is configured. Raw HTTP can't see past their JS/login wall,
         // so this is the only way they ever produce a Found verdict.
+        // A site is "bot-protected" in the routing sense if it carries
+        // the legacy tag OR declares any specific protection mechanism
+        // via the new `protection` field — either signal is enough.
         if let Some(backend) = self.browser.as_deref() {
-            if site
+            let has_tag = site
                 .tags
                 .iter()
-                .any(|t| t.eq_ignore_ascii_case(BOT_PROTECTED_TAG))
-            {
+                .any(|t| t.eq_ignore_ascii_case(BOT_PROTECTED_TAG));
+            if has_tag || !site.protection.is_empty() {
                 if self.browser_budget.try_consume() {
                     return self.probe_with_browser(site, &url, backend).await;
                 }
@@ -864,6 +867,7 @@ mod tests {
             strip_bad_char: None,
             request_method: crate::site::HttpMethod::Get,
             request_body: None,
+            protection: Vec::new(),
         }
     }
 
@@ -1087,6 +1091,7 @@ mod tests {
             strip_bad_char: None,
             request_method: crate::site::HttpMethod::Get,
             request_body: None,
+            protection: Vec::new(),
         };
         let client = Client::builder()
             .timeout(Duration::from_millis(500))
@@ -1292,6 +1297,7 @@ mod tests {
             strip_bad_char: None,
             request_method: crate::site::HttpMethod::Get,
             request_body: None,
+            protection: Vec::new(),
         };
         let client = Client::builder()
             .timeout(Duration::from_millis(500))
@@ -1387,6 +1393,7 @@ mod tests {
             strip_bad_char: None,
             request_method: crate::site::HttpMethod::Get,
             request_body: None,
+            protection: Vec::new(),
         };
         let site_b = Site {
             name: "B".into(),
@@ -1402,6 +1409,7 @@ mod tests {
             strip_bad_char: None,
             request_method: crate::site::HttpMethod::Get,
             request_body: None,
+            protection: Vec::new(),
         };
         // 2 RPS → ~500 ms between requests. A large interval keeps the
         // assertion robust even when the first probe's own duration (which
@@ -1466,6 +1474,7 @@ mod tests {
             strip_bad_char: None,
             request_method: crate::site::HttpMethod::Get,
             request_body: None,
+            protection: Vec::new(),
         };
         let allowed = Site {
             name: "Yes".into(),
@@ -1481,6 +1490,7 @@ mod tests {
             strip_bad_char: None,
             request_method: crate::site::HttpMethod::Get,
             request_body: None,
+            protection: Vec::new(),
         };
 
         let no = client.check(&disallowed, &user()).await;
@@ -1712,6 +1722,45 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn protection_field_routes_through_browser_like_bot_protected_tag() {
+        // A site that declares `protection: [Cloudflare]` but doesn't
+        // carry the legacy `bot-protected` tag should still route
+        // through the browser backend — the new structured field is
+        // an additional signal, not a tag replacement.
+        let server = MockServer::start().await;
+        Mock::given(any())
+            .respond_with(ResponseTemplate::new(200))
+            .mount(&server)
+            .await;
+        let mut site = site_with(&server, vec![Signal::StatusFound { codes: vec![200] }]);
+        site.protection = vec![crate::site::ProtectionKind::Cloudflare];
+        // No bot-protected tag — pure structured-field test.
+        let backend = Arc::new(RecordingBackend::with_page(RenderedPage {
+            status: 200,
+            final_url: url::Url::parse(&format!("{}/alice", server.uri())).unwrap(),
+            body: String::new(),
+            elapsed_ms: 0,
+        }));
+        let client = Client::builder()
+            .min_request_interval(Duration::ZERO)
+            .max_retries(0)
+            .browser(backend)
+            .build()
+            .unwrap();
+        let outcome = client.check(&site, &user()).await;
+        // The recording backend always returns a synthetic 200, so
+        // Found means we went through the browser path.
+        assert_eq!(outcome.kind, MatchKind::Found);
+        // No raw HTTP probe should have hit the mock server.
+        let recvd = server.received_requests().await.unwrap_or_default();
+        assert_eq!(
+            recvd.len(),
+            0,
+            "structured protection must skip the raw HTTP path"
+        );
+    }
+
+    #[tokio::test]
     async fn post_method_sends_body_with_username_substituted() {
         // A POST-probed site (e.g. Anilist GraphQL) — the username
         // goes in the body, not the URL. Adler should substitute
@@ -1740,6 +1789,7 @@ mod tests {
             strip_bad_char: None,
             request_method: HttpMethod::Post,
             request_body: Some(r#"{"name":"{username}"}"#.into()),
+            protection: Vec::new(),
         };
         let outcome = build_client().check(&site, &user()).await;
         assert_eq!(outcome.kind, MatchKind::Found);
