@@ -276,7 +276,13 @@ impl Engine {
         }
         if let Some(pat) = &self.regex_check {
             if let Err(err) = regex::Regex::new(pat) {
-                tracing::warn!(
+                // The Rust `regex` crate refuses look-around for DoS
+                // reasons; some upstream registries (Sherlock, WMN)
+                // ship patterns that need it. Downgraded from WARN to
+                // DEBUG: it's a known structural limit, the probe
+                // path falls back gracefully, and the noise dominated
+                // CLI startup.
+                tracing::debug!(
                     engine = %name, pattern = %pat, error = %err,
                     "engine regex_check did not compile; gate disabled for inheriting sites",
                 );
@@ -474,10 +480,13 @@ impl Site {
                 // doesn't support — it's a true regular-language
                 // engine for performance + DoS safety. Rather than
                 // reject the whole site over a username-gate the
-                // probe path will simply skip, downgrade to a warn
-                // and let the site keep working at the cost of one
-                // wasted probe per illegal username.
-                tracing::warn!(
+                // probe path will simply skip and let the site keep
+                // working at the cost of one wasted probe per
+                // illegal username. Logged at DEBUG (not WARN) — it's
+                // a known structural limit, ~8 sites in the embedded
+                // registry need look-around. The noise dominated CLI
+                // startup; set `ADLER_LOG=debug` to see them again.
+                tracing::debug!(
                     site = %self.name, pattern = %pat, error = %err,
                     "regex_check did not compile; username-gate disabled for this site",
                 );
