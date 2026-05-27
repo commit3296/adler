@@ -27,9 +27,25 @@ concurrency:
 
 jobs:
   doctor:
-    name: registry health check
+    name: registry health check (${{ matrix.tranche }})
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    strategy:
+      # Run base and WMN tranches in parallel runners. The doctor walks
+      # sites in load order; with both tranches in one job, base alone
+      # already takes the full 45-min budget and WMN never gets probed.
+      # Splitting per runner lets each tranche have its own budget.
+      # `fail-fast: false` keeps the WMN run going even if base flags
+      # a structural break (and vice versa).
+      fail-fast: false
+      matrix:
+        include:
+          - tranche: base
+            sites_arg: ""        # default registry (MIT-only + opt-in WMN merge logic)
+            no_wmn: "--no-wmn"   # but doctor only wants the MIT tranche on this runner
+          - tranche: wmn
+            sites_arg: "--sites adler-core/data/sites_wmn.json"
+            no_wmn: ""
     steps:
       - uses: actions/checkout@v6
 
@@ -52,7 +68,8 @@ jobs:
           # flag at scan time; without it here the maintainer tool would
           # silently stop catching their rot.
           set +e
-          ./target/release/adler --doctor --nsfw \
+          ./target/release/adler ${{ matrix.sites_arg }} ${{ matrix.no_wmn }} \
+            --doctor --nsfw \
             --no-cache --max-retries 0 --rotate-ua --timeout 10 \
             > report.txt 2> doctor.log
           echo "doctor exit code: $?"
@@ -64,7 +81,7 @@ jobs:
           transient=$(grep -c "reported Uncertain" report.txt || true)
           tally=$(grep -E "site\(s\) checked" report.txt | tail -n 1)
           {
-            echo "# Registry doctor report"
+            echo "# Registry doctor report — ${{ matrix.tranche }} tranche"
             echo
             echo "- ${tally:-no tally line found}"
             echo "- **structural** failures (likely signature rot): **${structural}**"
@@ -81,7 +98,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: doctor-report
+          name: doctor-report-${{ matrix.tranche }}
           path: |
             report.txt
             doctor.log
@@ -90,7 +107,7 @@ jobs:
       - name: Fail on structural breakage
         run: |
           if [ "${STRUCTURAL:-0}" -gt 0 ]; then
-            echo "::error::${STRUCTURAL} site(s) have structural detection failures — see the run summary"
+            echo "::error::${STRUCTURAL} site(s) have structural detection failures in the ${{ matrix.tranche }} tranche — see the run summary"
             exit 1
           fi
-          echo "no structural failures; transient bans (if any) ignored"
+          echo "no structural failures in the ${{ matrix.tranche }} tranche; transient bans (if any) ignored"
