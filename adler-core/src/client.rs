@@ -255,11 +255,47 @@ impl Client {
         let started = Instant::now();
         tracing::debug!(%url, %host, "probing");
 
-        let mut request = self.inner.get(&url);
-        if let Some(ua) = self.pick_user_agent() {
-            request = request.header(reqwest::header::USER_AGENT, ua);
-        }
-        let response = match request.send().await {
+        // Read the body if a signal needs it, or if enrichment is on and the
+        // site has extractor rules (extraction needs the body).
+        let want_enrich = self.enrich && !site.extract.is_empty();
+        let needs_body = want_enrich || site.signals.iter().any(crate::site::Signal::needs_body);
+
+        // For status-only sites (only StatusFound / StatusNotFound /
+        // RedirectAbsent signals, no enrichment), HEAD avoids the body
+        // download entirely — saving bandwidth and time on the
+        // ~30% of the registry that doesn't need a body marker.
+        // Some servers reject HEAD with 405; we transparently retry
+        // with GET so the optimisation never costs accuracy.
+        let response = if needs_body {
+            send_request(
+                &self.inner,
+                reqwest::Method::GET,
+                &url,
+                self.pick_user_agent(),
+            )
+            .await
+        } else {
+            match send_request(
+                &self.inner,
+                reqwest::Method::HEAD,
+                &url,
+                self.pick_user_agent(),
+            )
+            .await
+            {
+                Ok(r) if r.status().as_u16() == 405 => {
+                    send_request(
+                        &self.inner,
+                        reqwest::Method::GET,
+                        &url,
+                        self.pick_user_agent(),
+                    )
+                    .await
+                }
+                other => other,
+            }
+        };
+        let response = match response {
             Ok(r) => r,
             Err(err) => {
                 tracing::debug!(error = %err, "request failed");
@@ -279,11 +315,6 @@ impl Client {
             tracing::warn!(%host, status, %reason, "ban-like response");
             return uncertain(&site.name, url, started, reason);
         }
-
-        // Read the body if a signal needs it, or if enrichment is on and the
-        // site has extractor rules (extraction needs the body).
-        let want_enrich = self.enrich && !site.extract.is_empty();
-        let needs_body = want_enrich || site.signals.iter().any(crate::site::Signal::needs_body);
         let body = if needs_body {
             match response.text().await {
                 Ok(b) => b,
@@ -683,6 +714,23 @@ fn default_user_agent() -> String {
     format!("adler/{}", env!("CARGO_PKG_VERSION"))
 }
 
+/// Issue a single HTTP request with the configured client, an optional
+/// User-Agent override, and the given method. Centralised so the probe
+/// path can transparently swap HEAD for GET (and retry on 405) without
+/// duplicating the request-build logic.
+async fn send_request(
+    client: &reqwest::Client,
+    method: reqwest::Method,
+    url: &str,
+    ua: Option<&str>,
+) -> reqwest::Result<reqwest::Response> {
+    let mut request = client.request(method, url);
+    if let Some(ua) = ua {
+        request = request.header(reqwest::header::USER_AGENT, ua);
+    }
+    request.send().await
+}
+
 fn host_of(url: &str) -> String {
     reqwest::Url::parse(url)
         .ok()
@@ -736,7 +784,7 @@ fn elapsed_ms(started: Instant) -> u64 {
 mod tests {
     use super::*;
     use crate::site::{Signal, UrlTemplate};
-    use wiremock::matchers::{method, path};
+    use wiremock::matchers::{any, method, path};
     use wiremock::{Mock, MockServer, ResponseTemplate};
 
     fn build_client() -> Client {
@@ -778,7 +826,7 @@ mod tests {
         // failed to short-circuit on regex mismatch, the username
         // "alice" (5 chars) would resolve to Found here.
         let server = MockServer::start().await;
-        Mock::given(method("GET"))
+        Mock::given(any())
             .respond_with(ResponseTemplate::new(200))
             .mount(&server)
             .await;
@@ -805,7 +853,7 @@ mod tests {
     #[tokio::test]
     async fn regex_check_pass_proceeds_to_probe() {
         let server = MockServer::start().await;
-        Mock::given(method("GET"))
+        Mock::given(any())
             .and(path("/alice"))
             .respond_with(ResponseTemplate::new(200))
             .mount(&server)
@@ -820,7 +868,7 @@ mod tests {
     #[tokio::test]
     async fn status_signal_reports_found_on_match() {
         let server = MockServer::start().await;
-        Mock::given(method("GET"))
+        Mock::given(any())
             .and(path("/alice"))
             .respond_with(ResponseTemplate::new(200))
             .mount(&server)
@@ -836,7 +884,7 @@ mod tests {
     #[tokio::test]
     async fn status_signal_pair_reports_not_found_on_404() {
         let server = MockServer::start().await;
-        Mock::given(method("GET"))
+        Mock::given(any())
             .and(path("/alice"))
             .respond_with(ResponseTemplate::new(404))
             .mount(&server)
@@ -857,7 +905,7 @@ mod tests {
     #[tokio::test]
     async fn body_absent_signal_detects_missing_account() {
         let server = MockServer::start().await;
-        Mock::given(method("GET"))
+        Mock::given(any())
             .and(path("/alice"))
             .respond_with(ResponseTemplate::new(200).set_body_string("<h1>Profile not found</h1>"))
             .mount(&server)
@@ -877,7 +925,7 @@ mod tests {
         // Phase 2 semantics: absence of an absence-marker is not evidence
         // of presence — it just means we have no signal that fired.
         let server = MockServer::start().await;
-        Mock::given(method("GET"))
+        Mock::given(any())
             .and(path("/alice"))
             .respond_with(ResponseTemplate::new(200).set_body_string("<h1>Welcome alice</h1>"))
             .mount(&server)
@@ -895,7 +943,7 @@ mod tests {
     #[tokio::test]
     async fn body_present_plus_absent_resolve_to_found() {
         let server = MockServer::start().await;
-        Mock::given(method("GET"))
+        Mock::given(any())
             .and(path("/alice"))
             .respond_with(
                 ResponseTemplate::new(200)
@@ -921,14 +969,14 @@ mod tests {
     #[tokio::test]
     async fn redirect_absent_signal_detects_missing_account() {
         let server = MockServer::start().await;
-        Mock::given(method("GET"))
+        Mock::given(any())
             .and(path("/alice"))
             .respond_with(
                 ResponseTemplate::new(302).insert_header("location", "/login?next=/alice"),
             )
             .mount(&server)
             .await;
-        Mock::given(method("GET"))
+        Mock::given(any())
             .and(path("/login"))
             .respond_with(ResponseTemplate::new(200).set_body_string("login page"))
             .mount(&server)
@@ -950,7 +998,7 @@ mod tests {
         // This is the canonical Sherlock "message" pattern: a site that
         // returns 200 for everyone and differentiates via an error string.
         let server = MockServer::start().await;
-        Mock::given(method("GET"))
+        Mock::given(any())
             .and(path("/alice"))
             .respond_with(ResponseTemplate::new(200).set_body_string("Profile not found"))
             .mount(&server)
@@ -1001,7 +1049,7 @@ mod tests {
     #[tokio::test]
     async fn throttle_spaces_consecutive_calls_to_same_host() {
         let server = MockServer::start().await;
-        Mock::given(method("GET"))
+        Mock::given(any())
             .and(path("/alice"))
             .respond_with(ResponseTemplate::new(200))
             .mount(&server)
@@ -1030,7 +1078,7 @@ mod tests {
     #[tokio::test]
     async fn builder_overrides_user_agent() {
         let server = MockServer::start().await;
-        Mock::given(method("GET"))
+        Mock::given(any())
             .and(path("/alice"))
             .and(wiremock::matchers::header("user-agent", "adler-test/1.0"))
             .respond_with(ResponseTemplate::new(200))
@@ -1048,7 +1096,7 @@ mod tests {
     #[tokio::test]
     async fn rate_limit_429_yields_uncertain_with_note() {
         let server = MockServer::start().await;
-        Mock::given(method("GET"))
+        Mock::given(any())
             .and(path("/alice"))
             .respond_with(ResponseTemplate::new(429))
             .mount(&server)
@@ -1062,7 +1110,7 @@ mod tests {
     #[tokio::test]
     async fn cloudflare_server_header_yields_uncertain() {
         let server = MockServer::start().await;
-        Mock::given(method("GET"))
+        Mock::given(any())
             .and(path("/alice"))
             .respond_with(ResponseTemplate::new(503).insert_header("server", "cloudflare"))
             .mount(&server)
@@ -1078,7 +1126,7 @@ mod tests {
         // Body-based ban detection only runs when a signal already needs
         // the body — this site uses BodyAbsent so the body is read.
         let server = MockServer::start().await;
-        Mock::given(method("GET"))
+        Mock::given(any())
             .and(path("/alice"))
             .respond_with(
                 ResponseTemplate::new(200)
@@ -1100,7 +1148,7 @@ mod tests {
     #[tokio::test]
     async fn ban_detection_does_not_fire_on_legitimate_403() {
         let server = MockServer::start().await;
-        Mock::given(method("GET"))
+        Mock::given(any())
             .and(path("/alice"))
             .respond_with(ResponseTemplate::new(403))
             .mount(&server)
@@ -1122,13 +1170,13 @@ mod tests {
     async fn retry_recovers_after_transient_429() {
         let server = MockServer::start().await;
         // First request: 429. Subsequent: 200.
-        Mock::given(method("GET"))
+        Mock::given(any())
             .and(path("/alice"))
             .respond_with(ResponseTemplate::new(429))
             .up_to_n_times(1)
             .mount(&server)
             .await;
-        Mock::given(method("GET"))
+        Mock::given(any())
             .and(path("/alice"))
             .respond_with(ResponseTemplate::new(200))
             .mount(&server)
@@ -1150,7 +1198,7 @@ mod tests {
     #[tokio::test]
     async fn retry_exhausts_and_returns_uncertain() {
         let server = MockServer::start().await;
-        Mock::given(method("GET"))
+        Mock::given(any())
             .and(path("/alice"))
             .respond_with(ResponseTemplate::new(429))
             .mount(&server)
@@ -1217,7 +1265,7 @@ mod tests {
         // UAs; if rotation weren't applied, the default adler/x.y UA would
         // miss and the verdict would be NotFound.
         let server = MockServer::start().await;
-        Mock::given(method("GET"))
+        Mock::given(any())
             .and(path("/alice"))
             .and(wiremock::matchers::header("user-agent", "RotatorUA/9.9"))
             .respond_with(ResponseTemplate::new(200))
@@ -1266,7 +1314,7 @@ mod tests {
         // Two distinct host paths; per-host throttle is disabled, so any
         // spacing must come from the global RPS cap. 5 RPS → 200 ms apart.
         let server = MockServer::start().await;
-        Mock::given(method("GET"))
+        Mock::given(any())
             .respond_with(ResponseTemplate::new(200))
             .mount(&server)
             .await;
@@ -1321,19 +1369,19 @@ mod tests {
     #[tokio::test]
     async fn respect_robots_skips_disallowed_paths() {
         let server = MockServer::start().await;
-        Mock::given(method("GET"))
+        Mock::given(any())
             .and(path("/robots.txt"))
             .respond_with(
                 ResponseTemplate::new(200).set_body_string("User-agent: *\nDisallow: /no"),
             )
             .mount(&server)
             .await;
-        Mock::given(method("GET"))
+        Mock::given(any())
             .and(path("/no/alice"))
             .respond_with(ResponseTemplate::new(200))
             .mount(&server)
             .await;
-        Mock::given(method("GET"))
+        Mock::given(any())
             .and(path("/yes/alice"))
             .respond_with(ResponseTemplate::new(200))
             .mount(&server)
@@ -1385,7 +1433,7 @@ mod tests {
         // Mock returns body that would fail a body_absent check — but since
         // we only have a status signal, body is never read.
         let server = MockServer::start().await;
-        Mock::given(method("GET"))
+        Mock::given(any())
             .and(path("/alice"))
             .respond_with(ResponseTemplate::new(200).set_body_string("Profile not found"))
             .mount(&server)
@@ -1462,7 +1510,7 @@ mod tests {
     #[tokio::test]
     async fn non_bot_protected_sites_skip_browser() {
         let server = MockServer::start().await;
-        Mock::given(method("GET"))
+        Mock::given(any())
             .and(path("/alice"))
             .respond_with(ResponseTemplate::new(200))
             .mount(&server)
@@ -1557,5 +1605,70 @@ mod tests {
             }
             other => panic!("expected BrowserFailed, got {other:?}"),
         }
+    }
+
+    #[tokio::test]
+    async fn status_only_site_uses_head_request() {
+        // Site with only status signals (no body markers, no enrichment)
+        // should be probed with HEAD — saves the body download on
+        // ~30% of the registry.
+        let server = MockServer::start().await;
+        Mock::given(method("HEAD"))
+            .and(path("/alice"))
+            .respond_with(ResponseTemplate::new(200))
+            .mount(&server)
+            .await;
+        let site = site_with(&server, vec![Signal::StatusFound { codes: vec![200] }]);
+        let outcome = build_client().check(&site, &user()).await;
+        assert_eq!(outcome.kind, MatchKind::Found);
+        let recvd = server.received_requests().await.unwrap_or_default();
+        assert_eq!(recvd.len(), 1);
+        assert_eq!(recvd[0].method.as_str(), "HEAD");
+    }
+
+    #[tokio::test]
+    async fn body_signal_site_uses_get_request() {
+        // Same baseline plus a body-marker signal — must still GET so
+        // the body actually arrives for matching.
+        let server = MockServer::start().await;
+        Mock::given(any())
+            .and(path("/alice"))
+            .respond_with(ResponseTemplate::new(200).set_body_string("hello alice"))
+            .mount(&server)
+            .await;
+        let site = site_with(
+            &server,
+            vec![Signal::BodyPresent {
+                text: "hello".into(),
+            }],
+        );
+        let outcome = build_client().check(&site, &user()).await;
+        assert_eq!(outcome.kind, MatchKind::Found);
+        let recvd = server.received_requests().await.unwrap_or_default();
+        assert_eq!(recvd[0].method.as_str(), "GET");
+    }
+
+    #[tokio::test]
+    async fn head_405_falls_back_to_get() {
+        // A server that rejects HEAD with 405 — Adler should silently
+        // retry with GET so the optimisation can never cost accuracy.
+        let server = MockServer::start().await;
+        Mock::given(method("HEAD"))
+            .and(path("/alice"))
+            .respond_with(ResponseTemplate::new(405))
+            .mount(&server)
+            .await;
+        Mock::given(any())
+            .and(path("/alice"))
+            .respond_with(ResponseTemplate::new(200))
+            .mount(&server)
+            .await;
+        let site = site_with(&server, vec![Signal::StatusFound { codes: vec![200] }]);
+        let outcome = build_client().check(&site, &user()).await;
+        assert_eq!(outcome.kind, MatchKind::Found);
+        let recvd = server.received_requests().await.unwrap_or_default();
+        assert_eq!(recvd.len(), 2);
+        assert_eq!(recvd[0].method.as_str(), "HEAD");
+        assert_eq!(recvd[1].method.as_str(), "GET");
     }
 }

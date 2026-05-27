@@ -160,7 +160,7 @@ where
 mod tests {
     use super::*;
     use crate::site::{Signal, UrlTemplate};
-    use wiremock::matchers::{method, path};
+    use wiremock::matchers::{any, path};
     use wiremock::{Mock, MockServer, ResponseTemplate};
 
     /// Test sites are uniformly defined with a Found/NotFound status pair,
@@ -202,17 +202,17 @@ mod tests {
     async fn runs_all_sites_concurrently() {
         let server = MockServer::start().await;
 
-        Mock::given(method("GET"))
+        Mock::given(any())
             .and(path("/a/alice"))
             .respond_with(ResponseTemplate::new(200))
             .mount(&server)
             .await;
-        Mock::given(method("GET"))
+        Mock::given(any())
             .and(path("/b/alice"))
             .respond_with(ResponseTemplate::new(404))
             .mount(&server)
             .await;
-        Mock::given(method("GET"))
+        Mock::given(any())
             .and(path("/c/alice"))
             .respond_with(ResponseTemplate::new(200))
             .mount(&server)
@@ -237,7 +237,7 @@ mod tests {
     async fn respects_concurrency_limit() {
         let server = MockServer::start().await;
         for i in 0..6 {
-            Mock::given(method("GET"))
+            Mock::given(any())
                 .and(path(format!("/{i}/alice")))
                 .respond_with(ResponseTemplate::new(200).set_delay(Duration::from_millis(50)))
                 .mount(&server)
@@ -269,12 +269,12 @@ mod tests {
     async fn run_with_progress_invokes_callback_per_outcome() {
         use std::sync::Mutex;
         let server = MockServer::start().await;
-        Mock::given(method("GET"))
+        Mock::given(any())
             .and(path("/a/alice"))
             .respond_with(ResponseTemplate::new(200))
             .mount(&server)
             .await;
-        Mock::given(method("GET"))
+        Mock::given(any())
             .and(path("/b/alice"))
             .respond_with(ResponseTemplate::new(404))
             .mount(&server)
@@ -297,12 +297,12 @@ mod tests {
     #[tokio::test]
     async fn deadline_marks_slow_sites_uncertain() {
         let server = MockServer::start().await;
-        Mock::given(method("GET"))
+        Mock::given(any())
             .and(path("/slow/alice"))
             .respond_with(ResponseTemplate::new(200).set_delay(Duration::from_secs(2)))
             .mount(&server)
             .await;
-        Mock::given(method("GET"))
+        Mock::given(any())
             .and(path("/fast/alice"))
             .respond_with(ResponseTemplate::new(200))
             .mount(&server)

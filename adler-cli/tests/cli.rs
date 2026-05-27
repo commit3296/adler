@@ -5,7 +5,7 @@ use std::io::Write as _;
 use assert_cmd::Command;
 use predicates::str;
 use tempfile::NamedTempFile;
-use wiremock::matchers::{method, path};
+use wiremock::matchers::{any, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 fn sites_file(json: &str) -> NamedTempFile {
@@ -210,7 +210,7 @@ fn text_output_summary_is_stable() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn found_via_status_strategy_exits_0() {
     let server = MockServer::start().await;
-    Mock::given(method("GET"))
+    Mock::given(any())
         .and(path("/alice"))
         .respond_with(ResponseTemplate::new(200))
         .mount(&server)
@@ -236,12 +236,12 @@ async fn found_via_status_strategy_exits_0() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn doctor_reports_healthy_for_well_behaved_site() {
     let server = MockServer::start().await;
-    Mock::given(method("GET"))
+    Mock::given(any())
         .and(path("/alice"))
         .respond_with(ResponseTemplate::new(200))
         .mount(&server)
         .await;
-    Mock::given(method("GET"))
+    Mock::given(any())
         .respond_with(ResponseTemplate::new(404))
         .mount(&server)
         .await;
@@ -271,7 +271,7 @@ async fn doctor_exits_1_when_signature_too_permissive() {
     let server = MockServer::start().await;
     // Always 200 — both real and nonsense users look "Found". Signature is
     // broken; doctor must catch it.
-    Mock::given(method("GET"))
+    Mock::given(any())
         .respond_with(ResponseTemplate::new(200))
         .mount(&server)
         .await;
@@ -298,7 +298,7 @@ async fn doctor_exits_1_when_signature_too_permissive() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn cache_serves_found_after_backend_goes_down() {
     let server = MockServer::start().await;
-    Mock::given(method("GET"))
+    Mock::given(any())
         .and(path("/alice"))
         .respond_with(ResponseTemplate::new(200))
         .mount(&server)
@@ -354,7 +354,7 @@ async fn cache_serves_found_after_backend_goes_down() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn enrich_extracts_profile_fields_for_found_sites() {
     let server = MockServer::start().await;
-    Mock::given(method("GET"))
+    Mock::given(any())
         .and(path("/alice"))
         .respond_with(ResponseTemplate::new(200).set_body_string(
             r#"<html><body><h1 class="name">Alice L</h1><img class="av" src="https://cdn/a.png"></body></html>"#,
@@ -394,7 +394,7 @@ async fn correlate_links_accounts_with_matching_name() {
     let server = MockServer::start().await;
     // Two sites, both found, both expose the same name via an extractor.
     for seg in ["a", "b"] {
-        Mock::given(method("GET"))
+        Mock::given(any())
             .and(path(format!("/{seg}/alice")))
             .respond_with(
                 ResponseTemplate::new(200).set_body_string(r#"<h1 class="n">Alice Liddell</h1>"#),
@@ -437,7 +437,7 @@ async fn correlate_links_accounts_with_matching_name() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn html_format_renders_self_contained_report() {
     let server = MockServer::start().await;
-    Mock::given(method("GET"))
+    Mock::given(any())
         .and(path("/alice"))
         .respond_with(ResponseTemplate::new(200).set_body_string(r#"<h1 class="n">Alice L</h1>"#))
         .mount(&server)
@@ -560,12 +560,12 @@ fn no_cache_flag_skips_cache_file() {
 /// sites-file plus the running server (kept alive by the caller).
 async fn yes_no_sites() -> (MockServer, tempfile::NamedTempFile) {
     let server = MockServer::start().await;
-    Mock::given(method("GET"))
+    Mock::given(any())
         .and(path("/yes/alice"))
         .respond_with(ResponseTemplate::new(200))
         .mount(&server)
         .await;
-    Mock::given(method("GET"))
+    Mock::given(any())
         .and(path("/no/alice"))
         .respond_with(ResponseTemplate::new(404))
         .mount(&server)
@@ -656,12 +656,12 @@ async fn quiet_prints_only_found_urls() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn add_site_emits_entry_from_status_diff() {
     let server = MockServer::start().await;
-    Mock::given(method("GET"))
+    Mock::given(any())
         .and(path("/alice"))
         .respond_with(ResponseTemplate::new(200))
         .mount(&server)
         .await;
-    Mock::given(method("GET"))
+    Mock::given(any())
         .respond_with(ResponseTemplate::new(404))
         .mount(&server)
         .await;
@@ -688,7 +688,7 @@ async fn add_site_emits_entry_from_status_diff() {
 async fn add_site_exits_1_when_indistinguishable() {
     let server = MockServer::start().await;
     // Same status + body for everyone → nothing to derive.
-    Mock::given(method("GET"))
+    Mock::given(any())
         .respond_with(ResponseTemplate::new(200).set_body_string("<title>Same</title>"))
         .mount(&server)
         .await;
@@ -761,12 +761,12 @@ fn tag_filter_restricts_listed_sites() {
 async fn input_batch_scans_each_username_grouped_json() {
     let server = MockServer::start().await;
     // alice exists, others 404.
-    Mock::given(method("GET"))
+    Mock::given(any())
         .and(path("/alice"))
         .respond_with(ResponseTemplate::new(200))
         .mount(&server)
         .await;
-    Mock::given(method("GET"))
+    Mock::given(any())
         .respond_with(ResponseTemplate::new(404))
         .mount(&server)
         .await;
@@ -807,12 +807,12 @@ async fn input_batch_scans_each_username_grouped_json() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn input_quiet_emits_username_tab_url() {
     let server = MockServer::start().await;
-    Mock::given(method("GET"))
+    Mock::given(any())
         .and(path("/alice"))
         .respond_with(ResponseTemplate::new(200))
         .mount(&server)
         .await;
-    Mock::given(method("GET"))
+    Mock::given(any())
         .respond_with(ResponseTemplate::new(404))
         .mount(&server)
         .await;
@@ -859,7 +859,7 @@ fn input_rejects_tui() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn explain_prints_signal_evidence_and_json_always_has_it() {
     let server = MockServer::start().await;
-    Mock::given(method("GET"))
+    Mock::given(any())
         .and(path("/alice"))
         .respond_with(ResponseTemplate::new(200))
         .mount(&server)
@@ -906,7 +906,7 @@ async fn explain_prints_signal_evidence_and_json_always_has_it() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn csv_output_has_header_and_rows() {
     let server = MockServer::start().await;
-    Mock::given(method("GET"))
+    Mock::given(any())
         .and(path("/alice"))
         .respond_with(ResponseTemplate::new(200))
         .mount(&server)
@@ -939,12 +939,12 @@ async fn csv_output_has_header_and_rows() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn csv_batch_prepends_username_column() {
     let server = MockServer::start().await;
-    Mock::given(method("GET"))
+    Mock::given(any())
         .and(path("/alice"))
         .respond_with(ResponseTemplate::new(200))
         .mount(&server)
         .await;
-    Mock::given(method("GET"))
+    Mock::given(any())
         .respond_with(ResponseTemplate::new(404))
         .mount(&server)
         .await;
@@ -980,12 +980,12 @@ async fn csv_batch_prepends_username_column() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn watch_records_baseline_then_reports_no_change() {
     let server = MockServer::start().await;
-    Mock::given(method("GET"))
+    Mock::given(any())
         .and(path("/alice"))
         .respond_with(ResponseTemplate::new(200))
         .mount(&server)
         .await;
-    Mock::given(method("GET"))
+    Mock::given(any())
         .respond_with(ResponseTemplate::new(404))
         .mount(&server)
         .await;

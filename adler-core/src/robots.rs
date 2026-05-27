@@ -188,10 +188,10 @@ mod tests {
 
     #[tokio::test]
     async fn cache_fetches_and_applies_rules() {
-        use wiremock::matchers::{method, path};
+        use wiremock::matchers::{any, path};
         use wiremock::{Mock, MockServer, ResponseTemplate};
         let server = MockServer::start().await;
-        Mock::given(method("GET"))
+        Mock::given(any())
             .and(path("/robots.txt"))
             .respond_with(
                 ResponseTemplate::new(200).set_body_string("User-agent: *\nDisallow: /no"),
@@ -206,10 +206,10 @@ mod tests {
 
     #[tokio::test]
     async fn missing_robots_txt_allows() {
-        use wiremock::matchers::method;
+        use wiremock::matchers::any;
         use wiremock::{Mock, MockServer, ResponseTemplate};
         let server = MockServer::start().await;
-        Mock::given(method("GET"))
+        Mock::given(any())
             .respond_with(ResponseTemplate::new(404))
             .mount(&server)
             .await;

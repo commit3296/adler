@@ -409,7 +409,7 @@ fn dummy_outcome(site: &str, note: &str) -> CheckOutcome {
 mod tests {
     use super::*;
     use crate::site::{Signal, UrlTemplate};
-    use wiremock::matchers::{method, path_regex};
+    use wiremock::matchers::{any, path_regex};
     use wiremock::{Mock, MockServer, ResponseTemplate};
 
     fn build_client() -> Client {
@@ -443,13 +443,13 @@ mod tests {
     #[tokio::test]
     async fn healthy_when_present_returns_200_and_random_returns_404() {
         let server = MockServer::start().await;
-        Mock::given(method("GET"))
+        Mock::given(any())
             .and(path_regex("^/alice$"))
             .respond_with(ResponseTemplate::new(200))
             .mount(&server)
             .await;
         // Catch-all for any other path (the random nonsense user).
-        Mock::given(method("GET"))
+        Mock::given(any())
             .respond_with(ResponseTemplate::new(404))
             .mount(&server)
             .await;
@@ -463,7 +463,7 @@ mod tests {
     async fn unhealthy_when_known_present_not_found() {
         let server = MockServer::start().await;
         // Even the "known present" user gets a 404 — broken signature.
-        Mock::given(method("GET"))
+        Mock::given(any())
             .respond_with(ResponseTemplate::new(404))
             .mount(&server)
             .await;
@@ -487,7 +487,7 @@ mod tests {
     async fn unhealthy_when_random_user_reports_found() {
         let server = MockServer::start().await;
         // Always 200 — rule is too permissive.
-        Mock::given(method("GET"))
+        Mock::given(any())
             .respond_with(ResponseTemplate::new(200))
             .mount(&server)
             .await;
@@ -514,12 +514,12 @@ mod tests {
         // 200 status with the wrong markers — modelled here as a 404),
         // but the second one ("torvalds") detects cleanly.
         let server = MockServer::start().await;
-        Mock::given(method("GET"))
+        Mock::given(any())
             .and(path_regex("^/torvalds$"))
             .respond_with(ResponseTemplate::new(200))
             .mount(&server)
             .await;
-        Mock::given(method("GET"))
+        Mock::given(any())
             .respond_with(ResponseTemplate::new(404))
             .mount(&server)
             .await;
@@ -549,7 +549,7 @@ mod tests {
         // broken, and the summary lists each verdict so a contributor
         // can see at a glance which ones rotted.
         let server = MockServer::start().await;
-        Mock::given(method("GET"))
+        Mock::given(any())
             .respond_with(ResponseTemplate::new(404))
             .mount(&server)
             .await;
@@ -576,7 +576,7 @@ mod tests {
     #[tokio::test]
     async fn skips_present_check_when_known_present_is_none() {
         let server = MockServer::start().await;
-        Mock::given(method("GET"))
+        Mock::given(any())
             .respond_with(ResponseTemplate::new(404))
             .mount(&server)
             .await;
@@ -614,12 +614,12 @@ mod tests {
     #[tokio::test]
     async fn suggest_fix_derives_status_signals_when_status_differs() {
         let server = MockServer::start().await;
-        Mock::given(method("GET"))
+        Mock::given(any())
             .and(path_regex("^/blue$"))
             .respond_with(ResponseTemplate::new(200))
             .mount(&server)
             .await;
-        Mock::given(method("GET"))
+        Mock::given(any())
             .respond_with(ResponseTemplate::new(410)) // distinct absent status
             .mount(&server)
             .await;
@@ -640,14 +640,14 @@ mod tests {
     #[tokio::test]
     async fn suggest_fix_derives_body_marker_from_title() {
         let server = MockServer::start().await;
-        Mock::given(method("GET"))
+        Mock::given(any())
             .and(path_regex("^/blue$"))
             .respond_with(
                 ResponseTemplate::new(200).set_body_string("<title>blue · Profile</title>ok"),
             )
             .mount(&server)
             .await;
-        Mock::given(method("GET"))
+        Mock::given(any())
             .respond_with(
                 ResponseTemplate::new(200).set_body_string("<title>Page not found</title>"),
             )
@@ -787,7 +787,7 @@ mod tests {
         // Both probes get the same status and the same title → stale
         // known_present pattern; nothing to derive.
         let server = MockServer::start().await;
-        Mock::given(method("GET"))
+        Mock::given(any())
             .respond_with(ResponseTemplate::new(200).set_body_string("<title>Same</title>"))
             .mount(&server)
             .await;
@@ -798,12 +798,12 @@ mod tests {
     #[tokio::test]
     async fn scaffold_site_builds_complete_entry_from_status_diff() {
         let server = MockServer::start().await;
-        Mock::given(method("GET"))
+        Mock::given(any())
             .and(path_regex("^/torvalds$"))
             .respond_with(ResponseTemplate::new(200))
             .mount(&server)
             .await;
-        Mock::given(method("GET"))
+        Mock::given(any())
             .respond_with(ResponseTemplate::new(404))
             .mount(&server)
             .await;
@@ -828,7 +828,7 @@ mod tests {
     #[tokio::test]
     async fn scaffold_site_none_when_indistinguishable() {
         let server = MockServer::start().await;
-        Mock::given(method("GET"))
+        Mock::given(any())
             .respond_with(ResponseTemplate::new(200).set_body_string("<title>Same</title>"))
             .mount(&server)
             .await;
@@ -848,7 +848,7 @@ mod tests {
     #[tokio::test]
     async fn suggest_fix_none_without_known_present() {
         let server = MockServer::start().await;
-        Mock::given(method("GET"))
+        Mock::given(any())
             .respond_with(ResponseTemplate::new(200))
             .mount(&server)
             .await;
@@ -863,12 +863,12 @@ mod tests {
         // and through `torvalds`, `octocat` (404 → NotFound) before
         // landing on `dhh` (200 → Found).
         let server = MockServer::start().await;
-        Mock::given(method("GET"))
+        Mock::given(any())
             .and(path_regex("^/dhh$"))
             .respond_with(ResponseTemplate::new(200))
             .mount(&server)
             .await;
-        Mock::given(method("GET"))
+        Mock::given(any())
             .respond_with(ResponseTemplate::new(404))
             .mount(&server)
             .await;
@@ -887,7 +887,7 @@ mod tests {
     #[tokio::test]
     async fn discover_returns_none_when_no_candidate_yields_found() {
         let server = MockServer::start().await;
-        Mock::given(method("GET"))
+        Mock::given(any())
             .respond_with(ResponseTemplate::new(404))
             .mount(&server)
             .await;
@@ -903,12 +903,12 @@ mod tests {
         // not abort the search — discovery continues to the next
         // candidate, finds `dhh`.
         let server = MockServer::start().await;
-        Mock::given(method("GET"))
+        Mock::given(any())
             .and(path_regex("^/dhh$"))
             .respond_with(ResponseTemplate::new(200))
             .mount(&server)
             .await;
-        Mock::given(method("GET"))
+        Mock::given(any())
             .respond_with(ResponseTemplate::new(404))
             .mount(&server)
             .await;
