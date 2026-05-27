@@ -139,6 +139,25 @@ pub struct Site {
     /// regardless of the tag.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub protection: Vec<ProtectionKind>,
+    /// Disable the site without removing it from the registry.
+    /// Disabled sites are skipped by [`crate::Registry::filter`] —
+    /// they don't get probed, don't appear in `--list-sites`, and
+    /// don't count toward the doctor's tally. Useful for parking
+    /// known-broken entries with a reason comment instead of
+    /// deleting them outright, so a future contributor can re-enable
+    /// the entry by flipping the flag once they've authored a
+    /// working signature.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub disabled: bool,
+    /// Canonical-source link for mirror-style sites. When a site is
+    /// a mirror of another (e.g. Nitter ↔ Twitter, Invidious ↔
+    /// `YouTube`), `source` carries the name of the primary site this
+    /// one mirrors. Lets future UX surface "Twitter is offline,
+    /// here's the same account on Nitter" without hand-curated
+    /// linkage. Empty / `None` for canonical sites and sites with
+    /// no known mirror relationship.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source: Option<String>,
 }
 
 /// A specific anti-bot mechanism a site is known to deploy. Used to
@@ -735,6 +754,8 @@ mod tests {
             request_method: crate::site::HttpMethod::Get,
             request_body: None,
             protection: Vec::new(),
+            disabled: false,
+            source: None,
         }
     }
 

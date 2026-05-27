@@ -184,6 +184,8 @@ mod tests {
             request_method: crate::site::HttpMethod::Get,
             request_body: None,
             protection: Vec::new(),
+            disabled: false,
+            source: None,
         }
     }
 

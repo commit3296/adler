@@ -189,6 +189,13 @@ impl Registry {
         self.sites
             .iter()
             .filter(|site| {
+                // Disabled sites are skipped unconditionally — the bool
+                // is meant for parking known-broken entries with a
+                // reason comment instead of deleting them, so they
+                // never get probed even with a fresh include filter.
+                if site.disabled {
+                    return false;
+                }
                 let name = site.name.to_lowercase();
                 let included = include.is_empty() || include.iter().any(|i| name.contains(i));
                 let excluded = exclude.iter().any(|x| name.contains(x));
@@ -370,6 +377,40 @@ mod tests {
         let registry = Registry::default_embedded().unwrap();
         let filtered = registry.filter(&["does-not-exist-xyz".into()], &[], &[], &[], false);
         assert!(filtered.is_empty());
+    }
+
+    #[test]
+    fn disabled_sites_are_skipped_by_filter() {
+        let json = r#"{
+            "sites": [
+                { "name": "Alive", "url": "https://alive.example/{username}",
+                  "signals": [{ "kind": "status_found", "codes": [200] }] },
+                { "name": "Parked", "url": "https://parked.example/{username}",
+                  "signals": [{ "kind": "status_found", "codes": [200] }],
+                  "disabled": true }
+            ]
+        }"#;
+        let registry = Registry::from_json_str(json).unwrap();
+        // sites() returns everything including disabled — it's the
+        // serialisation view. filter() is the scan view and drops
+        // disabled entries.
+        assert_eq!(registry.sites().len(), 2);
+        let scanned = registry.filter(&[], &[], &[], &[], false);
+        let names: Vec<&str> = scanned.iter().map(|s| s.name.as_str()).collect();
+        assert_eq!(names, vec!["Alive"]);
+    }
+
+    #[test]
+    fn source_field_round_trips() {
+        let json = r#"{
+            "sites": [
+                { "name": "Nitter", "url": "https://nitter.example/{username}",
+                  "signals": [{ "kind": "status_found", "codes": [200] }],
+                  "source": "Twitter" }
+            ]
+        }"#;
+        let registry = Registry::from_json_str(json).unwrap();
+        assert_eq!(registry.sites()[0].source.as_deref(), Some("Twitter"));
     }
 
     fn tagged_registry() -> Registry {

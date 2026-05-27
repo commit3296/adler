@@ -371,6 +371,8 @@ pub async fn scaffold_site(
         request_method: crate::site::HttpMethod::Get,
         request_body: None,
         protection: Vec::new(),
+        disabled: false,
+        source: None,
     };
     Ok(suggest_fix(client, &probe).await.map(|fix| {
         (
@@ -443,6 +445,8 @@ mod tests {
             request_method: crate::site::HttpMethod::Get,
             request_body: None,
             protection: Vec::new(),
+            disabled: false,
+            source: None,
         }
     }
 
@@ -759,6 +763,8 @@ mod tests {
             request_method: crate::site::HttpMethod::Get,
             request_body: None,
             protection: Vec::new(),
+            disabled: false,
+            source: None,
         };
 
         let client = Client::builder()
@@ -944,6 +950,8 @@ mod tests {
             request_method: crate::site::HttpMethod::Get,
             request_body: None,
             protection: Vec::new(),
+            disabled: false,
+            source: None,
         };
         let pool = default_candidate_pool(&site);
         assert_eq!(pool.first().map(String::as_str), Some("github"));
@@ -980,6 +988,8 @@ mod tests {
             request_method: crate::site::HttpMethod::Get,
             request_body: None,
             protection: Vec::new(),
+            disabled: false,
+            source: None,
         };
         let pool = default_candidate_pool(&site);
         assert!(pool.contains(&"torvalds".to_owned()));

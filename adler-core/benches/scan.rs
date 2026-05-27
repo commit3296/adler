@@ -38,6 +38,8 @@ fn make_sites(server: &MockServer) -> Vec<Site> {
             request_method: adler_core::HttpMethod::Get,
             request_body: None,
             protection: Vec::new(),
+            disabled: false,
+            source: None,
         })
         .collect()
 }

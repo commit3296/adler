@@ -115,6 +115,15 @@
               "anubis", "captcha", "user-agent", "user-auth"
             ]
           }
+        },
+        "disabled": {
+          "type": "boolean",
+          "description": "Park the site without removing it: disabled entries are skipped by every filter, never probed, never appear in `--list-sites`. Use for known-broken signatures so a future contributor can re-enable by flipping the flag once a working signature exists."
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Canonical-site name when this entry is a mirror. Lets UX surface 'Twitter is offline, here's the same account on Nitter' without hand-curated linkage."
         }
       }
     },
