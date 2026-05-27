@@ -27,12 +27,18 @@ def main() -> int:
 
     tagged = 0
     for site in data["sites"]:
-        tags = derive_tags(site["name"], site["url"])
-        if tags:
-            site["tags"] = tags
+        derived = derive_tags(site["name"], site["url"])
+        if not derived:
+            continue
+        # Merge into existing tags rather than replace — preserves
+        # hand-curated values (`source:maigret`, `bot-protected`,
+        # `protection:cloudflare`, the doctor's classification tags)
+        # that derive_tags has no way to recover from name+URL alone.
+        existing = set(site.get("tags") or [])
+        new = existing | set(derived)
+        if new != existing:
+            site["tags"] = sorted(new)
             tagged += 1
-        else:
-            site.pop("tags", None)
 
     with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)

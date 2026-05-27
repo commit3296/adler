@@ -203,6 +203,7 @@
       ],
       "tags": [
         "hobby",
+        "region:ru",
         "source:wmn"
       ]
     },
@@ -270,6 +271,7 @@
         "svetlana"
       ],
       "tags": [
+        "region:ru",
         "social",
         "source:wmn"
       ]
@@ -407,6 +409,7 @@
       ],
       "tags": [
         "nsfw",
+        "region:gr",
         "source:wmn"
       ]
     },
@@ -644,6 +647,7 @@
         "pavel"
       ],
       "tags": [
+        "region:cz",
         "social",
         "source:wmn"
       ]
@@ -716,6 +720,7 @@
         "jonathan"
       ],
       "tags": [
+        "region:br",
         "source:wmn",
         "tech"
       ]
@@ -751,6 +756,7 @@
       ],
       "tags": [
         "blog",
+        "region:jp",
         "source:wmn"
       ]
     },
@@ -1268,6 +1274,7 @@
       ],
       "tags": [
         "coding",
+        "region:jp",
         "source:wmn"
       ]
     },
@@ -1302,6 +1309,7 @@
       ],
       "tags": [
         "misc",
+        "region:ru",
         "source:wmn"
       ]
     },
@@ -1546,6 +1554,7 @@
       ],
       "tags": [
         "misc",
+        "region:ru",
         "source:wmn"
       ]
     },
@@ -2029,6 +2038,7 @@
       ],
       "tags": [
         "blog",
+        "region:pl",
         "source:wmn"
       ]
     },
@@ -2466,6 +2476,7 @@
         "honey"
       ],
       "tags": [
+        "region:jp",
         "social",
         "source:wmn"
       ]
@@ -2638,6 +2649,7 @@
       ],
       "tags": [
         "business",
+        "region:ru",
         "source:wmn"
       ]
     },
@@ -2741,6 +2753,7 @@
       ],
       "tags": [
         "gaming",
+        "region:pl",
         "source:wmn"
       ]
     },
@@ -2774,6 +2787,7 @@
         "janek"
       ],
       "tags": [
+        "region:pl",
         "source:wmn",
         "video"
       ]
@@ -2912,6 +2926,7 @@
       ],
       "tags": [
         "images",
+        "region:pl",
         "source:wmn"
       ]
     },
@@ -3086,6 +3101,7 @@
       ],
       "tags": [
         "misc",
+        "region:pl",
         "source:wmn"
       ]
     },
@@ -4043,6 +4059,7 @@
       ],
       "tags": [
         "dating",
+        "region:ru",
         "source:wmn"
       ]
     },
@@ -4111,6 +4128,7 @@
       ],
       "tags": [
         "images",
+        "region:pl",
         "source:wmn"
       ]
     },
@@ -4316,6 +4334,7 @@
         "john"
       ],
       "tags": [
+        "art",
         "images",
         "source:wmn"
       ]
@@ -4385,6 +4404,7 @@
       ],
       "tags": [
         "gaming",
+        "region:br",
         "source:wmn"
       ]
     },
@@ -5073,6 +5093,7 @@
       ],
       "tags": [
         "gaming",
+        "region:ru",
         "source:wmn"
       ]
     },
@@ -5140,6 +5161,7 @@
         "volodymyrobrizan"
       ],
       "tags": [
+        "region:ua",
         "social",
         "source:wmn"
       ]
@@ -5209,6 +5231,7 @@
       ],
       "tags": [
         "bot-protected",
+        "region:ru",
         "social",
         "source:wmn"
       ],
@@ -5311,6 +5334,7 @@
       ],
       "known_present": "wd",
       "tags": [
+        "region:ru",
         "social",
         "source:wmn"
       ]
@@ -5622,6 +5646,7 @@
         "adam"
       ],
       "tags": [
+        "bot-protected",
         "social",
         "source:wmn"
       ]
@@ -5691,6 +5716,7 @@
       ],
       "tags": [
         "images",
+        "region:pl",
         "source:wmn"
       ]
     },
@@ -6073,6 +6099,7 @@
       ],
       "tags": [
         "hobby",
+        "region:pl",
         "source:wmn"
       ]
     },
@@ -6141,6 +6168,7 @@
       ],
       "tags": [
         "bot-protected",
+        "region:ru",
         "social",
         "source:wmn"
       ],
@@ -6524,6 +6552,7 @@
       ],
       "tags": [
         "business",
+        "region:ru",
         "source:wmn"
       ]
     },
@@ -6557,6 +6586,7 @@
         "oleksandrseo1"
       ],
       "tags": [
+        "region:ua",
         "social",
         "source:wmn"
       ]
@@ -7717,6 +7747,7 @@
       ],
       "tags": [
         "gaming",
+        "region:ru",
         "source:wmn"
       ]
     },
@@ -8021,6 +8052,7 @@
       ],
       "tags": [
         "gaming",
+        "region:br",
         "source:wmn"
       ]
     },
@@ -8055,6 +8087,7 @@
       ],
       "tags": [
         "gaming",
+        "region:tr",
         "source:wmn"
       ]
     },
@@ -8089,6 +8122,7 @@
       ],
       "tags": [
         "gaming",
+        "region:de",
         "source:wmn"
       ]
     },
@@ -8123,6 +8157,7 @@
       ],
       "tags": [
         "gaming",
+        "region:es",
         "source:wmn"
       ]
     },
@@ -8157,6 +8192,7 @@
       ],
       "tags": [
         "gaming",
+        "region:fi",
         "source:wmn"
       ]
     },
@@ -8191,6 +8227,7 @@
       ],
       "tags": [
         "gaming",
+        "region:fr",
         "source:wmn"
       ]
     },
@@ -8225,6 +8262,7 @@
       ],
       "tags": [
         "gaming",
+        "region:it",
         "source:wmn"
       ]
     },
@@ -8259,6 +8297,7 @@
       ],
       "tags": [
         "gaming",
+        "region:nl",
         "source:wmn"
       ]
     },
@@ -8292,6 +8331,7 @@
         "AlhimicMan"
       ],
       "tags": [
+        "region:ru",
         "social",
         "source:wmn"
       ]
@@ -8327,6 +8367,7 @@
       ],
       "tags": [
         "gaming",
+        "region:es",
         "source:wmn"
       ]
     },
@@ -8497,6 +8538,7 @@
         "alex"
       ],
       "tags": [
+        "news",
         "source:wmn",
         "tech"
       ]
@@ -9281,6 +9323,7 @@
         "blue"
       ],
       "tags": [
+        "region:ru",
         "social",
         "source:wmn"
       ]
@@ -9555,6 +9598,7 @@
         "cristiano"
       ],
       "tags": [
+        "bot-protected",
         "social",
         "source:wmn"
       ]
@@ -9965,6 +10009,7 @@
       ],
       "tags": [
         "images",
+        "region:pl",
         "source:wmn"
       ]
     },
@@ -9999,6 +10044,7 @@
       ],
       "tags": [
         "misc",
+        "region:pl",
         "source:wmn"
       ]
     },
@@ -10168,6 +10214,7 @@
         "mubix"
       ],
       "tags": [
+        "coding",
         "social",
         "source:wmn"
       ]
@@ -10377,6 +10424,7 @@
         "marcmakescomics"
       ],
       "tags": [
+        "blog",
         "bot-protected",
         "social",
         "source:wmn"
@@ -10481,6 +10529,7 @@
       ],
       "tags": [
         "images",
+        "region:pl",
         "source:wmn"
       ]
     },
@@ -10549,6 +10598,7 @@
       ],
       "tags": [
         "images",
+        "region:pl",
         "source:wmn"
       ]
     },
@@ -10825,6 +10875,7 @@
         "tzinalilik"
       ],
       "tags": [
+        "region:gr",
         "social",
         "source:wmn"
       ]
@@ -10961,6 +11012,7 @@
         "bob"
       ],
       "tags": [
+        "region:ru",
         "source:wmn",
         "tech"
       ]
@@ -10997,6 +11049,7 @@
       "strip_bad_char": ".",
       "tags": [
         "blog",
+        "region:ru",
         "source:wmn"
       ]
     },
@@ -11030,6 +11083,7 @@
         "ellentoy"
       ],
       "tags": [
+        "region:ru",
         "shopping",
         "source:wmn"
       ]
@@ -11167,6 +11221,7 @@
       ],
       "tags": [
         "gaming",
+        "region:pl",
         "source:wmn"
       ]
     },
@@ -11234,6 +11289,7 @@
         "AeroBlade"
       ],
       "tags": [
+        "region:de",
         "source:wmn",
         "tech"
       ]
@@ -11336,6 +11392,7 @@
         "brahim01"
       ],
       "tags": [
+        "region:nl",
         "social",
         "source:wmn"
       ]
@@ -11574,6 +11631,7 @@
         "xaphanpl"
       ],
       "tags": [
+        "region:pl",
         "social",
         "source:wmn"
       ]
@@ -11880,6 +11938,7 @@
         "frank"
       ],
       "tags": [
+        "region:de",
         "social",
         "source:wmn"
       ]
@@ -12085,6 +12144,7 @@
       ],
       "strip_bad_char": ".",
       "tags": [
+        "blog",
         "news",
         "source:wmn"
       ]
@@ -12120,6 +12180,7 @@
       ],
       "tags": [
         "health",
+        "region:pl",
         "source:wmn"
       ]
     },
@@ -12465,6 +12526,7 @@
         "19123"
       ],
       "tags": [
+        "region:jp",
         "social",
         "source:wmn"
       ]
@@ -12738,6 +12800,7 @@
       ],
       "tags": [
         "images",
+        "region:pl",
         "source:wmn"
       ]
     },
@@ -13311,6 +13374,7 @@
       ],
       "tags": [
         "business",
+        "region:de",
         "source:wmn"
       ]
     },
@@ -13480,6 +13544,7 @@
         "blue"
       ],
       "tags": [
+        "region:kr",
         "social",
         "source:wmn"
       ]
@@ -13788,6 +13853,7 @@
       ],
       "strip_bad_char": ".",
       "tags": [
+        "region:ru",
         "social",
         "source:wmn"
       ]
@@ -13925,6 +13991,7 @@
         "janek"
       ],
       "tags": [
+        "region:pl",
         "shopping",
         "source:wmn"
       ]
@@ -13959,6 +14026,7 @@
         "aleksandrvasillev"
       ],
       "tags": [
+        "region:ru",
         "social",
         "source:wmn"
       ]
@@ -14198,6 +14266,7 @@
         "Баир Иринчеев"
       ],
       "tags": [
+        "region:ru",
         "source:wmn",
         "tech"
       ]
@@ -14332,6 +14401,7 @@
       ],
       "tags": [
         "gaming",
+        "region:br",
         "source:wmn"
       ]
     },
@@ -14366,6 +14436,7 @@
       ],
       "tags": [
         "gaming",
+        "region:es",
         "source:wmn"
       ]
     },
@@ -14671,6 +14742,7 @@
         "doughboys"
       ],
       "tags": [
+        "blog",
         "finance",
         "source:wmn"
       ]
@@ -14740,6 +14812,7 @@
       ],
       "tags": [
         "finance",
+        "region:pl",
         "source:wmn"
       ]
     },
@@ -14949,6 +15022,7 @@
       ],
       "tags": [
         "misc",
+        "region:pl",
         "source:wmn"
       ]
     },
@@ -15017,6 +15091,7 @@
       ],
       "tags": [
         "misc",
+        "region:pl",
         "source:wmn"
       ]
     },
@@ -15118,6 +15193,7 @@
         "frickcollection"
       ],
       "tags": [
+        "images",
         "social",
         "source:wmn"
       ]
@@ -15421,6 +15497,7 @@
         "Lesik"
       ],
       "tags": [
+        "region:pl",
         "social",
         "source:wmn"
       ]
@@ -15456,6 +15533,7 @@
       ],
       "tags": [
         "misc",
+        "region:pl",
         "source:wmn"
       ]
     },
@@ -15835,7 +15913,8 @@
       ],
       "tags": [
         "business",
-        "source:wmn"
+        "source:wmn",
+        "tech"
       ]
     },
     {
@@ -15970,6 +16049,7 @@
         "test2"
       ],
       "tags": [
+        "region:pl",
         "source:wmn",
         "tech"
       ]
@@ -16072,6 +16152,7 @@
         "kowalski"
       ],
       "tags": [
+        "region:pl",
         "social",
         "source:wmn"
       ]
@@ -16106,6 +16187,7 @@
         "mik"
       ],
       "tags": [
+        "region:pl",
         "social",
         "source:wmn"
       ]
@@ -16587,6 +16669,7 @@
       ],
       "tags": [
         "hobby",
+        "region:ru",
         "source:wmn"
       ]
     },
@@ -16961,6 +17044,7 @@
       ],
       "tags": [
         "blog",
+        "region:pl",
         "source:wmn"
       ]
     },
@@ -17369,6 +17453,7 @@
       ],
       "tags": [
         "health",
+        "region:pl",
         "source:wmn"
       ]
     },
@@ -17544,6 +17629,7 @@
       ],
       "tags": [
         "art",
+        "region:jp",
         "source:wmn"
       ]
     },
@@ -17946,6 +18032,7 @@
         "bmdv"
       ],
       "tags": [
+        "region:de",
         "social",
         "source:wmn"
       ]
@@ -18430,7 +18517,8 @@
       "tags": [
         "bot-protected",
         "coding",
-        "source:wmn"
+        "source:wmn",
+        "tech"
       ],
       "protection": [
         "cloudflare"
@@ -18634,6 +18722,7 @@
         "adam"
       ],
       "tags": [
+        "health",
         "social",
         "source:wmn"
       ]
@@ -18873,6 +18962,7 @@
       ],
       "tags": [
         "business",
+        "region:jp",
         "source:wmn"
       ]
     },
@@ -19043,6 +19133,7 @@
       ],
       "tags": [
         "hobby",
+        "region:pl",
         "source:wmn"
       ]
     },
@@ -19346,6 +19437,7 @@
       ],
       "tags": [
         "blog",
+        "region:in",
         "source:wmn"
       ]
     },
@@ -19861,6 +19953,7 @@
       ],
       "tags": [
         "hobby",
+        "region:se",
         "source:wmn"
       ]
     },
@@ -20100,6 +20193,7 @@
       ],
       "tags": [
         "gaming",
+        "region:ru",
         "source:wmn"
       ]
     },
@@ -20237,6 +20331,7 @@
       "strip_bad_char": ".",
       "tags": [
         "images",
+        "social",
         "source:wmn"
       ]
     },
@@ -20441,6 +20536,7 @@
         "tsukiusa630"
       ],
       "tags": [
+        "region:jp",
         "social",
         "source:wmn"
       ]
@@ -20544,6 +20640,7 @@
       ],
       "tags": [
         "business",
+        "region:fi",
         "source:wmn"
       ]
     },
@@ -20613,6 +20710,7 @@
       ],
       "tags": [
         "hobby",
+        "region:pl",
         "source:wmn"
       ]
     },
@@ -20886,6 +20984,7 @@
       ],
       "tags": [
         "hobby",
+        "region:ru",
         "source:wmn"
       ]
     },
@@ -20988,6 +21087,7 @@
       ],
       "tags": [
         "misc",
+        "region:se",
         "source:wmn"
       ]
     },
@@ -21269,6 +21369,7 @@
         "User-Agent": "Mozilla/5.0 (X11; Linux i686; rv:125.0) Gecko/20100101 Firefox/125.0"
       },
       "tags": [
+        "region:ru",
         "social",
         "source:wmn"
       ]
@@ -21303,6 +21404,7 @@
         "aniver"
       ],
       "tags": [
+        "region:ru",
         "social",
         "source:wmn"
       ]
@@ -21923,6 +22025,8 @@
         "fbb0916"
       ],
       "tags": [
+        "bot-protected",
+        "region:cn",
         "social",
         "source:wmn"
       ]
@@ -22368,6 +22472,7 @@
         "test2"
       ],
       "tags": [
+        "region:pl",
         "social",
         "source:wmn"
       ]
@@ -22402,6 +22507,7 @@
         "OSINT_Tactical"
       ],
       "tags": [
+        "bot-protected",
         "social",
         "source:wmn"
       ]
@@ -22436,6 +22542,7 @@
         "stariy"
       ],
       "tags": [
+        "region:ru",
         "source:wmn",
         "tech"
       ]
@@ -22638,6 +22745,7 @@
       ],
       "known_present": "fltr14502003",
       "tags": [
+        "region:jp",
         "shopping",
         "source:wmn"
       ]
@@ -23013,6 +23121,7 @@
         "kan-shu-jiao-hua-shai-tai-yang"
       ],
       "tags": [
+        "region:cn",
         "social",
         "source:wmn"
       ]

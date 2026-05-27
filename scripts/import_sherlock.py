@@ -240,25 +240,65 @@ OVERRIDES: dict[str, dict] = {
 # contributors extend it. Two automatic axes are derived below in addition to
 # this map: region from a ccTLD, and region for a few platforms that are
 # region-bound despite a .com domain.
+# Canonical category axis matches WhatsMyName's 21-category enum so cross-
+# source filters work uniformly: `--tag dating` picks up Sherlock-derived
+# OkCupid + WMN-derived AdultFriendFinder + Maigret-derived Mamba alike.
+# The full canonical list (`archived`, `art`, `blog`, `business`, `coding`,
+# `dating`, `finance`, `gaming`, `health`, `hobby`, `images`, `misc`,
+# `music`, `news`, `political`, `search`, `shopping`, `social`, `tech`,
+# `video`, `nsfw`) is documented in PLAN.md. Sherlock importer uses the
+# below name→category map; extending the map adds tags to future imports.
 CATEGORY_MAP: dict[str, str] = {
-    # name.lower() -> category
-    "github": "dev", "gitlab": "dev", "bitbucket": "dev", "codepen": "dev",
-    "replit": "dev", "dev.to": "dev", "hackernews": "dev", "leetcode": "dev",
-    "codewars": "dev", "exercism": "dev", "npm": "dev", "pypi": "dev",
-    "docker hub": "dev", "hackerone": "dev", "keybase": "dev",
+    # dev / coding
+    "github": "coding", "gitlab": "coding", "bitbucket": "coding",
+    "codepen": "coding", "replit": "coding", "dev.to": "coding",
+    "hackernews": "coding", "leetcode": "coding", "codewars": "coding",
+    "exercism": "coding", "npm": "coding", "pypi": "coding",
+    "docker hub": "coding", "hackerone": "coding", "keybase": "coding",
+    # social
     "instagram": "social", "facebook": "social", "twitter": "social",
     "x": "social", "vk": "social", "tiktok": "social", "threads": "social",
     "mastodon": "social", "snapchat": "social", "tumblr": "social",
     "reddit": "social", "ok.ru": "social", "weibo": "social",
+    # video
     "youtube": "video", "vimeo": "video", "dailymotion": "video",
+    # gaming
     "twitch": "gaming", "steam community (user)": "gaming",
-    "steam community (group)": "gaming", "speedrun.com": "gaming", "chess": "gaming",
+    "steam community (group)": "gaming", "speedrun.com": "gaming",
+    "chess": "gaming",
+    # music
     "soundcloud": "music", "spotify": "music", "last.fm": "music",
     "bandcamp": "music", "mixcloud": "music", "genius": "music",
-    "patreon": "creator", "ko-fi": "creator", "buy me a coffee": "creator",
+    # blog (covers WMN `blog` category)
     "medium": "blog", "wordpress": "blog", "blogger": "blog",
-    "pinterest": "photo", "flickr": "photo", "500px": "photo",
-    "deviantart": "art", "behance": "art", "dribbble": "art", "artstation": "art",
+    "patreon": "blog", "ko-fi": "blog", "buy me a coffee": "blog",
+    # images (WMN axis replaces our older `photo`)
+    "pinterest": "images", "flickr": "images", "500px": "images",
+    "imgur": "images",
+    # art
+    "deviantart": "art", "behance": "art", "dribbble": "art",
+    "artstation": "art",
+    # news (WMN axis)
+    "hackernoon": "news", "lobsters": "news", "slashdot": "news",
+    "digg": "news",
+    # archived — sites for finding deleted/cached profiles
+    "archive.org": "archived", "wayback machine": "archived",
+    "archive of our own": "archived", "internet archive": "archived",
+    # dating — WMN axis we previously had no coverage for
+    "okcupid": "dating", "bumble": "dating", "tinder": "dating",
+    "match.com": "dating", "pof": "dating", "hinge": "dating",
+    "adultfriendfinder": "dating",
+    # shopping
+    "etsy": "shopping", "ebay": "shopping", "amazon": "shopping",
+    "depop": "shopping", "poshmark": "shopping",
+    # finance
+    "tradingview": "finance", "stocktwits": "finance", "coinbase": "finance",
+    "robinhood": "finance",
+    # health
+    "myfitnesspal": "health", "strava": "health", "fitocracy": "health",
+    # tech
+    "stackoverflow": "tech", "stackexchange": "tech", "tech.io": "tech",
+    "producthunt": "tech",
 }
 
 # ccTLD -> region code. Conservative subset of clearly-national TLDs.
