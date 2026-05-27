@@ -29,6 +29,24 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
+      # adler-server embeds `adler-web/dist/` via rust-embed at compile
+      # time. dist/ is gitignored, so cargo would otherwise build a
+      # binary that 503s on `/` with "frontend not built". Build the
+      # SolidJS bundle first; `rust-embed` then snapshots the produced
+      # files into the resulting object code.
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: adler-web/package-lock.json
+
+      - name: Build adler-web frontend
+        working-directory: adler-web
+        run: |
+          npm ci
+          npm run build
+
       - name: cargo fmt
         run: cargo fmt --all --check
 
