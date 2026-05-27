@@ -264,6 +264,8 @@ mod tests {
             regex_check: None,
             engine: None,
             strip_bad_char: None,
+            request_method: crate::site::HttpMethod::Get,
+            request_body: None,
         }
     }
 

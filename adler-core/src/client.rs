@@ -20,7 +20,7 @@ use crate::check::{CheckOutcome, MatchKind, UncertainReason};
 use crate::error::{Error, Result};
 use crate::retry::{self, RetryPolicy};
 use crate::robots::RobotsCache;
-use crate::site::{Probe, Signal, SignalVerdict, Site, aggregate};
+use crate::site::{HttpMethod, Probe, Signal, SignalVerdict, Site, aggregate};
 use crate::throttle::HostThrottle;
 use crate::username::Username;
 
@@ -260,39 +260,68 @@ impl Client {
         let want_enrich = self.enrich && !site.extract.is_empty();
         let needs_body = want_enrich || site.signals.iter().any(crate::site::Signal::needs_body);
 
+        // POST sites carry their own body payload (the username goes in
+        // the body, not the URL — e.g. Anilist's GraphQL endpoint).
+        // HEAD optimisation only applies to GET-probed sites: a HEAD
+        // for a POST endpoint would defeat its purpose. Body
+        // substitution mirrors URL substitution: `{username}` in
+        // `Site::request_body` is replaced before sending.
+        let body_for_post: Option<String> = if matches!(site.request_method, HttpMethod::Post) {
+            const USERNAME_PH: &str = "{username}";
+            site.request_body
+                .as_deref()
+                .map(|t| t.replace(USERNAME_PH, username.as_str()))
+        } else {
+            None
+        };
+
         // For status-only sites (only StatusFound / StatusNotFound /
         // RedirectAbsent signals, no enrichment), HEAD avoids the body
         // download entirely — saving bandwidth and time on the
         // ~30% of the registry that doesn't need a body marker.
         // Some servers reject HEAD with 405; we transparently retry
-        // with GET so the optimisation never costs accuracy.
-        let response = if needs_body {
-            send_request(
-                &self.inner,
-                reqwest::Method::GET,
-                &url,
-                self.pick_user_agent(),
-            )
-            .await
-        } else {
-            match send_request(
-                &self.inner,
-                reqwest::Method::HEAD,
-                &url,
-                self.pick_user_agent(),
-            )
-            .await
-            {
-                Ok(r) if r.status().as_u16() == 405 => {
-                    send_request(
-                        &self.inner,
-                        reqwest::Method::GET,
-                        &url,
-                        self.pick_user_agent(),
-                    )
-                    .await
+        // with GET so the optimisation never costs accuracy. POST
+        // probes always go out as POST regardless of body needs.
+        let response = match site.request_method {
+            HttpMethod::Post => {
+                send_request_with_body(
+                    &self.inner,
+                    reqwest::Method::POST,
+                    &url,
+                    self.pick_user_agent(),
+                    body_for_post.as_deref(),
+                )
+                .await
+            }
+            HttpMethod::Get if needs_body => {
+                send_request(
+                    &self.inner,
+                    reqwest::Method::GET,
+                    &url,
+                    self.pick_user_agent(),
+                )
+                .await
+            }
+            HttpMethod::Get => {
+                match send_request(
+                    &self.inner,
+                    reqwest::Method::HEAD,
+                    &url,
+                    self.pick_user_agent(),
+                )
+                .await
+                {
+                    Ok(r) if r.status().as_u16() == 405 => {
+                        send_request(
+                            &self.inner,
+                            reqwest::Method::GET,
+                            &url,
+                            self.pick_user_agent(),
+                        )
+                        .await
+                    }
+                    other => other,
                 }
-                other => other,
             }
         };
         let response = match response {
@@ -724,9 +753,29 @@ async fn send_request(
     url: &str,
     ua: Option<&str>,
 ) -> reqwest::Result<reqwest::Response> {
+    send_request_with_body(client, method, url, ua, None).await
+}
+
+/// Same as [`send_request`] but with an optional request body — used
+/// for POST probes against API endpoints (GraphQL, login form, …).
+/// When `body` is `Some`, the request is sent with a `application/json`
+/// content type by default; sites that need a different content type
+/// declare it through [`Site::request_headers`].
+async fn send_request_with_body(
+    client: &reqwest::Client,
+    method: reqwest::Method,
+    url: &str,
+    ua: Option<&str>,
+    body: Option<&str>,
+) -> reqwest::Result<reqwest::Response> {
     let mut request = client.request(method, url);
     if let Some(ua) = ua {
         request = request.header(reqwest::header::USER_AGENT, ua);
+    }
+    if let Some(b) = body {
+        request = request
+            .header(reqwest::header::CONTENT_TYPE, "application/json")
+            .body(b.to_owned());
     }
     request.send().await
 }
@@ -813,6 +862,8 @@ mod tests {
             regex_check: None,
             engine: None,
             strip_bad_char: None,
+            request_method: crate::site::HttpMethod::Get,
+            request_body: None,
         }
     }
 
@@ -1034,6 +1085,8 @@ mod tests {
             regex_check: None,
             engine: None,
             strip_bad_char: None,
+            request_method: crate::site::HttpMethod::Get,
+            request_body: None,
         };
         let client = Client::builder()
             .timeout(Duration::from_millis(500))
@@ -1237,6 +1290,8 @@ mod tests {
             regex_check: None,
             engine: None,
             strip_bad_char: None,
+            request_method: crate::site::HttpMethod::Get,
+            request_body: None,
         };
         let client = Client::builder()
             .timeout(Duration::from_millis(500))
@@ -1330,6 +1385,8 @@ mod tests {
             regex_check: None,
             engine: None,
             strip_bad_char: None,
+            request_method: crate::site::HttpMethod::Get,
+            request_body: None,
         };
         let site_b = Site {
             name: "B".into(),
@@ -1343,6 +1400,8 @@ mod tests {
             regex_check: None,
             engine: None,
             strip_bad_char: None,
+            request_method: crate::site::HttpMethod::Get,
+            request_body: None,
         };
         // 2 RPS → ~500 ms between requests. A large interval keeps the
         // assertion robust even when the first probe's own duration (which
@@ -1405,6 +1464,8 @@ mod tests {
             regex_check: None,
             engine: None,
             strip_bad_char: None,
+            request_method: crate::site::HttpMethod::Get,
+            request_body: None,
         };
         let allowed = Site {
             name: "Yes".into(),
@@ -1418,6 +1479,8 @@ mod tests {
             regex_check: None,
             engine: None,
             strip_bad_char: None,
+            request_method: crate::site::HttpMethod::Get,
+            request_body: None,
         };
 
         let no = client.check(&disallowed, &user()).await;
@@ -1646,6 +1709,45 @@ mod tests {
         assert_eq!(outcome.kind, MatchKind::Found);
         let recvd = server.received_requests().await.unwrap_or_default();
         assert_eq!(recvd[0].method.as_str(), "GET");
+    }
+
+    #[tokio::test]
+    async fn post_method_sends_body_with_username_substituted() {
+        // A POST-probed site (e.g. Anilist GraphQL) — the username
+        // goes in the body, not the URL. Adler should substitute
+        // `{username}` and send a POST with the rendered payload.
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/api"))
+            .respond_with(ResponseTemplate::new(200))
+            .mount(&server)
+            .await;
+        // URL substitution still requires the `{username}` placeholder,
+        // even for POST sites where the username also lives in the
+        // body. Most real POST endpoints encode the username in both
+        // (e.g. query string + body); we mirror that.
+        let site = Site {
+            name: "ApiPost".into(),
+            url: UrlTemplate::new(format!("{}/api?_={{username}}", server.uri())).unwrap(),
+            signals: vec![Signal::StatusFound { codes: vec![200] }],
+            known_present: None,
+            known_absent: None,
+            extract: Vec::new(),
+            tags: Vec::new(),
+            request_headers: std::collections::BTreeMap::new(),
+            regex_check: None,
+            engine: None,
+            strip_bad_char: None,
+            request_method: HttpMethod::Post,
+            request_body: Some(r#"{"name":"{username}"}"#.into()),
+        };
+        let outcome = build_client().check(&site, &user()).await;
+        assert_eq!(outcome.kind, MatchKind::Found);
+        let recvd = server.received_requests().await.unwrap_or_default();
+        assert_eq!(recvd.len(), 1);
+        assert_eq!(recvd[0].method.as_str(), "POST");
+        let body = String::from_utf8_lossy(&recvd[0].body).to_string();
+        assert!(body.contains("\"name\":\"alice\""), "body was: {body}");
     }
 
     #[tokio::test]

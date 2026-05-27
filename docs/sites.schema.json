@@ -95,6 +95,15 @@
           "type": "string",
           "minLength": 1,
           "description": "Characters the site silently strips from usernames server-side (e.g. dots on Twitter handles). Adler removes any matching characters from the probe username before URL substitution so the probe hits the canonical form."
+        },
+        "request_method": {
+          "enum": ["GET", "POST"],
+          "description": "HTTP method used to probe this site. Defaults to GET. POST is used by a handful of API endpoints (Anilist GraphQL, Discord, Holopin) that require the username in the request body."
+        },
+        "request_body": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Request body to send when `request_method` is POST. The literal `{username}` is substituted with the probe username. Sent with `Content-Type: application/json` by default; sites needing a different type declare it via `request_headers`."
         }
       }
     },

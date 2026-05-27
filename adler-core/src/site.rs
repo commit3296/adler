@@ -114,6 +114,37 @@ pub struct Site {
     /// name; carried verbatim through `scripts/import_whatsmyname.py`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub strip_bad_char: Option<String>,
+    /// HTTP method used to probe this site. Defaults to GET — the vast
+    /// majority of sites are GET-probed. A few (Anilist's GraphQL API,
+    /// some Discord/Holopin endpoints) only answer to POST.
+    #[serde(default, skip_serializing_if = "is_default_method")]
+    pub request_method: HttpMethod,
+    /// Request body to send when [`Site::request_method`] is POST. The
+    /// literal `{username}` placeholder is substituted with the probe
+    /// username (same as URL templates). For GraphQL endpoints this
+    /// is typically the JSON `{"query":"...","variables":{"name":"{username}"}}`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub request_body: Option<String>,
+}
+
+/// HTTP method used to probe a site. Only GET and POST are supported.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "UPPERCASE")]
+pub enum HttpMethod {
+    /// Standard GET — the default for ~99% of sites in the registry.
+    #[default]
+    Get,
+    /// POST — for API endpoints that only differentiate accounts via a
+    /// body payload (GraphQL queries, form submissions). Pair with
+    /// [`Site::request_body`].
+    Post,
+}
+
+/// serde's `skip_serializing_if` callback contract requires a
+/// reference, so the by-value lint on a 1-byte type doesn't apply.
+#[allow(clippy::trivially_copy_pass_by_ref)]
+fn is_default_method(m: &HttpMethod) -> bool {
+    matches!(m, HttpMethod::Get)
 }
 
 /// Shared detection signature template for a family of sites that
@@ -648,6 +679,8 @@ mod tests {
             regex_check: None,
             engine: None,
             strip_bad_char: None,
+            request_method: crate::site::HttpMethod::Get,
+            request_body: None,
         }
     }
 

@@ -368,6 +368,8 @@ pub async fn scaffold_site(
         regex_check: None,
         engine: None,
         strip_bad_char: None,
+        request_method: crate::site::HttpMethod::Get,
+        request_body: None,
     };
     Ok(suggest_fix(client, &probe).await.map(|fix| {
         (
@@ -437,6 +439,8 @@ mod tests {
             regex_check: None,
             engine: None,
             strip_bad_char: None,
+            request_method: crate::site::HttpMethod::Get,
+            request_body: None,
         }
     }
 
@@ -750,6 +754,8 @@ mod tests {
             regex_check: None,
             engine: None,
             strip_bad_char: None,
+            request_method: crate::site::HttpMethod::Get,
+            request_body: None,
         };
 
         let client = Client::builder()
@@ -932,6 +938,8 @@ mod tests {
             regex_check: None,
             engine: None,
             strip_bad_char: None,
+            request_method: crate::site::HttpMethod::Get,
+            request_body: None,
         };
         let pool = default_candidate_pool(&site);
         assert_eq!(pool.first().map(String::as_str), Some("github"));
@@ -965,6 +973,8 @@ mod tests {
             regex_check: None,
             engine: None,
             strip_bad_char: None,
+            request_method: crate::site::HttpMethod::Get,
+            request_body: None,
         };
         let pool = default_candidate_pool(&site);
         assert!(pool.contains(&"torvalds".to_owned()));
