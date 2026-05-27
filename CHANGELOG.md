@@ -9,6 +9,12 @@ pre-1.0 bump rules.
 
 ## [Unreleased]
 
+## [0.8.1](https://github.com/commit3296/adler/compare/v0.8.0...v0.8.1) - 2026-05-27
+
+### Added
+- *(cli)* friendly quickstart when run without arguments
+- *(cli)* --web flag launches the embedded HTTP API + SPA
+
 ## [0.8.0](https://github.com/commit3296/adler/compare/v0.7.0...v0.8.0) - 2026-05-27
 
 ### Added
