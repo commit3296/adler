@@ -42,11 +42,11 @@ semver_check = true
 
 # adler-cli is the user-facing binary; it owns the workspace's tag,
 # GitHub Release, and changelog section. `changelog_include` rolls
-# adler-core's commits into the same section so the user reads one
-# coherent entry per release.
+# adler-core and adler-server commits into the same section so the
+# user reads one coherent entry per release.
 [[package]]
 name = "adler-cli"
-changelog_include = ["adler-core"]
+changelog_include = ["adler-core", "adler-server"]
 git_tag_enable = true
 git_tag_name = "v{{ version }}"
 git_release_enable = true
@@ -59,6 +59,17 @@ git_release_name = "v{{ version }}"
 [[package]]
 name = "adler-core"
 changelog_update = false
+
+# adler-server bundles the SolidJS SPA into its tarball via `dist/`,
+# which lives outside git (mirrored from `adler-web/dist/` by the CI
+# release step). Without `publish_allow_dirty`, cargo refuses to
+# publish — its "did you forget to commit?" guard fires on the
+# never-committed build artifacts. The CI pipeline is the only place
+# where this matters; release-plz adds the dirty files itself.
+[[package]]
+name = "adler-server"
+changelog_update = false
+publish_allow_dirty = true
 
 [changelog]
 # Always carry forward breaking-change commits, even if their type
