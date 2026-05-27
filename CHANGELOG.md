@@ -9,6 +9,16 @@ pre-1.0 bump rules.
 
 ## [Unreleased]
 
+## [0.8.0](https://github.com/commit3296/adler/compare/v0.7.0...v0.8.0) - 2026-05-27
+
+### Added
+- *(browser)* FlareSolverr backend for free Cloudflare bypass (R4)
+- *(cli)* --top N ranking with curated popularity seed (R11)
+- *(site)* disabled flag + source field for mirrors (R8)
+
+### Refactor
+- *(cli)* [**breaking**] remove TUI in favour of upcoming web UI
+
 ## [0.7.0](https://github.com/commit3296/adler/compare/v0.6.0...v0.7.0) - 2026-05-27
 
 ### Added
