@@ -263,6 +263,7 @@ mod tests {
             request_headers: std::collections::BTreeMap::new(),
             regex_check: None,
             engine: None,
+            strip_bad_char: None,
         }
     }
 

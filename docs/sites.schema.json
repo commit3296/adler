@@ -90,6 +90,11 @@
           "type": "string",
           "minLength": 1,
           "description": "Name of a shared engine to inherit signature fields from (must match a key in the top-level `engines` block). Engine fields fill in where the site's own equivalents are empty/unset; site fields override on conflict."
+        },
+        "strip_bad_char": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Characters the site silently strips from usernames server-side (e.g. dots on Twitter handles). Adler removes any matching characters from the probe username before URL substitution so the probe hits the canonical form."
         }
       }
     },

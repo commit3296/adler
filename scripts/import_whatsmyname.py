@@ -26,7 +26,7 @@ Schema mapping:
     cat                    -> tags (with `xx NSFW xx` -> `nsfw`)
     protection             -> additional tag(s) (cloudflare, captcha, ...)
     headers                -> request_headers (verbatim)
-    strip_bad_char         -> SKIPPED (no Adler equivalent today)
+    strip_bad_char         -> carried through to Site.strip_bad_char
     post_body              -> SKIPPED (POST sites; Adler issues GET)
     valid: false           -> SKIPPED
 
@@ -107,6 +107,10 @@ def convert(entry: dict) -> dict | None:
     headers = entry.get("headers")
     if isinstance(headers, dict) and headers:
         out["request_headers"] = {str(k): str(v) for k, v in headers.items()}
+
+    strip = entry.get("strip_bad_char")
+    if isinstance(strip, str) and strip:
+        out["strip_bad_char"] = strip
 
     tags: set[str] = {"source:wmn"}
     cat = entry.get("cat")

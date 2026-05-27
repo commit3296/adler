@@ -1576,6 +1576,7 @@
         "themunch",
         "shibari4all"
       ],
+      "strip_bad_char": ".",
       "tags": [
         "nsfw",
         "source:wmn"
@@ -2053,6 +2054,7 @@
         }
       ],
       "known_present": "test",
+      "strip_bad_char": ".",
       "tags": [
         "blog",
         "source:wmn"
@@ -2356,6 +2358,7 @@
         "monoliorder",
         "hasya"
       ],
+      "strip_bad_char": ".",
       "tags": [
         "shopping",
         "source:wmn"
@@ -2594,6 +2597,7 @@
         "jenny",
         "bob"
       ],
+      "strip_bad_char": ".",
       "tags": [
         "hobby",
         "source:wmn"
@@ -2662,6 +2666,7 @@
         "liam",
         "peter"
       ],
+      "strip_bad_char": ".",
       "tags": [
         "business",
         "source:wmn"
@@ -3721,6 +3726,7 @@
         "john",
         "red"
       ],
+      "strip_bad_char": ".",
       "tags": [
         "images",
         "source:wmn"
@@ -7904,6 +7910,7 @@
         "ellietalksmoney",
         "reallyniceimages"
       ],
+      "strip_bad_char": ".",
       "tags": [
         "shopping",
         "source:wmn"
@@ -8312,6 +8319,7 @@
         "john",
         "adam"
       ],
+      "strip_bad_char": "-",
       "tags": [
         "hobby",
         "source:wmn"
@@ -9471,6 +9479,7 @@
         "pint-sized",
         "acroamatica"
       ],
+      "strip_bad_char": ".",
       "tags": [
         "social",
         "source:wmn"
@@ -10937,6 +10946,7 @@
         "jill",
         "john"
       ],
+      "strip_bad_char": ".",
       "tags": [
         "blog",
         "source:wmn"
@@ -12025,6 +12035,7 @@
         "zulie",
         "jessicalexicus"
       ],
+      "strip_bad_char": ".",
       "tags": [
         "news",
         "source:wmn"
@@ -13179,6 +13190,7 @@
         "artkonina",
         "fox"
       ],
+      "strip_bad_char": ".",
       "tags": [
         "misc",
         "source:wmn"
@@ -13519,6 +13531,7 @@
         "john",
         "bob"
       ],
+      "strip_bad_char": ".",
       "tags": [
         "gaming",
         "source:wmn"
@@ -13723,6 +13736,7 @@
         "lena",
         "slava"
       ],
+      "strip_bad_char": ".",
       "tags": [
         "social",
         "source:wmn"
@@ -13962,6 +13976,7 @@
         "cwa",
         "adam"
       ],
+      "strip_bad_char": "@.",
       "tags": [
         "social",
         "source:wmn"
@@ -17330,6 +17345,7 @@
         "john",
         "daniel"
       ],
+      "strip_bad_char": ".",
       "tags": [
         "shopping",
         "source:wmn"
@@ -17702,6 +17718,7 @@
         "wow",
         "jill"
       ],
+      "strip_bad_char": ".",
       "tags": [
         "images",
         "source:wmn"
@@ -17940,6 +17957,7 @@
         "reeden-landshey",
         "tigerzero"
       ],
+      "strip_bad_char": ".",
       "tags": [
         "art",
         "source:wmn"
@@ -20154,6 +20172,7 @@
         "test",
         "test1"
       ],
+      "strip_bad_char": ".",
       "tags": [
         "images",
         "source:wmn"
@@ -20734,6 +20753,7 @@
         "elite",
         "citruciel"
       ],
+      "strip_bad_char": ".",
       "tags": [
         "social",
         "source:wmn"
@@ -21040,6 +21060,7 @@
         "sarah",
         "brahim01"
       ],
+      "strip_bad_char": ".",
       "tags": [
         "blog",
         "source:wmn"
@@ -21736,6 +21757,7 @@
         "dave",
         "john"
       ],
+      "strip_bad_char": ".",
       "tags": [
         "misc",
         "source:wmn"

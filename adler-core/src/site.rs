@@ -105,6 +105,15 @@ pub struct Site {
     /// load-time error.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub engine: Option<String>,
+    /// Characters the site silently drops from the username server-side
+    /// before matching — `john.doe` and `johndoe` resolve to the same
+    /// account on a site that lists `strip_bad_char: "."`. We pre-strip
+    /// at probe time so the URL we issue matches the canonical form
+    /// the site uses, avoiding a false `NotFound` on a benign
+    /// punctuation variant. Mirrors `WhatsMyName`'s field of the same
+    /// name; carried verbatim through `scripts/import_whatsmyname.py`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub strip_bad_char: Option<String>,
 }
 
 /// Shared detection signature template for a family of sites that
@@ -272,8 +281,22 @@ pub struct Extractor {
 
 impl Site {
     /// Render the site URL for a given username.
+    ///
+    /// If the site declares [`strip_bad_char`](Site::strip_bad_char),
+    /// those characters are removed from `username` before
+    /// substitution — so a `john.doe` probe against a site that
+    /// lists `strip_bad_char: "."` actually hits the URL for
+    /// `johndoe`, matching the canonical form the site stores
+    /// internally.
     pub fn url_for(&self, username: &Username) -> String {
-        self.url.substitute(username.as_str())
+        let raw = username.as_str();
+        match self.strip_bad_char.as_deref() {
+            Some(chars) if !chars.is_empty() && raw.chars().any(|c| chars.contains(c)) => {
+                let stripped: String = raw.chars().filter(|c| !chars.contains(*c)).collect();
+                self.url.substitute(&stripped)
+            }
+            _ => self.url.substitute(raw),
+        }
     }
 
     /// Validate semantic invariants the type system can't enforce
@@ -624,6 +647,7 @@ mod tests {
             request_headers: std::collections::BTreeMap::new(),
             regex_check: None,
             engine: None,
+            strip_bad_char: None,
         }
     }
 
@@ -631,6 +655,22 @@ mod tests {
     fn url_template_substitutes_placeholder() {
         let user = Username::new("alice").unwrap();
         let site = site_with(vec![Signal::StatusFound { codes: vec![200] }]);
+        assert_eq!(site.url_for(&user), "https://example.com/alice");
+    }
+
+    #[test]
+    fn url_for_strips_bad_chars_before_substitution() {
+        let user = Username::new("john.doe").unwrap();
+        let mut site = site_with(vec![Signal::StatusFound { codes: vec![200] }]);
+        site.strip_bad_char = Some(".".into());
+        assert_eq!(site.url_for(&user), "https://example.com/johndoe");
+    }
+
+    #[test]
+    fn url_for_strip_bad_char_noop_when_no_match() {
+        let user = Username::new("alice").unwrap();
+        let mut site = site_with(vec![Signal::StatusFound { codes: vec![200] }]);
+        site.strip_bad_char = Some(".".into());
         assert_eq!(site.url_for(&user), "https://example.com/alice");
     }
 

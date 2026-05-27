@@ -367,6 +367,7 @@ pub async fn scaffold_site(
         request_headers: std::collections::BTreeMap::new(),
         regex_check: None,
         engine: None,
+        strip_bad_char: None,
     };
     Ok(suggest_fix(client, &probe).await.map(|fix| {
         (
@@ -435,6 +436,7 @@ mod tests {
             request_headers: std::collections::BTreeMap::new(),
             regex_check: None,
             engine: None,
+            strip_bad_char: None,
         }
     }
 
@@ -747,6 +749,7 @@ mod tests {
             request_headers: std::collections::BTreeMap::new(),
             regex_check: None,
             engine: None,
+            strip_bad_char: None,
         };
 
         let client = Client::builder()
@@ -928,6 +931,7 @@ mod tests {
             request_headers: std::collections::BTreeMap::new(),
             regex_check: None,
             engine: None,
+            strip_bad_char: None,
         };
         let pool = default_candidate_pool(&site);
         assert_eq!(pool.first().map(String::as_str), Some("github"));
@@ -960,6 +964,7 @@ mod tests {
             request_headers: std::collections::BTreeMap::new(),
             regex_check: None,
             engine: None,
+            strip_bad_char: None,
         };
         let pool = default_candidate_pool(&site);
         assert!(pool.contains(&"torvalds".to_owned()));
