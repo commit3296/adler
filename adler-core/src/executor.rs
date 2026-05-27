@@ -186,6 +186,7 @@ mod tests {
             protection: Vec::new(),
             disabled: false,
             source: None,
+            popularity: None,
         }
     }
 

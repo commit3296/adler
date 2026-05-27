@@ -373,6 +373,7 @@ pub async fn scaffold_site(
         protection: Vec::new(),
         disabled: false,
         source: None,
+        popularity: None,
     };
     Ok(suggest_fix(client, &probe).await.map(|fix| {
         (
@@ -447,6 +448,7 @@ mod tests {
             protection: Vec::new(),
             disabled: false,
             source: None,
+            popularity: None,
         }
     }
 
@@ -765,6 +767,7 @@ mod tests {
             protection: Vec::new(),
             disabled: false,
             source: None,
+            popularity: None,
         };
 
         let client = Client::builder()
@@ -952,6 +955,7 @@ mod tests {
             protection: Vec::new(),
             disabled: false,
             source: None,
+            popularity: None,
         };
         let pool = default_candidate_pool(&site);
         assert_eq!(pool.first().map(String::as_str), Some("github"));
@@ -990,6 +994,7 @@ mod tests {
             protection: Vec::new(),
             disabled: false,
             source: None,
+            popularity: None,
         };
         let pool = default_candidate_pool(&site);
         assert!(pool.contains(&"torvalds".to_owned()));

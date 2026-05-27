@@ -124,6 +124,11 @@
           "type": "string",
           "minLength": 1,
           "description": "Canonical-site name when this entry is a mirror. Lets UX surface 'Twitter is offline, here's the same account on Nitter' without hand-curated linkage."
+        },
+        "popularity": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Curated popularity rank (lower = more popular). Used by `adler --top N` to scan only the N most-popular sites. Sites without a rank are excluded from `--top` queries."
         }
       }
     },

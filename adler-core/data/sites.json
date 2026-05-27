@@ -2465,7 +2465,8 @@
       "known_present": "blue",
       "tags": [
         "music"
-      ]
+      ],
+      "popularity": 33
     },
     {
       "name": "Bandlab",
@@ -2679,7 +2680,8 @@
       "known_present": "blue",
       "tags": [
         "art"
-      ]
+      ],
+      "popularity": 29
     },
     {
       "name": "Belmos",
@@ -2965,7 +2967,8 @@
         "coding",
         "dev"
       ],
-      "regex_check": "^[a-zA-Z0-9-_]{1,30}$"
+      "regex_check": "^[a-zA-Z0-9-_]{1,30}$",
+      "popularity": 39
     },
     {
       "name": "Bitwarden Forum",
@@ -3055,7 +3058,8 @@
       "tags": [
         "blog"
       ],
-      "regex_check": "^[a-zA-Z][a-zA-Z0-9_-]*$"
+      "regex_check": "^[a-zA-Z][a-zA-Z0-9_-]*$",
+      "popularity": 32
     },
     {
       "name": "Blogger (by GAIA id)",
@@ -6687,7 +6691,8 @@
       "tags": [
         "coding",
         "dev"
-      ]
+      ],
+      "popularity": 43
     },
     {
       "name": "doctissimo",
@@ -6959,7 +6964,8 @@
       "tags": [
         "art"
       ],
-      "regex_check": "^[a-zA-Z][a-zA-Z0-9_-]*$"
+      "regex_check": "^[a-zA-Z][a-zA-Z0-9_-]*$",
+      "popularity": 30
     },
     {
       "name": "drupal.ru",
@@ -7713,7 +7719,8 @@
         "social",
         "source:maigret"
       ],
-      "known_present": "zuck"
+      "known_present": "zuck",
+      "popularity": 2
     },
     {
       "name": "FacultyOfMedicine",
@@ -8181,7 +8188,8 @@
       "tags": [
         "images",
         "photo"
-      ]
+      ],
+      "popularity": 26
     },
     {
       "name": "Flickr Groups",
@@ -10108,7 +10116,8 @@
         "coding",
         "dev"
       ],
-      "regex_check": "^[a-zA-Z0-9](?:[a-zA-Z0-9]|-(?=[a-zA-Z0-9])){0,38}$"
+      "regex_check": "^[a-zA-Z0-9](?:[a-zA-Z0-9]|-(?=[a-zA-Z0-9])){0,38}$",
+      "popularity": 9
     },
     {
       "name": "GitLab",
@@ -10129,7 +10138,8 @@
       "tags": [
         "coding",
         "dev"
-      ]
+      ],
+      "popularity": 38
     },
     {
       "name": "Glbyh",
@@ -10882,7 +10892,8 @@
       "tags": [
         "coding",
         "dev"
-      ]
+      ],
+      "popularity": 45
     },
     {
       "name": "HackerRank",
@@ -13130,7 +13141,8 @@
       "tags": [
         "coding",
         "dev"
-      ]
+      ],
+      "popularity": 44
     },
     {
       "name": "kfir-zahav.ucoz.ru",
@@ -13634,7 +13646,8 @@
       "known_present": "blue",
       "tags": [
         "music"
-      ]
+      ],
+      "popularity": 35
     },
     {
       "name": "Launchpad",
@@ -14846,7 +14859,8 @@
       "known_present": "blue",
       "tags": [
         "blog"
-      ]
+      ],
+      "popularity": 17
     },
     {
       "name": "medkniga.ucoz.net",
@@ -15389,7 +15403,8 @@
       "known_present": "jenny",
       "tags": [
         "music"
-      ]
+      ],
+      "popularity": 34
     },
     {
       "name": "Mixlr",
@@ -17526,7 +17541,8 @@
         "bot-protected",
         "coding",
         "dev"
-      ]
+      ],
+      "popularity": 41
     },
     {
       "name": "NPM-Package",
@@ -19032,7 +19048,8 @@
         "blog",
         "bot-protected",
         "creator"
-      ]
+      ],
+      "popularity": 36
     },
     {
       "name": "Patronite",
@@ -19963,7 +19980,8 @@
       "tags": [
         "images",
         "photo"
-      ]
+      ],
+      "popularity": 10
     },
     {
       "name": "pio-bets.ucoz.ru",
@@ -22174,7 +22192,8 @@
       "tags": [
         "bot-protected",
         "social"
-      ]
+      ],
+      "popularity": 6
     },
     {
       "name": "Redtube",
@@ -24566,7 +24585,8 @@
       "tags": [
         "social"
       ],
-      "regex_check": "^[a-z][a-z-_.]{3,15}"
+      "regex_check": "^[a-z][a-z-_.]{3,15}",
+      "popularity": 11
     },
     {
       "name": "Snbforums",
@@ -24931,7 +24951,8 @@
       "known_present": "blue",
       "tags": [
         "music"
-      ]
+      ],
+      "popularity": 24
     },
     {
       "name": "SourceForge",
@@ -25483,7 +25504,8 @@
         "music",
         "source:maigret"
       ],
-      "known_present": "alex"
+      "known_present": "alex",
+      "popularity": 16
     },
     {
       "name": "SpotifyCommunity",
@@ -25629,7 +25651,8 @@
         "source:maigret",
         "tech"
       ],
-      "known_present": "maigret"
+      "known_present": "maigret",
+      "popularity": 40
     },
     {
       "name": "Stalker-zone",
@@ -26987,7 +27010,8 @@
         }
       ],
       "known_present": "blue",
-      "regex_check": "^[a-zA-Z0-9_]{3,32}[^_]$"
+      "regex_check": "^[a-zA-Z0-9_]{3,32}[^_]$",
+      "popularity": 14
     },
     {
       "name": "Teletype",
@@ -27659,7 +27683,8 @@
         "social",
         "source:maigret"
       ],
-      "known_present": "zuck"
+      "known_present": "zuck",
+      "popularity": 20
     },
     {
       "name": "Tiendanube",
@@ -27735,7 +27760,8 @@
       "known_present": "charlidamelio",
       "tags": [
         "social"
-      ]
+      ],
+      "popularity": 7
     },
     {
       "name": "timich.ru",
@@ -28785,7 +28811,8 @@
       "known_present": "goku",
       "tags": [
         "social"
-      ]
+      ],
+      "popularity": 18
     },
     {
       "name": "Tuna",
@@ -29007,7 +29034,8 @@
       "known_present": "xqc",
       "tags": [
         "gaming"
-      ]
+      ],
+      "popularity": 12
     },
     {
       "name": "Twitter",
@@ -29031,7 +29059,8 @@
         "bot-protected",
         "social"
       ],
-      "regex_check": "^[a-zA-Z0-9_]{1,15}$"
+      "regex_check": "^[a-zA-Z0-9_]{1,15}$",
+      "popularity": 4
     },
     {
       "name": "Twpro.jp",
@@ -30235,7 +30264,8 @@
       "known_present": "blue",
       "tags": [
         "video"
-      ]
+      ],
+      "popularity": 25
     },
     {
       "name": "Vine",
@@ -30493,7 +30523,8 @@
       "tags": [
         "region:ru",
         "social"
-      ]
+      ],
+      "popularity": 21
     },
     {
       "name": "vkusnyashkino.ru",
@@ -31397,7 +31428,8 @@
         "social",
         "source:maigret"
       ],
-      "known_present": "clairekuo"
+      "known_present": "clairekuo",
+      "popularity": 23
     },
     {
       "name": "Weld",
@@ -31846,7 +31878,8 @@
           "text": "centralauth-admin-nonexistent:"
         }
       ],
-      "known_present": "Hoadlck"
+      "known_present": "Hoadlck",
+      "popularity": 5
     },
     {
       "name": "wikizilla.org",
@@ -32132,7 +32165,8 @@
       "regex_check": "^[a-zA-Z][a-zA-Z0-9_-]*$",
       "tags": [
         "blog"
-      ]
+      ],
+      "popularity": 31
     },
     {
       "name": "WordPressOrg",
@@ -33286,7 +33320,8 @@
       "known_present": "youtube",
       "tags": [
         "video"
-      ]
+      ],
+      "popularity": 1
     },
     {
       "name": "yras.ucoz.ru",

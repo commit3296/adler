@@ -149,6 +149,14 @@ struct Cli {
     #[arg(long, conflicts_with = "sites")]
     no_wmn: bool,
 
+    /// Only scan the top N most-popular sites, ordered by curated
+    /// rank (lower number = more popular). Compatible with `--tag`
+    /// etc. for further narrowing. Sites without a `popularity`
+    /// rank are dropped — useful for fast checks of high-signal
+    /// targets without scanning every long-tail forum.
+    #[arg(long, value_name = "N")]
+    top: Option<u32>,
+
     /// Only check sites whose name contains this substring (case-insensitive).
     /// Repeatable; comma-separated values also accepted.
     #[arg(long, value_delimiter = ',', value_name = "NAME")]
@@ -443,13 +451,23 @@ async fn run(cli: Cli) -> Result<ExitCode> {
         return Ok(ExitCode::SUCCESS);
     }
 
-    let sites = registry.filter(
+    let mut sites = registry.filter(
         &cli.only,
         &cli.exclude,
         &cli.tag,
         &cli.exclude_tag,
         cli.nsfw,
     );
+    if let Some(n) = cli.top {
+        // Restrict to ranked sites within the top N, ordered by
+        // popularity (lower rank = more popular). Sites without a
+        // populated `popularity` field are dropped — they have no
+        // rank to compete with. Useful for fast checks: `adler
+        // --top 30 alice` runs against the ~30 most-known sites
+        // in seconds.
+        sites.retain(|s| s.popularity.is_some_and(|p| p <= n));
+        sites.sort_by_key(|s| s.popularity.unwrap_or(u32::MAX));
+    }
     if sites.is_empty() {
         eprintln!("adler: no sites match the filter");
         return Ok(ExitCode::from(2));

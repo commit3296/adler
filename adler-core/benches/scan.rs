@@ -40,6 +40,7 @@ fn make_sites(server: &MockServer) -> Vec<Site> {
             protection: Vec::new(),
             disabled: false,
             source: None,
+            popularity: None,
         })
         .collect()
 }

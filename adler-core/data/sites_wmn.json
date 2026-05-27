@@ -1487,7 +1487,8 @@
       "tags": [
         "music",
         "source:wmn"
-      ]
+      ],
+      "popularity": 33
     },
     {
       "name": "Bandlab",
@@ -1971,7 +1972,8 @@
       "tags": [
         "coding",
         "source:wmn"
-      ]
+      ],
+      "popularity": 39
     },
     {
       "name": "Blogger",
@@ -2005,7 +2007,8 @@
       "tags": [
         "blog",
         "source:wmn"
-      ]
+      ],
+      "popularity": 32
     },
     {
       "name": "blogi.pl",
@@ -3481,7 +3484,8 @@
       ],
       "protection": [
         "cloudflare"
-      ]
+      ],
+      "popularity": 48
     },
     {
       "name": "Coderwall",
@@ -4302,7 +4306,8 @@
         "coding",
         "protection:other",
         "source:wmn"
-      ]
+      ],
+      "popularity": 47
     },
     {
       "name": "DeviantArt",
@@ -4337,7 +4342,8 @@
         "art",
         "images",
         "source:wmn"
-      ]
+      ],
+      "popularity": 28
     },
     {
       "name": "devRant",
@@ -5198,7 +5204,8 @@
       "tags": [
         "art",
         "source:wmn"
-      ]
+      ],
+      "popularity": 30
     },
     {
       "name": "DRIVE2.RU",
@@ -5649,7 +5656,8 @@
         "bot-protected",
         "social",
         "source:wmn"
-      ]
+      ],
+      "popularity": 2
     },
     {
       "name": "FACEIT",
@@ -7574,7 +7582,8 @@
       "tags": [
         "coding",
         "source:wmn"
-      ]
+      ],
+      "popularity": 38
     },
     {
       "name": "gloria.tv",
@@ -9601,7 +9610,8 @@
         "bot-protected",
         "social",
         "source:wmn"
-      ]
+      ],
+      "popularity": 3
     },
     {
       "name": "Instagram (Imginn)",
@@ -10217,7 +10227,8 @@
         "coding",
         "social",
         "source:wmn"
-      ]
+      ],
+      "popularity": 44
     },
     {
       "name": "Kick",
@@ -10431,7 +10442,8 @@
       ],
       "protection": [
         "cloudflare"
-      ]
+      ],
+      "popularity": 37
     },
     {
       "name": "komi",
@@ -10634,7 +10646,8 @@
       "tags": [
         "music",
         "source:wmn"
-      ]
+      ],
+      "popularity": 35
     },
     {
       "name": "LeakIX",
@@ -12147,7 +12160,8 @@
         "blog",
         "news",
         "source:wmn"
-      ]
+      ],
+      "popularity": 17
     },
     {
       "name": "medyczka.pl",
@@ -12494,7 +12508,8 @@
       "tags": [
         "music",
         "source:wmn"
-      ]
+      ],
+      "popularity": 34
     },
     {
       "name": "Mixi",
@@ -13959,7 +13974,8 @@
       "tags": [
         "coding",
         "source:wmn"
-      ]
+      ],
+      "popularity": 41
     },
     {
       "name": "oglaszamy24h.pl",
@@ -14029,7 +14045,8 @@
         "region:ru",
         "social",
         "source:wmn"
-      ]
+      ],
+      "popularity": 22
     },
     {
       "name": "okidoki",
@@ -14745,7 +14762,8 @@
         "blog",
         "finance",
         "source:wmn"
-      ]
+      ],
+      "popularity": 36
     },
     {
       "name": "Patriots Win",
@@ -15196,7 +15214,8 @@
         "images",
         "social",
         "source:wmn"
-      ]
+      ],
+      "popularity": 10
     },
     {
       "name": "pixelfed.social",
@@ -16120,7 +16139,8 @@
       "tags": [
         "coding",
         "source:wmn"
-      ]
+      ],
+      "popularity": 42
     },
     {
       "name": "QUEER PL",
@@ -16432,7 +16452,8 @@
       "tags": [
         "social",
         "source:wmn"
-      ]
+      ],
+      "popularity": 6
     },
     {
       "name": "RedGIFs",
@@ -16534,7 +16555,8 @@
       "tags": [
         "coding",
         "source:wmn"
-      ]
+      ],
+      "popularity": 46
     },
     {
       "name": "Researchgate",
@@ -17932,7 +17954,8 @@
       "tags": [
         "social",
         "source:wmn"
-      ]
+      ],
+      "popularity": 11
     },
     {
       "name": "Snipfeed",
@@ -18172,7 +18195,8 @@
       "tags": [
         "music",
         "source:wmn"
-      ]
+      ],
+      "popularity": 24
     },
     {
       "name": "Soup",
@@ -18483,7 +18507,8 @@
         "music",
         "protection:other",
         "source:wmn"
-      ]
+      ],
+      "popularity": 16
     },
     {
       "name": "StackOverflow",
@@ -18522,7 +18547,8 @@
       ],
       "protection": [
         "cloudflare"
-      ]
+      ],
+      "popularity": 40
     },
     {
       "name": "StackShare",
@@ -19404,7 +19430,8 @@
       "tags": [
         "social",
         "source:wmn"
-      ]
+      ],
+      "popularity": 14
     },
     {
       "name": "Teletype",
@@ -19749,7 +19776,8 @@
       "tags": [
         "social",
         "source:wmn"
-      ]
+      ],
+      "popularity": 7
     },
     {
       "name": "Tilde.zone (Mastodon Instance)",
@@ -20333,7 +20361,8 @@
         "images",
         "social",
         "source:wmn"
-      ]
+      ],
+      "popularity": 18
     },
     {
       "name": "tunefind",
@@ -20436,7 +20465,8 @@
       "tags": [
         "gaming",
         "source:wmn"
-      ]
+      ],
+      "popularity": 12
     },
     {
       "name": "Twitter archived profile",
@@ -21157,7 +21187,8 @@
       "tags": [
         "source:wmn",
         "video"
-      ]
+      ],
+      "popularity": 25
     },
     {
       "name": "Vine",
@@ -21372,7 +21403,8 @@
         "region:ru",
         "social",
         "source:wmn"
-      ]
+      ],
+      "popularity": 21
     },
     {
       "name": "Vkl.world (Mastodon Instance)",
@@ -22029,7 +22061,8 @@
         "region:cn",
         "social",
         "source:wmn"
-      ]
+      ],
+      "popularity": 23
     },
     {
       "name": "Wikidot",
@@ -22510,7 +22543,8 @@
         "bot-protected",
         "social",
         "source:wmn"
-      ]
+      ],
+      "popularity": 4
     },
     {
       "name": "Xakep.ru",

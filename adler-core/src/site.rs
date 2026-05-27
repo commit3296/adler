@@ -158,6 +158,14 @@ pub struct Site {
     /// no known mirror relationship.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub source: Option<String>,
+    /// Approximate popularity rank — lower numbers are more popular.
+    /// Used by `adler --top N` to scan only the most-popular N sites
+    /// (useful for fast checks of high-signal targets). Ranks are
+    /// curated, not derived from traffic data: the seed set covers
+    /// well-known OSINT-relevant sites where most users have
+    /// accounts. Sites without a rank are skipped by `--top N`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub popularity: Option<u32>,
 }
 
 /// A specific anti-bot mechanism a site is known to deploy. Used to
@@ -756,6 +764,7 @@ mod tests {
             protection: Vec::new(),
             disabled: false,
             source: None,
+            popularity: None,
         }
     }
 

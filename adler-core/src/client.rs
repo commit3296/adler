@@ -870,6 +870,7 @@ mod tests {
             protection: Vec::new(),
             disabled: false,
             source: None,
+            popularity: None,
         }
     }
 
@@ -1096,6 +1097,7 @@ mod tests {
             protection: Vec::new(),
             disabled: false,
             source: None,
+            popularity: None,
         };
         let client = Client::builder()
             .timeout(Duration::from_millis(500))
@@ -1304,6 +1306,7 @@ mod tests {
             protection: Vec::new(),
             disabled: false,
             source: None,
+            popularity: None,
         };
         let client = Client::builder()
             .timeout(Duration::from_millis(500))
@@ -1402,6 +1405,7 @@ mod tests {
             protection: Vec::new(),
             disabled: false,
             source: None,
+            popularity: None,
         };
         let site_b = Site {
             name: "B".into(),
@@ -1420,6 +1424,7 @@ mod tests {
             protection: Vec::new(),
             disabled: false,
             source: None,
+            popularity: None,
         };
         // 2 RPS → ~500 ms between requests. A large interval keeps the
         // assertion robust even when the first probe's own duration (which
@@ -1487,6 +1492,7 @@ mod tests {
             protection: Vec::new(),
             disabled: false,
             source: None,
+            popularity: None,
         };
         let allowed = Site {
             name: "Yes".into(),
@@ -1505,6 +1511,7 @@ mod tests {
             protection: Vec::new(),
             disabled: false,
             source: None,
+            popularity: None,
         };
 
         let no = client.check(&disallowed, &user()).await;
@@ -1806,6 +1813,7 @@ mod tests {
             protection: Vec::new(),
             disabled: false,
             source: None,
+            popularity: None,
         };
         let outcome = build_client().check(&site, &user()).await;
         assert_eq!(outcome.kind, MatchKind::Found);

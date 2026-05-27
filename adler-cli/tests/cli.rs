@@ -62,6 +62,34 @@ fn list_sites_prints_filtered_names_without_username() {
 }
 
 #[test]
+fn top_n_filters_to_ranked_sites_in_popularity_order() {
+    // Three sites: GitHub rank 9, Reddit rank 6, GitLab unranked.
+    // `--top 30` keeps the two ranked entries and orders them by
+    // popularity (Reddit before GitHub). The unranked site is
+    // dropped — it has no rank to compete with.
+    let sites = sites_file(
+        r#"{"sites":[
+            {"name":"GitHub","url":"https://github.com/{username}","signals":[{"kind":"status_found","codes":[200]}],"popularity":9},
+            {"name":"GitLab","url":"https://gitlab.com/{username}","signals":[{"kind":"status_found","codes":[200]}]},
+            {"name":"Reddit","url":"https://reddit.com/u/{username}","signals":[{"kind":"status_found","codes":[200]}],"popularity":6}
+        ]}"#,
+    );
+    let assert = adler()
+        .args([
+            "--sites",
+            sites.path().to_str().unwrap(),
+            "--list-sites",
+            "--top",
+            "30",
+        ])
+        .assert()
+        .success();
+    let stdout = String::from_utf8(assert.get_output().stdout.clone()).unwrap();
+    let lines: Vec<&str> = stdout.lines().collect();
+    assert_eq!(lines, ["Reddit", "GitHub"], "got {lines:?}");
+}
+
+#[test]
 fn completions_emit_a_script() {
     adler()
         .args(["--completions", "bash"])
