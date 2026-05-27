@@ -245,6 +245,14 @@ struct Cli {
     #[arg(long, default_value_t = adler_core::DEFAULT_BROWSER_BUDGET, value_name = "N")]
     browser_budget: usize,
 
+    /// Base URL of a self-hosted `FlareSolverr` instance (e.g.
+    /// `http://localhost:8191`). Implies `--browser-backend
+    /// flaresolverr` when set. Free alternative to Browserbase
+    /// for Cloudflare-WAF sites; see the project README for
+    /// `docker run` setup.
+    #[arg(long, value_name = "URL")]
+    flaresolverr: Option<String>,
+
     /// Disable the browser backend for this run, even if `--browser-backend`
     /// or its env vars are set. Convenient for one-off raw-HTTP scans.
     #[arg(long)]
@@ -352,6 +360,10 @@ enum BrowserBackendChoice {
     /// `ADLER_BROWSERBASE_API_KEY` and `ADLER_BROWSERBASE_PROJECT_ID`.
     /// Pay-per-session — see the project README.
     Browserbase,
+    /// Self-hosted `FlareSolverr` instance. Reads the endpoint URL
+    /// from `--flaresolverr` (or `ADLER_FLARESOLVERR_URL`). Free,
+    /// runs in Docker, targets Cloudflare-WAF sites.
+    Flaresolverr,
 }
 
 /// When to colorize text output.
@@ -1180,7 +1192,16 @@ async fn build_browser_backend(
     if cli.no_browser {
         return Ok(None);
     }
-    match cli.browser_backend {
+    // `--flaresolverr <URL>` is a shorthand for `--browser-backend
+    // flaresolverr` plus the endpoint — if the user passed the URL
+    // but not the explicit backend choice, promote it.
+    let effective =
+        if cli.flaresolverr.is_some() && cli.browser_backend == BrowserBackendChoice::None {
+            BrowserBackendChoice::Flaresolverr
+        } else {
+            cli.browser_backend
+        };
+    match effective {
         BrowserBackendChoice::None => Ok(None),
         BrowserBackendChoice::Local => {
             let cfg = LocalConfig {
@@ -1218,6 +1239,24 @@ async fn build_browser_backend(
             eprintln!(
                 "adler: opened Browserbase session (id={}) — sites tagged bot-protected will route through it, billed per session-minute. Budget: {}.",
                 backend.session_id(),
+                cli.browser_budget,
+            );
+            Ok(Some(Arc::new(backend) as Arc<dyn BrowserBackend>))
+        }
+        BrowserBackendChoice::Flaresolverr => {
+            let endpoint = cli
+                .flaresolverr
+                .clone()
+                .or_else(|| std::env::var("ADLER_FLARESOLVERR_URL").ok())
+                .ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "--browser-backend flaresolverr requires --flaresolverr <URL> or ADLER_FLARESOLVERR_URL env var"
+                    )
+                })?;
+            let backend = adler_core::browser::FlareSolverrBackend::new(&endpoint)
+                .context("connecting to FlareSolverr")?;
+            eprintln!(
+                "adler: routing bot-protected sites through FlareSolverr at {endpoint} (budget: {})",
                 cli.browser_budget,
             );
             Ok(Some(Arc::new(backend) as Arc<dyn BrowserBackend>))

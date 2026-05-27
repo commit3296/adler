@@ -31,6 +31,7 @@
 pub mod browserbase;
 pub mod budget;
 pub mod cdp;
+pub mod flaresolverr;
 pub mod local;
 
 #[cfg(test)]
@@ -46,6 +47,7 @@ use crate::Result;
 
 pub use browserbase::{BrowserbaseBackend, BrowserbaseConfig};
 pub use budget::BrowserBudget;
+pub use flaresolverr::FlareSolverrBackend;
 pub use local::{LocalBackend, LocalConfig};
 
 /// Page state captured after the backend finished loading and JS
