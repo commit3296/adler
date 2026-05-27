@@ -1,0 +1,430 @@
+/*
+ * adler-web/src/ui/tokens.css
+ * ───────────────────────────
+ * Design tokens for the `ui/` component library. Pure CSS variables,
+ * no component styles. The library never inlines a literal colour or
+ * radius — everything goes through these `--color-*`, `--space-*`,
+ * `--radius-*`, `--font-*`, `--motion-*` names.
+ *
+ * The short aliases at the bottom (`--bg`, `--fg`, `--red`, …) are
+ * kept for compatibility with the legacy app-level styles.css. New
+ * code in `ui/` uses the long names; legacy CSS migrates as it's
+ * touched.
+ */
+
+:root {
+    color-scheme: dark;
+
+    /* ─── color: surfaces ─── */
+    --color-bg:           #000;
+    --color-bg-elev:      #0c0c0c;
+    --color-bg-elev-2:    #141414;
+    --color-bg-row-hover: #181818;
+
+    /* ─── color: text ─── */
+    --color-fg:           #f0f0f0;
+    --color-fg-dim:       #bcbcbc;
+    --color-fg-faint:     #7e7e7e;
+
+    /* ─── color: lines ─── */
+    --color-line:         #1f1f1f;
+    --color-line-strong:  #303030;
+
+    /* ─── color: brand / status ─── */
+    --color-accent:       #ff2d2d;
+    --color-accent-text:  #ff5757;
+    --color-accent-bg:    #240a0a;
+    --color-accent-soft:  #d11616;
+    --color-success:      #3dd06f;
+    --color-success-text: #5bdf85;
+    --color-warning:      #f4b14c;
+    --color-warning-text: #f7c373;
+
+    /* ─── radius ─── */
+    --radius:             2px;
+    --radius-pill:        999px;
+
+    /* ─── spacing scale (4-px base) ─── */
+    --space-1:  0.25rem;
+    --space-2:  0.5rem;
+    --space-3:  0.75rem;
+    --space-4:  1rem;
+    --space-5:  1.25rem;
+    --space-6:  1.5rem;
+    --space-8:  2rem;
+
+    /* ─── typography ─── */
+    --font-sans: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Inter",
+                 "Segoe UI", system-ui, "Helvetica Neue", Arial, sans-serif;
+    --font-mono: ui-monospace, "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+
+    --font-size-xs:  0.78rem;
+    --font-size-sm:  0.88rem;
+    --font-size-md:  0.94rem;
+    --font-size-lg:  1.05rem;
+    --font-size-xl:  1.25rem;
+
+    /* ─── motion ─── */
+    --motion-fast:    80ms;
+    --motion-normal:  140ms;
+    --motion-modal:   220ms;
+    --ease-out-expo:  cubic-bezier(0.16, 1, 0.3, 1);
+
+    /* ─── shadows ─── */
+    --shadow-modal:   0 16px 48px rgba(0, 0, 0, 0.55);
+
+    /*
+     * ─── legacy aliases ───
+     * Pre-library names still referenced by ../styles.css. Phased out
+     * as components migrate to the new tokens.
+     */
+    --bg:           var(--color-bg);
+    --bg-elev:      var(--color-bg-elev);
+    --bg-elev-2:    var(--color-bg-elev-2);
+    --bg-row-hover: var(--color-bg-row-hover);
+    --fg:           var(--color-fg);
+    --fg-dim:       var(--color-fg-dim);
+    --fg-faint:     var(--color-fg-faint);
+    --line:         var(--color-line);
+    --line-strong:  var(--color-line-strong);
+    --red:          var(--color-accent);
+    --red-text:     var(--color-accent-text);
+    --red-bg:       var(--color-accent-bg);
+    --red-soft:     var(--color-accent-soft);
+    --green:        var(--color-success);
+    --green-text:   var(--color-success-text);
+    --amber:        var(--color-warning);
+    --amber-text:   var(--color-warning-text);
+    --r:            var(--radius);
+    --mono:         var(--font-mono);
+    --sans:         var(--font-sans);
+}
+
+/* ─── primitives styles ─── */
+
+/* Button */
+.ui-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    font-family: var(--font-sans);
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    cursor: pointer;
+    border: 1px solid transparent;
+    border-radius: var(--radius);
+    transition: background var(--motion-fast), color var(--motion-fast),
+                border-color var(--motion-fast);
+    white-space: nowrap;
+}
+.ui-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.ui-btn:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 1px;
+}
+
+.ui-btn--sm { font-size: var(--font-size-xs); padding: 0.3rem 0.7rem; }
+.ui-btn--md { font-size: var(--font-size-sm); padding: 0.5rem 1.05rem; }
+.ui-btn--lg { font-size: var(--font-size-md); padding: 0.7rem 1.6rem; }
+
+.ui-btn--primary {
+    background: var(--color-accent);
+    color: #fff;
+    border-color: var(--color-accent);
+}
+.ui-btn--primary:hover:not(:disabled) { background: #ff5050; border-color: #ff5050; }
+
+.ui-btn--secondary {
+    background: var(--color-bg-elev);
+    color: var(--color-fg);
+    border-color: var(--color-line-strong);
+}
+.ui-btn--secondary:hover:not(:disabled) {
+    background: var(--color-bg-row-hover);
+    border-color: var(--color-fg-faint);
+}
+
+.ui-btn--ghost {
+    background: transparent;
+    color: var(--color-fg-dim);
+    border-color: var(--color-line-strong);
+}
+.ui-btn--ghost:hover:not(:disabled) {
+    color: var(--color-fg);
+    background: var(--color-bg-elev);
+    border-color: var(--color-fg-faint);
+}
+.ui-btn--ghost.ui-btn--danger:hover:not(:disabled) {
+    color: var(--color-accent-text);
+    border-color: var(--color-accent);
+}
+
+/* IconButton */
+.ui-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--color-fg-dim);
+    cursor: pointer;
+    padding: 0 0.75rem;
+    /* Fixed height so icon-only and icon+label variants line up
+       vertically in the top bar (icon ≈ 16px vs. label line-height
+       ≈ 21px previously produced a 5-px stagger). */
+    min-height: 2.3rem;
+    font-family: var(--font-sans);
+    font-size: var(--font-size-sm);
+    border-radius: var(--radius);
+    transition: background var(--motion-fast), color var(--motion-fast),
+                border-color var(--motion-fast);
+}
+.ui-icon-btn:hover { color: var(--color-fg); background: var(--color-bg-elev); }
+.ui-icon-btn[data-active="true"] {
+    color: var(--color-accent);
+    border-color: var(--color-accent);
+}
+.ui-icon-btn:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 1px;
+}
+.ui-icon-btn .label { font-size: var(--font-size-sm); font-weight: 500; }
+@media (max-width: 600px) {
+    .ui-icon-btn .label { display: none; }
+}
+
+/* Input */
+.ui-input {
+    width: 100%;
+    background: var(--color-bg);
+    border: 1px solid var(--color-line-strong);
+    color: var(--color-fg);
+    padding: 0.6rem 0.75rem;
+    font-family: var(--font-mono);
+    font-size: var(--font-size-md);
+    border-radius: var(--radius);
+    outline: none;
+    transition: border-color var(--motion-fast), box-shadow var(--motion-fast);
+}
+.ui-input:focus {
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 3px var(--color-accent-bg);
+}
+.ui-input::placeholder { color: var(--color-fg-faint); }
+
+/* SearchInput — icon + input pair */
+.ui-search {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    border: 1px solid var(--color-line-strong);
+    background: var(--color-bg-elev);
+    padding: 0 var(--space-3);
+    border-radius: var(--radius);
+    min-width: 8rem;
+    transition: border-color var(--motion-fast), box-shadow var(--motion-fast);
+}
+.ui-search:focus-within {
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 3px var(--color-accent-bg);
+}
+.ui-search .icon {
+    color: var(--color-fg-faint);
+    flex-shrink: 0;
+    transition: color var(--motion-fast);
+}
+.ui-search:focus-within .icon { color: var(--color-accent); }
+.ui-search input {
+    background: transparent;
+    border: none;
+    outline: none;
+    padding: 0.55rem 0;
+    font-family: var(--font-mono);
+    font-size: var(--font-size-sm);
+    color: var(--color-fg);
+    flex: 1;
+    min-width: 0;
+}
+.ui-search input::placeholder { color: var(--color-fg-faint); }
+
+/* Chip */
+.ui-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    background: var(--color-accent-bg);
+    border: 1px solid var(--color-accent);
+    color: var(--color-fg);
+    padding: 0.15rem 0.6rem;
+    font-family: var(--font-mono);
+    font-size: var(--font-size-xs);
+    border-radius: var(--radius);
+}
+.ui-chip--exclude {
+    background: var(--color-bg-elev-2);
+    border-color: var(--color-line-strong);
+    color: var(--color-fg-dim);
+}
+.ui-chip--exclude::before {
+    content: "−";
+    color: var(--color-fg-faint);
+    margin-right: 0.1rem;
+}
+.ui-chip__dismiss {
+    color: var(--color-fg-dim);
+    cursor: pointer;
+    padding: 0 var(--space-1);
+    user-select: none;
+    transition: color var(--motion-fast);
+}
+.ui-chip__dismiss:hover { color: var(--color-fg); }
+.ui-chip--disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+.ui-chip--disabled .ui-chip__dismiss { cursor: not-allowed; }
+.ui-chip--disabled .ui-chip__dismiss:hover { color: var(--color-fg-dim); }
+
+/* Tabs — segmented control */
+.ui-tabs {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    border: 1px solid var(--color-line-strong);
+    border-radius: var(--radius);
+    background: var(--color-bg-elev);
+    padding: 0.15rem;
+}
+.ui-tab {
+    background: transparent;
+    border: none;
+    padding: 0.4rem 0.85rem;
+    color: var(--color-fg-dim);
+    cursor: pointer;
+    font-family: var(--font-sans);
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    border-radius: var(--radius);
+    transition: background var(--motion-fast), color var(--motion-fast);
+}
+.ui-tab:hover { color: var(--color-fg); }
+.ui-tab[aria-selected="true"] {
+    background: var(--color-accent-bg);
+    color: var(--color-fg);
+    box-shadow: inset 0 -2px 0 var(--color-accent);
+}
+.ui-tab:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: -2px;
+}
+
+/* Modal */
+.ui-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    padding: var(--space-4);
+    animation: ui-backdrop-in var(--motion-modal) ease-out;
+}
+@keyframes ui-backdrop-in { from { opacity: 0; } to { opacity: 1; } }
+.ui-modal {
+    background: var(--color-bg-elev);
+    border: 1px solid var(--color-line-strong);
+    border-radius: var(--radius);
+    width: 100%;
+    max-width: 36rem;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: var(--shadow-modal);
+    animation: ui-modal-in var(--motion-modal) var(--ease-out-expo);
+}
+@keyframes ui-modal-in {
+    from { opacity: 0; transform: translateY(12px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.ui-modal__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-4) var(--space-5);
+    border-bottom: 1px solid var(--color-line);
+}
+.ui-modal__title {
+    font-family: var(--font-sans);
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    margin: 0;
+    color: var(--color-fg);
+}
+.ui-modal__close {
+    background: transparent;
+    border: none;
+    color: var(--color-fg-dim);
+    cursor: pointer;
+    padding: var(--space-1) var(--space-2);
+    border-radius: var(--radius);
+    transition: background var(--motion-fast), color var(--motion-fast);
+}
+.ui-modal__close:hover {
+    color: var(--color-accent);
+    background: var(--color-bg-elev-2);
+}
+.ui-modal__close:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 1px;
+}
+.ui-modal__body {
+    padding: var(--space-4) var(--space-5);
+    overflow-y: auto;
+    flex: 1;
+}
+.ui-modal__footer {
+    display: flex;
+    gap: var(--space-2);
+    justify-content: flex-end;
+    padding: var(--space-3) var(--space-5);
+    border-top: 1px solid var(--color-line);
+}
+
+/* Toast */
+.ui-toast {
+    position: fixed;
+    bottom: var(--space-6);
+    right: var(--space-6);
+    background: var(--color-bg-elev);
+    border: 1px solid var(--color-line-strong);
+    color: var(--color-fg);
+    padding: 0.7rem 1.05rem;
+    font-family: var(--font-sans);
+    font-size: var(--font-size-sm);
+    border-radius: var(--radius);
+    z-index: 200;
+    animation: ui-toast-in var(--motion-fast) ease-out;
+}
+.ui-toast--success { border-color: var(--color-success); }
+.ui-toast--error { border-color: var(--color-warning); }
+@keyframes ui-toast-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Kbd */
+.ui-kbd {
+    font-family: var(--font-mono);
+    background: var(--color-bg);
+    border: 1px solid var(--color-line-strong);
+    padding: 0.1rem 0.45rem;
+    font-size: var(--font-size-xs);
+    border-radius: var(--radius);
+    color: var(--color-fg);
+}
+.ui-kbd + .ui-kbd { margin-left: var(--space-1); }
