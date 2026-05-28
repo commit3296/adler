@@ -22,10 +22,11 @@ cross-site correlation, written in Rust.
 
 ## Crates
 
-| Crate         | Kind | Purpose                                     |
-| ------------- | ---- | ------------------------------------------- |
-| `adler-core` | lib  | Detection engine, site registry, executor. |
-| `adler-cli`  | bin  | `adler` command-line interface.            |
+| Crate         | Kind | Purpose                                              |
+| ------------- | ---- | ---------------------------------------------------- |
+| `adler-core`  | lib  | Detection engine, site registry, executor.          |
+| `adler-server`| lib  | HTTP API + SSE streaming + scan persistence; embeds the SolidJS web UI via `rust-embed`. |
+| `adler-cli`   | bin  | `adler` command-line interface; `--web` launches the embedded server + UI in-process. |
 
 ## Install
 
@@ -205,7 +206,10 @@ adler --format json alice         # JSON array
 adler --format ndjson alice       # one JSON object per line (jq-friendly)
 adler --format csv alice > out.csv  # spreadsheet-friendly table
 adler --format html alice > out.html   # self-contained HTML report
-adler --tui alice                 # interactive results browser
+
+# interactive web UI (see § Web UI below)
+adler --web                       # launch http://127.0.0.1:8080 with the bundled SPA
+adler --web --web-bind 0.0.0.0:9000  # custom address
 
 # deeper analysis (these fetch fresh data, bypassing the cache)
 adler --enrich alice              # extract name/bio/avatar from profiles
@@ -226,15 +230,56 @@ adler --completions zsh > _adler
 By default the text output shows Found and Uncertain results and hides the
 (usually many) NotFound rows — pass `--all` for the full list. On an
 interactive terminal, results stream in as they resolve; piped output is
-collected and ordered. `--tui` opens a live browser (results stream in as the
-scan runs): `/` search, `f` filter by verdict, `g`/`G`/PageUp/PageDown to
-navigate, `o` open the selected URL, `y`/`Y` copy one/all URLs, `Enter` for
-details, `?` for the full key list. Wide terminals show a persistent
-list+detail split.
+collected and ordered. For an interactive browser-based view of a running
+scan — search, filter, evidence drawers, side-by-side diff against an older
+scan — pass `--web` (see [*Web UI*](#web-ui) below).
 
 Results are cached between runs (`~/.cache/adler/`, 1 h TTL); use
 `--no-cache`, `--cache-ttl`, or `--cache-clear` to control it. Exit codes:
 `0` something found, `1` nothing found, `2` error.
+
+## Web UI
+
+`adler --web` boots a small in-process HTTP server and serves a SolidJS
+SPA from the same binary — no separate frontend deployment, no extra
+process to manage. Once the server is up, kick off scans, watch outcomes
+stream in over SSE, persist them to disk, and diff them against earlier
+runs.
+
+```bash
+adler --web                          # http://127.0.0.1:8080
+adler --web --web-bind 0.0.0.0:9000  # listen on all interfaces, custom port
+```
+
+What you get in the browser:
+
+- **Live scan view** — outcomes stream in as they resolve (SSE), grouped
+  by category, with per-row evidence (verdict reason, response snippet,
+  URL) and a one-click retry.
+- **History modal** — every finished scan is persisted to
+  `~/.cache/adler/scans/` (oldest 200, atomic writes). Reopen any past
+  scan via `#/scan/<id>` deep-links.
+- **Compare with previous** — pick any two persisted scans and diff
+  them side-by-side (`#/diff/<a>/<b>`); shows accounts gained / lost /
+  flipped between the two runs. Esc / back-button exits.
+- **Filters & sort** — by verdict, category, presence of evidence,
+  hidden NotFound rows. Preferences persist to localStorage.
+- **NSFW gate** — off by default; the toggle is hidden behind a
+  confirmation, matching the CLI's `--nsfw` opt-in.
+
+The server exposes a small JSON API at `/api/*` (`/health`, `/sites`,
+`/scans`, `POST /scan`, `GET /scan/:id`, `GET /scan/:id/stream`,
+`POST /scan/:id/retry`) — useful if you want to drive Adler from a
+different frontend or a script. SSE consumers should subscribe to the
+`/stream` endpoint and treat each event as one outcome.
+
+The bundled SPA is baked into the binary at compile time
+(`rust-embed`), so the deployed unit is just the `adler` executable
+plus whatever scan-cache directory you point it at. If you build from
+source, make sure to run `npm ci && npm run build` in `adler-web/`
+before `cargo build` — `adler-server`'s `build.rs` mirrors the
+resulting `dist/` into its own tree so subsequent builds pick the
+refreshed bundle up automatically.
 
 ## Performance
 
@@ -263,7 +308,7 @@ username detection in your own Rust tools. Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-adler-core = "0.4"
+adler-core = "0.8"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```
 
