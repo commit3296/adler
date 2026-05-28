@@ -16,7 +16,7 @@ name: release-plz
 #     fans out to `.github/workflows/release.yml` for the platform
 #     binaries.
 #
-# Both jobs authenticate as the `adler-release` GitHub App (App ID
+# Both jobs authenticate as the `adler-release` GitHub App (Client ID
 # and private key live in repo secrets). This matters because events
 # authored by the default `GITHUB_TOKEN` do NOT cascade to other
 # workflows — i.e. release-plz creating a release with GITHUB_TOKEN
@@ -43,7 +43,7 @@ jobs:
         uses: actions/create-github-app-token@v3
         id: app-token
         with:
-          app-id: ${{ secrets.RELEASE_PLZ_APP_ID }}
+          client-id: ${{ secrets.RELEASE_PLZ_APP_CLIENT_ID }}
           private-key: ${{ secrets.RELEASE_PLZ_APP_PRIVATE_KEY }}
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -100,7 +100,7 @@ jobs:
         uses: actions/create-github-app-token@v3
         id: app-token
         with:
-          app-id: ${{ secrets.RELEASE_PLZ_APP_ID }}
+          client-id: ${{ secrets.RELEASE_PLZ_APP_CLIENT_ID }}
           private-key: ${{ secrets.RELEASE_PLZ_APP_PRIVATE_KEY }}
       - name: Checkout repository
         uses: actions/checkout@v6
