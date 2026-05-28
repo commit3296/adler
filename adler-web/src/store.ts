@@ -101,6 +101,17 @@ export interface DiffState {
     b: { id: string; username: string; outcomes: CheckOutcome[] };
 }
 
+/// A view explicitly representing "the thing this URL points at does
+/// not exist", rather than silently bouncing home or leaving an empty
+/// shell behind a transient toast.
+/// - `scan` / `diff`: a `#/scan/:id` / `#/diff/:a/:b` whose id(s) the
+///   server reported as `scan_not_found`.
+/// - `route`: a hash that matches no known route at all.
+export interface NotFoundState {
+    kind: "scan" | "diff" | "route";
+    detail: string;
+}
+
 export interface FilterState {
     presetId: string | null;
     tag: string[];
@@ -121,6 +132,7 @@ export interface UiState {
     drawerOpen: boolean;
     filtersOpen: boolean;
     shortcutsOpen: boolean;
+    aboutOpen: boolean;
     toast: { text: string; kind: "success" | "error" | "info" } | null;
     compareArmed: string | null;
     /// Set of site names currently being re-probed via the retry
@@ -142,6 +154,16 @@ export interface AppStore {
     filter: FilterState;
     scan: ScanState | null;
     diff: DiffState | null;
+    /// Non-null when the current route points at something missing.
+    /// Mutually exclusive with `scan` / `diff` in practice.
+    notFound: NotFoundState | null;
+    /// True while a scan/diff is being fetched and there's nothing to
+    /// show yet — drives the skeleton in the scan-view shell instead
+    /// of an empty frame.
+    loading: boolean;
+    /// `adler-server` version from `GET /api/health`, shown in the
+    /// footer. Null until the health probe resolves.
+    serverVersion: string | null;
     history: ScanListEntry[];
     view: ViewState;
     ui: UiState;
@@ -163,6 +185,9 @@ const [store, set] = createStore<AppStore>({
     },
     scan: null,
     diff: null,
+    notFound: null,
+    loading: false,
+    serverVersion: null,
     history: [],
     view: {
         sort: persisted.sort ?? "status",
@@ -175,6 +200,7 @@ const [store, set] = createStore<AppStore>({
         drawerOpen: false,
         filtersOpen: false,
         shortcutsOpen: false,
+        aboutOpen: false,
         toast: null,
         compareArmed: null,
         retrying: {},
@@ -259,6 +285,8 @@ export const actions = {
     // Scan lifecycle
     beginScan(id: string, username: string, siteCount: number) {
         set("diff", null);
+        set("notFound", null);
+        set("loading", false);
         set("scan", {
             id,
             username,
@@ -407,6 +435,8 @@ export const actions = {
     },
     loadScan(scan: ScanState) {
         set("diff", null);
+        set("notFound", null);
+        set("loading", false);
         // Backfill derived state when loading historical scans that
         // were serialised before the optimisation existed.
         if (!scan.outcomeSites || Object.keys(scan.outcomeSites).length === 0) {
@@ -428,6 +458,22 @@ export const actions = {
     clearScan() {
         set("scan", null);
         set("diff", null);
+        set("notFound", null);
+        set("loading", false);
+    },
+    setNotFound(nf: NotFoundState | null) {
+        if (nf) {
+            set("scan", null);
+            set("diff", null);
+            set("loading", false);
+        }
+        set("notFound", nf);
+    },
+    setLoading(on: boolean) {
+        set("loading", on);
+    },
+    setServerVersion(v: string) {
+        set("serverVersion", v);
     },
     tickElapsed() {
         if (!store.scan || store.scan.status !== "running") return;
@@ -445,7 +491,11 @@ export const actions = {
     // Diff
     setDiff(d: DiffState | null) {
         set("diff", d);
-        if (d) set("scan", null);
+        if (d) {
+            set("scan", null);
+            set("notFound", null);
+            set("loading", false);
+        }
     },
     armCompare(id: string | null) {
         set("ui", "compareArmed", id);
@@ -475,6 +525,7 @@ export const actions = {
         if (open) {
             set("ui", "filtersOpen", false);
             set("ui", "shortcutsOpen", false);
+            set("ui", "aboutOpen", false);
         }
         set("ui", "drawerOpen", open);
     },
@@ -482,6 +533,7 @@ export const actions = {
         if (open) {
             set("ui", "drawerOpen", false);
             set("ui", "shortcutsOpen", false);
+            set("ui", "aboutOpen", false);
         }
         set("ui", "filtersOpen", open);
     },
@@ -489,8 +541,17 @@ export const actions = {
         if (open) {
             set("ui", "drawerOpen", false);
             set("ui", "filtersOpen", false);
+            set("ui", "aboutOpen", false);
         }
         set("ui", "shortcutsOpen", open);
+    },
+    setAbout(open: boolean) {
+        if (open) {
+            set("ui", "drawerOpen", false);
+            set("ui", "filtersOpen", false);
+            set("ui", "shortcutsOpen", false);
+        }
+        set("ui", "aboutOpen", open);
     },
     toast(text: string, kind: "success" | "error" | "info" = "info") {
         set("ui", "toast", { text, kind });

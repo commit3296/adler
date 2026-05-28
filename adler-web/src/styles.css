@@ -151,11 +151,14 @@
         main::-webkit-scrollbar-track { background: transparent; }
 
         /* ────────── hero (empty state) ────────── */
+        /* `100%` (not `100vh - 4rem`) so the persistent footer doesn't
+           push the hero past the viewport into a scrollbar. main is a
+           resolved-height flex item, so the percentage resolves. */
         .hero {
-            min-height: calc(100vh - 4rem);
+            min-height: 100%;
             display: grid;
             place-items: center;
-            padding: 2rem 1.5rem 6rem;
+            padding: 2rem 1.5rem 4rem;
         }
         .hero-inner {
             display: flex;
@@ -1354,6 +1357,205 @@
             opacity: 0.85;
         }
 
+        /* ────────── view entrance transition ──────────
+           Each top-level view fades + lifts in on mount, so switching
+           Hero ↔ scan ↔ not-found reads as a transition rather than a
+           hard cut. The element stays mounted while its inner content
+           swaps (skeleton → results), so this plays once per view, not
+           on every data update. */
+        @keyframes view-in {
+            from { opacity: 0; transform: translateY(6px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        .hero, .scan-view, .not-found {
+            animation: view-in 0.18s ease-out;
+        }
+
+        /* ────────── skeleton (loading) ──────────
+           Shown in the scan-view shell while a scan/diff is in flight.
+           Mirrors the real row grid so the swap to content doesn't
+           shift layout. */
+        @keyframes sk-shimmer {
+            from { background-position: 100% 0; }
+            to   { background-position: 0 0; }
+        }
+        .sk-line, .count-skel {
+            background: linear-gradient(
+                90deg,
+                var(--bg-elev) 25%,
+                var(--bg-elev-2) 37%,
+                var(--bg-elev) 63%
+            );
+            background-size: 400% 100%;
+            animation: sk-shimmer 1.4s ease infinite;
+            border-radius: var(--r);
+        }
+        .scan-skeleton .sk-header {
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--line);
+            margin-bottom: 0.9rem;
+        }
+        .sk-line.sk-title { height: 1.25rem; width: 11rem; margin-bottom: 0.55rem; }
+        .sk-line.sk-sub { height: 0.75rem; width: 17rem; }
+        .sk-row {
+            display: grid;
+            grid-template-columns: auto minmax(8rem, 14rem) minmax(0, 1fr) auto;
+            gap: 0.9rem;
+            align-items: center;
+            padding: 0.85rem 0.95rem;
+            border-bottom: 1px solid var(--line);
+        }
+        .sk-row .sk-dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: var(--line-strong);
+        }
+        .sk-row .sk-name { height: 0.8rem; width: 65%; }
+        .sk-row .sk-url { height: 0.8rem; width: 90%; }
+        .sk-row .sk-meta { height: 0.8rem; width: 3rem; justify-self: end; }
+        .count-skel {
+            display: inline-block;
+            width: 3.2rem;
+            height: 0.9rem;
+            vertical-align: middle;
+        }
+
+        /* ────────── footer ────────── */
+        .app-footer {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 0.85rem 1.5rem;
+            border-top: 1px solid var(--line);
+            color: var(--fg-faint);
+            font-family: var(--sans);
+            font-size: 0.82rem;
+        }
+        .app-footer .f-brand {
+            font-family: var(--mono);
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            color: var(--fg-dim);
+        }
+        .app-footer .f-ver { font-family: var(--mono); color: var(--fg-faint); }
+        .app-footer .f-sep { color: var(--line-strong); }
+        .app-footer .f-link {
+            background: none;
+            border: none;
+            padding: 0;
+            color: var(--fg-dim);
+            font-family: var(--sans);
+            font-size: 0.82rem;
+            cursor: pointer;
+            text-decoration: none;
+            transition: color 80ms;
+        }
+        .app-footer .f-link:hover { color: var(--red); text-decoration: underline; }
+        .app-footer .f-api { color: var(--fg-faint); }
+        .app-footer .f-api code {
+            font-family: var(--mono);
+            color: var(--fg-dim);
+            background: var(--bg-elev);
+            padding: 0.05rem 0.35rem;
+            border-radius: var(--r);
+        }
+
+        /* ────────── not found ────────── */
+        .not-found {
+            min-height: 100%;
+            display: grid;
+            place-items: center;
+            padding: 2rem 1.5rem 4rem;
+            text-align: center;
+        }
+        .nf-inner {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.65rem;
+            max-width: 30rem;
+            transform: translateY(-2rem);
+        }
+        .nf-code {
+            font-family: var(--mono);
+            font-size: 3.5rem;
+            font-weight: 800;
+            line-height: 1;
+            letter-spacing: 0.05em;
+            color: var(--red);
+        }
+        .nf-heading {
+            font-family: var(--sans);
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: var(--fg);
+            margin: 0;
+        }
+        .nf-detail { color: var(--fg-dim); font-size: 0.94rem; margin: 0; }
+        .nf-ref {
+            font-family: var(--mono);
+            font-size: 0.84rem;
+            color: var(--fg-dim);
+            background: var(--bg-elev);
+            border: 1px solid var(--line);
+            padding: 0.3rem 0.6rem;
+            border-radius: var(--r);
+            word-break: break-all;
+            max-width: 100%;
+        }
+        .not-found .primary-btn { margin-top: 0.8rem; }
+
+        /* ────────── about modal body ────────── */
+        .about-body {
+            font-family: var(--sans);
+            color: var(--fg-dim);
+            font-size: 0.94rem;
+            line-height: 1.6;
+        }
+        .about-body p { margin: 0 0 0.9rem; }
+        .about-body h3 {
+            font-family: var(--sans);
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--fg);
+            margin: 1.2rem 0 0.5rem;
+        }
+        .about-body strong { color: var(--fg); }
+        .about-body code {
+            font-family: var(--mono);
+            font-size: 0.85rem;
+            background: var(--bg);
+            padding: 0.05rem 0.35rem;
+            border-radius: var(--r);
+            color: var(--fg-dim);
+        }
+        .about-found { color: var(--green-text); font-weight: 600; }
+        .about-nf { color: var(--fg); font-weight: 600; }
+        .about-unc { color: var(--amber-text); font-weight: 600; }
+        .about-links {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 1.2rem !important;
+        }
+        .about-links a { color: var(--red); }
+
+        /* ────────── reduced motion ──────────
+           Honour the OS "reduce motion" setting globally: collapse all
+           animations/transitions (view-in, shimmer, modalin, pulse, …)
+           to near-instant. Kept last so it overrides everything above. */
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+                scroll-behavior: auto !important;
+            }
+        }
+
         /* ────────── responsive ──────────
            Breakpoints:
              - 900 px: tablet — header stacks, toolbar starts wrapping
@@ -1379,8 +1581,8 @@
             .top-bar { padding: 0.6rem 0.85rem; }
             .scan-view { padding: 0.85rem; }
             .hero {
-                padding: 1.5rem 1rem 3.5rem;
-                min-height: calc(100vh - 3.5rem);
+                padding: 1.5rem 1rem 2.5rem;
+                min-height: 100%;
             }
             .hero-inner { transform: translateY(-0.5rem); }
             .hero-logo { font-size: 2rem; margin-bottom: 0.45rem; }

@@ -3,10 +3,48 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Adler</title>
+    <title>Adler — OSINT username search</title>
+    <meta name="description" content="Search a username across thousands of sites with multi-signal detection. A modern Sherlock successor that runs self-hosted from a single binary.">
+    <meta name="color-scheme" content="dark">
+    <meta name="theme-color" content="#ff2d2d">
+    <meta property="og:title" content="Adler — OSINT username search">
+    <meta property="og:description" content="Search a username across thousands of sites with multi-signal detection. A modern Sherlock successor, self-hosted.">
+    <meta property="og:type" content="website">
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' fill='%23ff2d2d'/><text x='32' y='48' font-family='ui-monospace,SFMono-Regular,Menlo,monospace' font-size='46' font-weight='800' text-anchor='middle' fill='%23ffffff'>A</text></svg>">
+    <!-- Boot preloader styles are inlined so they apply on first paint,
+         before the JS bundle (which carries the real CSS) has parsed.
+         main.tsx fades #boot-loader out once the app shell mounts. -->
+    <style>
+        #boot-loader {
+            position: fixed;
+            inset: 0;
+            background: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            transition: opacity 200ms ease-out;
+        }
+        #boot-loader .mark {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 2.6rem;
+            font-weight: 800;
+            letter-spacing: 0.2em;
+            color: #ff2d2d;
+            animation: boot-pulse 1s ease-in-out infinite;
+        }
+        @keyframes boot-pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            #boot-loader .mark { animation: none; }
+            #boot-loader { transition: none; }
+        }
+    </style>
 </head>
 <body>
+    <div id="boot-loader" aria-hidden="true"><div class="mark">A</div></div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
 </body>

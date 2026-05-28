@@ -1,6 +1,7 @@
 import {
     For,
     Show,
+    createEffect,
     createMemo,
     createSignal,
     onCleanup,
@@ -12,20 +13,30 @@ import {
 /// (even before the actual data has loaded). Used to suppress the
 /// Hero flash on cold-load of `#/scan/xxx` or `#/diff/a/b`.
 const ROUTE_VIEW_RE = /^#\/(scan|diff)\//;
+
+/// The empty / root hash — anything else that matches no known route
+/// is a genuine "page not found", not a silent bounce home.
+function isHomeHash(h: string): boolean {
+    return h === "" || h === "#" || h === "#/";
+}
 import { ApiClientError, api, streamScan } from "./api";
 import { CATEGORIES, categoryForTags } from "./constants";
 import { actions, store } from "./store";
 import { displayUrl } from "./lib/format";
 import type { CheckOutcome } from "./types";
 
+import { About } from "./components/About";
 import { AdvancedFilters } from "./components/AdvancedFilters";
 import { DatacenterHint } from "./components/DatacenterHint";
+import { Footer } from "./components/Footer";
 import { Hero } from "./components/Hero";
 import { HistoryDrawer } from "./components/HistoryDrawer";
 import { IconSprite } from "./components/Icons";
+import { NotFound } from "./components/NotFound";
 import { ResultsList } from "./components/ResultsList";
 import { ResultsToolbar } from "./components/ResultsToolbar";
 import { ScanHeader } from "./components/ScanHeader";
+import { ScanSkeleton } from "./components/ScanSkeleton";
 import { ShortcutsOverlay } from "./components/ShortcutsOverlay";
 import { Toast } from "./components/Toast";
 import { TopBar } from "./components/TopBar";
@@ -85,6 +96,9 @@ export const App: Component = () => {
         stopElapsedTimer();
         actions.clearScan();
         setLastUsername(username);
+        // Optimistically switch to the scan-view shell (skeleton) so the
+        // Hero doesn't linger during the create-scan round-trip.
+        actions.setLoading(true);
 
         const body: any = { username };
         if (store.filter.tag.length) body.tag = store.filter.tag;
@@ -114,6 +128,7 @@ export const App: Component = () => {
         } catch (err) {
             const msg = err instanceof ApiClientError ? err.message : String(err);
             actions.toast(`Scan failed: ${msg}`, "error");
+            actions.setLoading(false);
             stopElapsedTimer();
         }
     }
@@ -159,6 +174,7 @@ export const App: Component = () => {
         if (store.scan?.id === id && !store.diff) return;
         closeStream();
         stopElapsedTimer();
+        actions.setLoading(true);
         try {
             const data = await api.scan(id);
             if (data.status === "finished") {
@@ -193,8 +209,13 @@ export const App: Component = () => {
                 });
             }
         } catch (err) {
-            const msg = err instanceof ApiClientError ? err.message : String(err);
-            actions.toast(`Failed to load scan: ${msg}`, "error");
+            if (err instanceof ApiClientError && err.code === "scan_not_found") {
+                actions.setNotFound({ kind: "scan", detail: id });
+            } else {
+                const msg = err instanceof ApiClientError ? err.message : String(err);
+                actions.toast(`Failed to load scan: ${msg}`, "error");
+                actions.setLoading(false);
+            }
         }
     }
 
@@ -207,6 +228,7 @@ export const App: Component = () => {
         bId: string,
         opts: { fromUrl?: boolean } = {},
     ) {
+        actions.setLoading(true);
         try {
             const [a, b] = await Promise.all([api.scan(aId), api.scan(bId)]);
             const outA = a.status === "finished" ? a.outcomes : a.partial;
@@ -222,10 +244,15 @@ export const App: Component = () => {
                 location.hash = `#/diff/${aId}/${bId}`;
             }
         } catch (err) {
-            const msg = err instanceof ApiClientError ? err.message : String(err);
-            actions.toast(`Diff failed: ${msg}`, "error");
-            // Bail out of a broken diff URL — back to home.
-            if (opts.fromUrl) history.replaceState(null, "", "#/");
+            if (err instanceof ApiClientError && err.code === "scan_not_found") {
+                actions.setNotFound({ kind: "diff", detail: `${aId} / ${bId}` });
+            } else {
+                const msg = err instanceof ApiClientError ? err.message : String(err);
+                actions.toast(`Diff failed: ${msg}`, "error");
+                actions.setLoading(false);
+                // Bail out of a broken diff URL — back to home.
+                if (opts.fromUrl) history.replaceState(null, "", "#/");
+            }
         }
     }
 
@@ -242,6 +269,28 @@ export const App: Component = () => {
         } else {
             location.hash = "#/";
         }
+    }
+
+    function goHome() {
+        actions.clearScan();
+        location.hash = "#/";
+    }
+
+    /// Document title reflecting the current view. Read inside a
+    /// `createEffect` so it tracks the relevant store slices.
+    function computeTitle(): string {
+        const base = "Adler";
+        if (store.notFound) return `Not found — ${base}`;
+        if (store.diff) {
+            return `Diff: ${store.diff.a.username} ↔ ${store.diff.b.username} — ${base}`;
+        }
+        if (store.scan) {
+            const s = store.scan;
+            if (s.status === "running") return `Scanning ${s.username}… — ${base}`;
+            return `${s.username} · ${s.summary?.found ?? 0} found — ${base}`;
+        }
+        if (store.loading) return `Loading… — ${base}`;
+        return `${base} — OSINT username search`;
     }
 
     function openHistoryScan(id: string) {
@@ -286,6 +335,18 @@ export const App: Component = () => {
         const initDiff = location.hash.match(/^#\/diff\/([a-z0-9]+)\/([a-z0-9]+)/);
         if (initScan) loadScan(initScan[1]!);
         else if (initDiff) startDiff(initDiff[1]!, initDiff[2]!, { fromUrl: true });
+        else if (!isHomeHash(location.hash))
+            actions.setNotFound({ kind: "route", detail: location.hash });
+
+        // Footer version badge — best-effort; footer just omits it on failure.
+        api.health()
+            .then((h) => actions.setServerVersion(h.version))
+            .catch(() => {});
+
+        // Keep the document title in sync with the current view.
+        createEffect(() => {
+            document.title = computeTitle();
+        });
     });
 
     onCleanup(() => {
@@ -311,10 +372,13 @@ export const App: Component = () => {
             startDiff(dm[1]!, dm[2]!, { fromUrl: true });
             return;
         }
-        // Home / empty hash.
         closeStream();
         stopElapsedTimer();
-        actions.clearScan();
+        if (isHomeHash(location.hash)) {
+            actions.clearScan();
+        } else {
+            actions.setNotFound({ kind: "route", detail: location.hash });
+        }
     }
 
     // ─────────── keyboard ───────────
@@ -347,6 +411,10 @@ export const App: Component = () => {
             // Esc means "back off one layer", never crosses two boundaries.
             if (store.ui.shortcutsOpen) {
                 actions.setShortcuts(false);
+                return;
+            }
+            if (store.ui.aboutOpen) {
+                actions.setAbout(false);
                 return;
             }
             if (store.ui.filtersOpen) {
@@ -511,7 +579,9 @@ export const App: Component = () => {
     // OR the URL points to one. The latter suppresses the Hero flash
     // on cold-load: scan-view shell renders immediately, then the
     // results stream in once `loadScan` resolves.
-    const hasView = createMemo(() => !!(store.scan || store.diff) || urlHasView());
+    const hasView = createMemo(
+        () => !!(store.scan || store.diff || store.loading) || urlHasView(),
+    );
     void categoryForTags;
     void CATEGORIES;
 
@@ -521,63 +591,79 @@ export const App: Component = () => {
             <TopBar />
             <main>
                 <Show
-                    when={hasView()}
-                    fallback={<Hero onSubmit={(u) => startScan(u)} />}
+                    when={!store.notFound}
+                    fallback={
+                        <NotFound nf={store.notFound!} onHome={goHome} />
+                    }
                 >
-                    <section class="scan-view">
-                        <ScanHeader
-                            onRescan={rescan}
-                            onStop={stopScan}
-                            onContinue={continueScan}
-                            onRestart={rescan}
-                            onExitDiff={exitDiff}
-                            onCompareWithPrevious={() => {
-                                const cur = store.scan;
-                                if (!cur) return;
-                                const prev = store.history.find(
-                                    (h) =>
-                                        h.username === cur.username &&
-                                        h.scan_id !== cur.id &&
-                                        h.status === "finished",
-                                );
-                                if (!prev) return;
-                                startDiff(prev.scan_id, cur.id);
-                            }}
-                        />
-                        <Show when={store.scan && store.scan.status === "running"}>
-                            <div class="progress-bar">
-                                <div
-                                    class="fill"
-                                    style={{
-                                        width:
-                                            store.scan!.siteCount > 0
-                                                ? `${(store.scan!.outcomes.length / store.scan!.siteCount) * 100}%`
-                                                : "0%",
+                    <Show
+                        when={hasView()}
+                        fallback={<Hero onSubmit={(u) => startScan(u)} />}
+                    >
+                        <section class="scan-view">
+                            <Show
+                                when={store.scan || store.diff}
+                                fallback={<ScanSkeleton />}
+                            >
+                                <ScanHeader
+                                    onRescan={rescan}
+                                    onStop={stopScan}
+                                    onContinue={continueScan}
+                                    onRestart={rescan}
+                                    onExitDiff={exitDiff}
+                                    onCompareWithPrevious={() => {
+                                        const cur = store.scan;
+                                        if (!cur) return;
+                                        const prev = store.history.find(
+                                            (h) =>
+                                                h.username === cur.username &&
+                                                h.scan_id !== cur.id &&
+                                                h.status === "finished",
+                                        );
+                                        if (!prev) return;
+                                        startDiff(prev.scan_id, cur.id);
                                     }}
                                 />
-                            </div>
-                        </Show>
-                        <Show when={store.scan}>
-                            <ResultsToolbar onExport={handleExport} />
-                            <DatacenterHint />
-                            <ResultsList />
-                        </Show>
-                        <Show when={store.diff}>
-                            <DiffView
-                                added={diffBreakdown()!.added}
-                                removed={diffBreakdown()!.removed}
-                                kept={diffBreakdown()!.kept}
-                                a={store.diff!.a.username}
-                                b={store.diff!.b.username}
-                            />
-                        </Show>
-                    </section>
+                                <Show
+                                    when={store.scan && store.scan.status === "running"}
+                                >
+                                    <div class="progress-bar">
+                                        <div
+                                            class="fill"
+                                            style={{
+                                                width:
+                                                    store.scan!.siteCount > 0
+                                                        ? `${(store.scan!.outcomes.length / store.scan!.siteCount) * 100}%`
+                                                        : "0%",
+                                            }}
+                                        />
+                                    </div>
+                                </Show>
+                                <Show when={store.scan}>
+                                    <ResultsToolbar onExport={handleExport} />
+                                    <DatacenterHint />
+                                    <ResultsList />
+                                </Show>
+                                <Show when={store.diff}>
+                                    <DiffView
+                                        added={diffBreakdown()!.added}
+                                        removed={diffBreakdown()!.removed}
+                                        kept={diffBreakdown()!.kept}
+                                        a={store.diff!.a.username}
+                                        b={store.diff!.b.username}
+                                    />
+                                </Show>
+                            </Show>
+                        </section>
+                    </Show>
                 </Show>
             </main>
+            <Footer onAbout={() => actions.setAbout(true)} />
 
             <HistoryDrawer onOpenScan={openHistoryScan} onStartDiff={startDiff} />
             <AdvancedFilters />
             <ShortcutsOverlay />
+            <About />
             <Toast />
         </>
     );

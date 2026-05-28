@@ -1,4 +1,4 @@
-import { For, type Component } from "solid-js";
+import { For, Show, type Component } from "solid-js";
 import { PRESETS } from "../constants";
 import { actions, store } from "../store";
 
@@ -36,7 +36,14 @@ export const Hero: Component<Props> = (p) => {
                 <h1 class="hero-logo">ADLER</h1>
                 <p class="hero-tagline">
                     OSINT username search ·{" "}
-                    <span class="count">{store.catalog.length.toLocaleString()}</span>{" "}
+                    <Show
+                        when={store.catalog.length > 0}
+                        fallback={<span class="count-skel" aria-hidden="true" />}
+                    >
+                        <span class="count">
+                            {store.catalog.length.toLocaleString()}
+                        </span>
+                    </Show>{" "}
                     sites
                 </p>
                 <form
@@ -72,9 +79,11 @@ export const Hero: Component<Props> = (p) => {
                                 onClick={() => actions.applyPreset(p)}
                             >
                                 {p.label}
-                                <span class="count">
-                                    {countPreset(p.id).toLocaleString()}
-                                </span>
+                                <Show when={store.catalog.length > 0}>
+                                    <span class="count">
+                                        {countPreset(p.id).toLocaleString()}
+                                    </span>
+                                </Show>
                             </button>
                         )}
                     </For>

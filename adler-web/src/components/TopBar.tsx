@@ -46,6 +46,13 @@ export const TopBar: Component = () => {
                 >
                     <Icon name="help" />
                 </IconButton>
+                <IconButton
+                    title="About"
+                    active={store.ui.aboutOpen}
+                    onClick={() => actions.setAbout(!store.ui.aboutOpen)}
+                >
+                    <Icon name="info" />
+                </IconButton>
             </div>
         </header>
     );
