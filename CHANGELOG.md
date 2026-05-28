@@ -9,6 +9,12 @@ pre-1.0 bump rules.
 
 ## [Unreleased]
 
+## [0.8.2](https://github.com/commit3296/adler/compare/v0.8.1...v0.8.2) - 2026-05-28
+
+### Added
+- *(web)* not-found view, loading skeletons, and a boot preloader for smoother state transitions
+- *(web)* persistent footer, About panel, dynamic page title, and meta/SEO tags
+
 ## [0.8.1](https://github.com/commit3296/adler/compare/v0.8.0...v0.8.1) - 2026-05-27
 
 ### Added
