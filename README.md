@@ -275,11 +275,10 @@ different frontend or a script. SSE consumers should subscribe to the
 
 The bundled SPA is baked into the binary at compile time
 (`rust-embed`), so the deployed unit is just the `adler` executable
-plus whatever scan-cache directory you point it at. If you build from
-source, make sure to run `npm ci && npm run build` in `adler-web/`
-before `cargo build` — `adler-server`'s `build.rs` mirrors the
-resulting `dist/` into its own tree so subsequent builds pick the
-refreshed bundle up automatically.
+plus whatever scan-cache directory you point it at. The SolidJS
+project lives at `adler-server/web/`; if you build from source, run
+`npm ci && npm run build` there before `cargo build` — Vite emits
+`web/dist/`, which `rust-embed` reads directly.
 
 ## Performance
 

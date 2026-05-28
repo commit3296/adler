@@ -56,19 +56,19 @@ jobs:
         with:
           targets: ${{ matrix.target }}
 
-      # adler-server's `rust-embed` baked the SolidJS bundle in
-      # `adler-web/dist/` into the final binary. dist/ is gitignored,
-      # so we must produce it on every release-job machine before
+      # adler-server's `rust-embed` bakes the SolidJS bundle in
+      # `web/dist/` into the final binary. dist/ is gitignored, so we
+      # must produce it on every release-job machine before
       # `taiki-e/upload-rust-binary-action` invokes `cargo build`.
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
           node-version: "24"
           cache: npm
-          cache-dependency-path: adler-web/package-lock.json
+          cache-dependency-path: adler-server/web/package-lock.json
 
       - name: Build adler-web frontend
-        working-directory: adler-web
+        working-directory: adler-server/web
         run: |
           npm ci
           npm run build

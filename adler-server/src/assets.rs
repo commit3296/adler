@@ -1,15 +1,15 @@
-//! Static SPA assets — `adler-server/dist/` embedded into the binary
-//! via `rust-embed`.
+//! Static SPA assets — `web/dist/` embedded into the binary via
+//! `rust-embed`.
 //!
-//! The bundle lives *inside* this crate so that a standalone
-//! `cargo install adler-server` (or path-dep build) finds it. In the
-//! workspace, `build.rs` mirrors `../adler-web/dist/` into the local
-//! `dist/` whenever the sibling exists, so contributors only need to
-//! run `npm run build` in `adler-web/` and `cargo build -p
-//! adler-server` picks the refreshed bundle up automatically.
+//! The `SolidJS` project lives at `adler-server/web/` and Vite builds it
+//! to `web/dist/`, which `rust-embed` reads directly. Keeping the
+//! frontend inside this crate means a standalone `cargo install
+//! adler-server` finds the bundle, and — because it's inside the
+//! package directory — changes to the SPA are visible to release-plz,
+//! so a frontend-only edit still cuts a release.
 //!
 //! Routes attached here:
-//!   - `GET /` and any SPA route → `dist/index.html`
+//!   - `GET /` and any SPA route → `web/dist/index.html`
 //!   - `GET /assets/*` (and any other embedded file) → matched 1:1
 //!   - `GET /favicon.ico` → 204 (favicon ships inline in index.html
 //!     as an SVG data URI; this stops browser noise without bundling
@@ -24,7 +24,7 @@ use axum::routing::get;
 use rust_embed::RustEmbed;
 
 #[derive(RustEmbed)]
-#[folder = "dist/"]
+#[folder = "web/dist/"]
 struct Asset;
 
 pub(crate) fn attach(router: Router) -> Router {
@@ -96,7 +96,7 @@ const SPA_MISSING_HTML: &str = r#"<!doctype html>
 <style>body{font-family:ui-monospace,monospace;background:#000;color:#eee;padding:3rem 2rem;max-width:38rem;margin:auto}h1{color:#ff2d2d}code{background:#1a1a1a;padding:0.1rem 0.4rem}</style></head><body>
 <h1>adler-web/dist/ is empty</h1>
 <p>The SolidJS bundle wasn't built into the binary at compile time.</p>
-<pre>  cd adler-web
+<pre>  cd adler-server/web
   npm install
   npm run build
   cargo build -p adler-cli --release</pre>

@@ -1,4 +1,4 @@
-# `adler-web/src/ui/` — component library
+# `adler-server/web/src/ui/` — component library
 
 Self-contained SolidJS + TypeScript component library. The whole `ui/`
 folder is intentionally portable: drop it into any other SolidJS app

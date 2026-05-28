@@ -10,15 +10,15 @@ description = "HTTP API + SSE streaming for the Adler OSINT username-search engi
 categories = ["web-programming::http-server", "command-line-utilities"]
 keywords = ["osint", "username", "sherlock", "axum", "sse"]
 readme = "../README.md"
-# The crate ships with a self-contained SPA bundle in `dist/` (mirrored
-# from `../adler-web/dist/` by `build.rs` at workspace build time;
-# pre-populated by the release pipeline before `cargo publish`). The
-# `include` list pins exactly what lands in the `.crate` tarball — the
-# `Cargo.toml`-default would skip `dist/` because it's gitignored.
+# The crate ships with a self-contained SPA bundle: the SolidJS project
+# at `web/` is built by Vite to `web/dist/`, which `rust-embed` embeds.
+# The `include` list pins exactly what lands in the `.crate` tarball —
+# `web/dist/` is gitignored, so the default include would skip it, and
+# we deliberately exclude `web/src`, `web/node_modules`, etc. The
+# release pipeline builds the SPA before `cargo publish`.
 include = [
     "src/**/*",
-    "build.rs",
-    "dist/**/*",
+    "web/dist/**/*",
     "Cargo.toml",
     "../README.md",
 ]

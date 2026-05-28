@@ -119,18 +119,20 @@ and real-time streaming of results.
   `127.0.0.1:8765` (override with `--web-bind`), respecting the same
   `--only` / `--exclude` / `--tag` / `--top` filters as one-shot
   scans. Banner + structured boot log; TTY-aware colours.
-- [x] `adler-web/` — SolidJS + Vite + TypeScript SPA. Hero / scan
-  view / diff view, hash-routed (`#/scan/:id`, `#/diff/:a/:b`),
+- [x] `adler-server/web/` — SolidJS + Vite + TypeScript SPA. Hero /
+  scan view / diff view, hash-routed (`#/scan/:id`, `#/diff/:a/:b`),
   rAF-batched SSE ingestion, per-bucket reactive store, live
   category groupings, per-row retry, datacenter-IP hint, localStorage
   prefs, full keyboard shortcuts.
-- [x] `adler-web/src/ui/` — portable component library (tokens +
+- [x] `adler-server/web/src/ui/` — portable component library (tokens +
   Button / IconButton / Input / SearchInput / Chip / Tabs / Modal /
   Toast / Kbd / Icon). Used by all app components; documented in
-  `adler-web/src/ui/README.md`.
-- [x] `rust-embed` snapshots `adler-web/dist/` into the final binary
-  so `adler --web` ships a self-contained UI. CI / release builds
-  pre-run `npm ci && npm run build` to populate `dist/`.
+  `adler-server/web/src/ui/README.md`.
+- [x] `rust-embed` snapshots `web/dist/` into the final binary so
+  `adler --web` ships a self-contained UI. Living inside the
+  `adler-server` package means SPA-only edits are visible to
+  release-plz and still cut a release. CI / release builds pre-run
+  `npm ci && npm run build` to populate `web/dist/`.
 
 ### Web UI — next
 

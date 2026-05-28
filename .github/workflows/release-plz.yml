@@ -59,17 +59,16 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
       # release-plz's semver-checks builds each crate, which means
-      # adler-server's build.rs needs a populated dist/. The sibling
-      # adler-web build is fast (~1s); the npm install is the only
-      # heavy step.
+      # adler-server needs a populated web/dist/ for rust-embed. The
+      # build is fast (~1s); the npm install is the only heavy step.
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
           node-version: "24"
           cache: npm
-          cache-dependency-path: adler-web/package-lock.json
+          cache-dependency-path: adler-server/web/package-lock.json
       - name: Build adler-web SPA
-        working-directory: adler-web
+        working-directory: adler-server/web
         run: |
           npm ci
           npm run build
@@ -110,26 +109,21 @@ jobs:
           persist-credentials: true
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
-      # `cargo publish` packages each crate from its own directory,
-      # then builds in a sandbox copy of just that crate. adler-server's
-      # build.rs runs in that sandbox without access to the sibling
-      # adler-web, so we must mirror the SPA into adler-server/dist/
-      # *before* release-plz invokes cargo publish.
+      # `cargo publish` packages adler-server from its own directory
+      # and verifies it in a sandbox build, so web/dist/ must exist
+      # (rust-embed reads it, and `include` ships it in the tarball)
+      # before release-plz invokes cargo publish.
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
           node-version: "24"
           cache: npm
-          cache-dependency-path: adler-web/package-lock.json
+          cache-dependency-path: adler-server/web/package-lock.json
       - name: Build adler-web SPA
-        working-directory: adler-web
+        working-directory: adler-server/web
         run: |
           npm ci
           npm run build
-      - name: Mirror SPA into adler-server/dist/
-        run: |
-          rm -rf adler-server/dist
-          cp -r adler-web/dist adler-server/dist
       - name: Run release-plz
         uses: release-plz/action@v0.5
         with:
