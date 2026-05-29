@@ -9,6 +9,11 @@ pre-1.0 bump rules.
 
 ## [Unreleased]
 
+## [0.8.3](https://github.com/commit3296/adler/compare/v0.8.2...v0.8.3) - 2026-05-29
+
+### Added
+- *(web)* multi-username batch scanning
+
 ## [0.8.2](https://github.com/commit3296/adler/compare/v0.8.1...v0.8.2) - 2026-05-28
 
 ### Added
