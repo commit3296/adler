@@ -4,6 +4,7 @@ import { Icon, IconButton } from "../ui";
 
 export const TopBar: Component = () => {
     function home() {
+        actions.clearBatch();
         actions.clearScan();
         location.hash = "#/";
     }

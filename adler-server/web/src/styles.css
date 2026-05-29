@@ -1357,6 +1357,143 @@
             opacity: 0.85;
         }
 
+        /* ────────── hero: single / batch mode ────────── */
+        .hero-mode {
+            display: inline-flex;
+            gap: 0.15rem;
+            background: var(--bg-elev);
+            border: 1px solid var(--line-strong);
+            border-radius: var(--r);
+            padding: 0.15rem;
+            margin-bottom: 0.9rem;
+        }
+        .hm-tab {
+            background: transparent;
+            border: none;
+            color: var(--fg-dim);
+            font-family: var(--sans);
+            font-size: 0.9rem;
+            font-weight: 500;
+            padding: 0.35rem 1.2rem;
+            cursor: pointer;
+            border-radius: var(--r);
+            transition: background 80ms, color 80ms;
+        }
+        .hm-tab:hover { color: var(--fg); }
+        .hm-tab.active {
+            background: var(--red-bg);
+            color: var(--fg);
+            box-shadow: inset 0 -2px 0 var(--red);
+        }
+
+        .batch-form {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 0.6rem;
+        }
+        .batch-input {
+            width: 100%;
+            background: var(--bg-elev);
+            border: 1px solid var(--line-strong);
+            border-radius: var(--r);
+            color: var(--fg);
+            font-family: var(--mono);
+            font-size: 1rem;
+            line-height: 1.55;
+            padding: 0.9rem 1rem;
+            resize: vertical;
+            min-height: 7rem;
+            outline: none;
+            transition: border-color 100ms, box-shadow 100ms;
+        }
+        .batch-input::placeholder { color: var(--fg-faint); }
+        .batch-input:focus {
+            border-color: var(--red);
+            box-shadow: 0 0 0 3px var(--red-bg);
+        }
+        .batch-actions {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+        .batch-hint {
+            color: var(--fg-faint);
+            font-family: var(--sans);
+            font-size: 0.85rem;
+        }
+        .batch-actions .scan-btn {
+            border-radius: var(--r);
+            padding: 0.55rem 1.6rem;
+        }
+
+        /* ────────── batch progress strip ────────── */
+        .batch-strip {
+            display: flex;
+            align-items: center;
+            gap: 0.7rem;
+            padding: 0.5rem 0 0.85rem;
+            margin-bottom: 0.4rem;
+            border-bottom: 1px solid var(--line);
+            overflow-x: auto;
+        }
+        .batch-strip-label {
+            font-family: var(--sans);
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--fg-dim);
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+        .batch-strip-label .bs-count {
+            font-family: var(--mono);
+            color: var(--fg-faint);
+            font-weight: 500;
+        }
+        .batch-chips { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+        .batch-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            background: var(--bg-elev);
+            border: 1px solid var(--line-strong);
+            color: var(--fg-dim);
+            font-family: var(--mono);
+            font-size: 0.82rem;
+            padding: 0.25rem 0.6rem;
+            border-radius: var(--r);
+            cursor: default;
+            white-space: nowrap;
+            transition: border-color 80ms, color 80ms, background 80ms;
+        }
+        .batch-chip .bc-user { font-weight: 500; }
+        .batch-chip.queued { opacity: 0.55; }
+        .batch-chip.running { border-color: var(--red); color: var(--fg); }
+        .batch-chip.done { color: var(--fg); }
+        .batch-chip.done .bc-found { color: var(--green-text); font-weight: 700; }
+        .batch-chip.done .bc-found::before { content: "✓ "; color: var(--green); }
+        .batch-chip.error { border-color: var(--amber); color: var(--amber-text); }
+        .batch-chip.error .bc-err { color: var(--amber); font-weight: 700; }
+        .batch-chip.active {
+            border-color: var(--red);
+            background: var(--red-bg);
+            color: var(--fg);
+        }
+        .batch-chip:not(:disabled) { cursor: pointer; }
+        .batch-chip:not(:disabled):hover {
+            border-color: var(--fg-faint);
+            color: var(--fg);
+        }
+        .bc-spin {
+            width: 10px;
+            height: 10px;
+            border: 2px solid var(--line-strong);
+            border-top-color: var(--red);
+            border-radius: 50%;
+            animation: retry-spin 0.7s linear infinite;
+        }
+
         /* ────────── view entrance transition ──────────
            Each top-level view fades + lifts in on mount, so switching
            Hero ↔ scan ↔ not-found reads as a transition rather than a

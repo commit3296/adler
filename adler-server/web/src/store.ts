@@ -112,6 +112,21 @@ export interface NotFoundState {
     detail: string;
 }
 
+/// One username in a batch run. `scanId` is filled once its scan is
+/// created, `found` once it finishes. Batch runs are sequential, so at
+/// most one entry is `running` at a time.
+export interface BatchEntry {
+    username: string;
+    scanId: string | null;
+    status: "queued" | "running" | "done" | "error";
+    found: number | null;
+}
+
+export interface BatchState {
+    entries: BatchEntry[];
+    running: boolean;
+}
+
 export interface FilterState {
     presetId: string | null;
     tag: string[];
@@ -164,6 +179,10 @@ export interface AppStore {
     /// `adler-server` version from `GET /api/health`, shown in the
     /// footer. Null until the health probe resolves.
     serverVersion: string | null;
+    /// Non-null while a multi-username batch is queued/running/just-
+    /// finished. Independent of `scan` — each batch entry drives its
+    /// own scan in turn, and the per-scan `clearScan` must not wipe it.
+    batch: BatchState | null;
     history: ScanListEntry[];
     view: ViewState;
     ui: UiState;
@@ -188,6 +207,7 @@ const [store, set] = createStore<AppStore>({
     notFound: null,
     loading: false,
     serverVersion: null,
+    batch: null,
     history: [],
     view: {
         sort: persisted.sort ?? "status",
@@ -475,6 +495,31 @@ export const actions = {
     setServerVersion(v: string) {
         set("serverVersion", v);
     },
+
+    // Batch (multi-username) lifecycle
+    startBatch(usernames: string[]) {
+        set("batch", {
+            entries: usernames.map((u) => ({
+                username: u,
+                scanId: null,
+                status: "queued" as const,
+                found: null,
+            })),
+            running: true,
+        });
+    },
+    updateBatchEntry(index: number, patch: Partial<BatchEntry>) {
+        if (!store.batch) return;
+        set("batch", "entries", index, (e) => ({ ...e, ...patch }));
+    },
+    finishBatch() {
+        if (!store.batch) return;
+        set("batch", "running", false);
+    },
+    clearBatch() {
+        set("batch", null);
+    },
+
     tickElapsed() {
         if (!store.scan || store.scan.status !== "running") return;
         set("scan", "elapsedMs", Date.now() - store.scan.startedAtMs);

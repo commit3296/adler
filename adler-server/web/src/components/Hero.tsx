@@ -1,9 +1,23 @@
-import { For, Show, type Component } from "solid-js";
+import { For, Show, createSignal, type Component } from "solid-js";
 import { PRESETS } from "../constants";
 import { actions, store } from "../store";
 
 interface Props {
     onSubmit: (username: string) => void;
+    onBatch: (usernames: string[]) => void;
+}
+
+/// Split a batch textarea into a deduped, trimmed username list.
+/// Accepts one-per-line or comma-separated (or a mix).
+function parseBatch(raw: string): string[] {
+    return [
+        ...new Set(
+            raw
+                .split(/[\n,]/)
+                .map((s) => s.trim())
+                .filter(Boolean),
+        ),
+    ];
 }
 
 export const Hero: Component<Props> = (p) => {
@@ -28,7 +42,16 @@ export const Hero: Component<Props> = (p) => {
         }).length;
     }
 
+    const [mode, setMode] = createSignal<"single" | "batch">("single");
+    const [batchRaw, setBatchRaw] = createSignal("");
+    const batchCount = () => parseBatch(batchRaw()).length;
+
     let inputRef: HTMLInputElement | undefined;
+
+    function submitBatch() {
+        const list = parseBatch(batchRaw());
+        if (list.length) p.onBatch(list);
+    }
 
     return (
         <section class="hero">
@@ -46,28 +69,91 @@ export const Hero: Component<Props> = (p) => {
                     </Show>{" "}
                     sites
                 </p>
-                <form
-                    class="search-form"
-                    autocomplete="off"
-                    onSubmit={(e) => {
-                        e.preventDefault();
-                        const u = inputRef?.value.trim();
-                        if (u) p.onSubmit(u);
-                    }}
-                >
-                    <input
-                        id="username"
-                        ref={inputRef}
-                        type="text"
-                        placeholder="username"
-                        required
-                        minlength="1"
-                        autofocus
-                    />
-                    <button class="scan-btn" type="submit">
-                        Scan
+
+                <div class="hero-mode" role="tablist">
+                    <button
+                        type="button"
+                        class={`hm-tab ${mode() === "single" ? "active" : ""}`}
+                        onClick={() => setMode("single")}
+                    >
+                        Single
                     </button>
-                </form>
+                    <button
+                        type="button"
+                        class={`hm-tab ${mode() === "batch" ? "active" : ""}`}
+                        onClick={() => setMode("batch")}
+                    >
+                        Batch
+                    </button>
+                </div>
+
+                <Show
+                    when={mode() === "single"}
+                    fallback={
+                        <form
+                            class="batch-form"
+                            autocomplete="off"
+                            onSubmit={(e) => {
+                                e.preventDefault();
+                                submitBatch();
+                            }}
+                        >
+                            <textarea
+                                class="batch-input"
+                                rows={5}
+                                placeholder={"one username per line\n\nlinus\ntorvalds\noctocat"}
+                                autofocus
+                                value={batchRaw()}
+                                onInput={(e) => setBatchRaw(e.currentTarget.value)}
+                                onKeyDown={(e) => {
+                                    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+                                        e.preventDefault();
+                                        submitBatch();
+                                    }
+                                }}
+                            />
+                            <div class="batch-actions">
+                                <span class="batch-hint">
+                                    {batchCount()} username
+                                    {batchCount() === 1 ? "" : "s"} ·{" "}
+                                    <kbd>⌘</kbd>
+                                    <kbd>↵</kbd> to run
+                                </span>
+                                <button
+                                    class="scan-btn"
+                                    type="submit"
+                                    disabled={batchCount() === 0}
+                                >
+                                    Scan {batchCount() || ""}
+                                </button>
+                            </div>
+                        </form>
+                    }
+                >
+                    <form
+                        class="search-form"
+                        autocomplete="off"
+                        onSubmit={(e) => {
+                            e.preventDefault();
+                            const u = inputRef?.value.trim();
+                            if (u) p.onSubmit(u);
+                        }}
+                    >
+                        <input
+                            id="username"
+                            ref={inputRef}
+                            type="text"
+                            placeholder="username"
+                            required
+                            minlength="1"
+                            autofocus
+                        />
+                        <button class="scan-btn" type="submit">
+                            Scan
+                        </button>
+                    </form>
+                </Show>
+
                 <div class="preset-row">
                     <For each={PRESETS}>
                         {(p) => (

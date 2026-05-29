@@ -27,6 +27,7 @@ import type { CheckOutcome } from "./types";
 
 import { About } from "./components/About";
 import { AdvancedFilters } from "./components/AdvancedFilters";
+import { BatchStrip } from "./components/BatchStrip";
 import { DatacenterHint } from "./components/DatacenterHint";
 import { Footer } from "./components/Footer";
 import { Hero } from "./components/Hero";
@@ -91,7 +92,11 @@ export const App: Component = () => {
     }
 
     // ─────────── scan lifecycle ───────────
-    async function startScan(username: string) {
+    /// Start a scan and resolve with its id when it *finishes* (or
+    /// `null` on stream/setup error). Resolving on completion lets a
+    /// batch run advance to the next username sequentially; single-scan
+    /// callers just ignore the returned promise.
+    async function startScan(username: string): Promise<string | null> {
         closeStream();
         stopElapsedTimer();
         actions.clearScan();
@@ -110,27 +115,60 @@ export const App: Component = () => {
             const r = await api.startScan(body);
             actions.beginScan(r.scan_id, r.username, r.site_count);
             history.replaceState(null, "", `#/scan/${r.scan_id}`);
-
             elapsedTimer = window.setInterval(() => actions.tickElapsed(), 100);
-            sseClose = streamScan(r.scan_id, {
-                onOutcome,
-                onDone: (f) => {
-                    stopElapsedTimer();
-                    actions.finishScan(f.summary, f.outcomes, f.elapsed_ms);
-                    refreshHistory();
-                },
-                onError: () => {
-                    actions.toast("Stream disconnected", "error");
-                    stopElapsedTimer();
-                },
+            return await new Promise<string | null>((resolve) => {
+                sseClose = streamScan(r.scan_id, {
+                    onOutcome,
+                    onDone: (f) => {
+                        stopElapsedTimer();
+                        actions.finishScan(f.summary, f.outcomes, f.elapsed_ms);
+                        refreshHistory();
+                        resolve(r.scan_id);
+                    },
+                    onError: () => {
+                        actions.toast("Stream disconnected", "error");
+                        stopElapsedTimer();
+                        resolve(null);
+                    },
+                });
+                refreshHistory();
             });
-            refreshHistory();
         } catch (err) {
             const msg = err instanceof ApiClientError ? err.message : String(err);
             actions.toast(`Scan failed: ${msg}`, "error");
             actions.setLoading(false);
             stopElapsedTimer();
+            return null;
         }
+    }
+
+    /// Run several usernames in sequence — each gets its own scan
+    /// (shown live + persisted to history); a strip tracks progress.
+    /// Sequential rather than concurrent so we don't fan out N full
+    /// scans at once, and so the live view follows one scan at a time.
+    async function runBatch(usernames: string[]) {
+        const uniq = [...new Set(usernames.map((u) => u.trim()).filter(Boolean))];
+        if (uniq.length === 0) return;
+        if (uniq.length === 1) {
+            actions.clearBatch();
+            await startScan(uniq[0]!);
+            return;
+        }
+        actions.startBatch(uniq);
+        for (let i = 0; i < uniq.length; i++) {
+            if (!store.batch) break; // user navigated away / cleared
+            actions.updateBatchEntry(i, { status: "running" });
+            const id = await startScan(uniq[i]!);
+            if (!store.batch) break;
+            if (id) {
+                const found =
+                    store.scan?.id === id ? (store.scan.summary?.found ?? 0) : 0;
+                actions.updateBatchEntry(i, { status: "done", scanId: id, found });
+            } else {
+                actions.updateBatchEntry(i, { status: "error" });
+            }
+        }
+        actions.finishBatch();
     }
 
     async function rescan() {
@@ -272,6 +310,7 @@ export const App: Component = () => {
     }
 
     function goHome() {
+        actions.clearBatch();
         actions.clearScan();
         location.hash = "#/";
     }
@@ -375,6 +414,7 @@ export const App: Component = () => {
         closeStream();
         stopElapsedTimer();
         if (isHomeHash(location.hash)) {
+            actions.clearBatch();
             actions.clearScan();
         } else {
             actions.setNotFound({ kind: "route", detail: location.hash });
@@ -580,7 +620,9 @@ export const App: Component = () => {
     // on cold-load: scan-view shell renders immediately, then the
     // results stream in once `loadScan` resolves.
     const hasView = createMemo(
-        () => !!(store.scan || store.diff || store.loading) || urlHasView(),
+        () =>
+            !!(store.scan || store.diff || store.loading || store.batch) ||
+            urlHasView(),
     );
     void categoryForTags;
     void CATEGORIES;
@@ -598,9 +640,24 @@ export const App: Component = () => {
                 >
                     <Show
                         when={hasView()}
-                        fallback={<Hero onSubmit={(u) => startScan(u)} />}
+                        fallback={
+                            <Hero
+                                onSubmit={(u) => {
+                                    actions.clearBatch();
+                                    startScan(u);
+                                }}
+                                onBatch={runBatch}
+                            />
+                        }
                     >
                         <section class="scan-view">
+                            <Show when={store.batch}>
+                                <BatchStrip
+                                    onOpen={(id) => {
+                                        location.hash = `#/scan/${id}`;
+                                    }}
+                                />
+                            </Show>
                             <Show
                                 when={store.scan || store.diff}
                                 fallback={<ScanSkeleton />}
