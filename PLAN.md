@@ -124,7 +124,15 @@ hard sites, tying back to the accuracy thesis):**
   hard requirement would stop direct-fetching region-tagged sites, so
   it needs prefer-then-fall-back semantics, decided separately.
 - [ ] **4 — Router + escalation + telemetry** feeding the doctor.
-- [ ] **5 — Session injection**: defeat login walls via real sessions.
+- [x] **5 — Session injection**: defeat login walls via real sessions.
+  `adler-core` — `Session` / `SessionStore`, `AccessPolicy.session`,
+  `ClientBuilder::sessions`; the router folds session headers over the
+  site's and applies them on both the HTTP and browser transports
+  (this also wired `request_headers` onto the HTTP path — the gap
+  flagged in phase 1); a named-but-missing session →
+  `Uncertain(SessionRequired)`. CLI — `--sessions <file.toml>`
+  (`[name]` tables of headers). Header values redacted from `Debug`,
+  never logged/serialised.
 - [ ] **6 — Web UI**: manage pools / sessions / per-scan egress in the
   SPA.
 

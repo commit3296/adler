@@ -100,6 +100,7 @@ impl Fetcher for HttpFetcher {
                     reqwest::Method::POST,
                     req.url,
                     req.user_agent,
+                    req.headers,
                     req.body,
                 )
                 .await
@@ -110,6 +111,7 @@ impl Fetcher for HttpFetcher {
                     reqwest::Method::GET,
                     req.url,
                     req.user_agent,
+                    req.headers,
                     None,
                 )
                 .await
@@ -120,6 +122,7 @@ impl Fetcher for HttpFetcher {
                     reqwest::Method::HEAD,
                     req.url,
                     req.user_agent,
+                    req.headers,
                     None,
                 )
                 .await
@@ -130,6 +133,7 @@ impl Fetcher for HttpFetcher {
                             reqwest::Method::GET,
                             req.url,
                             req.user_agent,
+                            req.headers,
                             None,
                         )
                         .await
@@ -224,24 +228,34 @@ impl Fetcher for BrowserFetcher {
     }
 }
 
-/// Issue one request with an optional User-Agent override and optional
-/// body. POST bodies default to `application/json`; sites needing a
-/// different content type set it via `request_headers` (browser path).
+/// Issue one request, applying the per-site / session `headers` and an
+/// optional User-Agent override and body. A `User-Agent` in `headers`
+/// wins over `ua`; a `Content-Type` in `headers` wins over the POST
+/// default of `application/json`.
 async fn send(
     client: &reqwest::Client,
     method: reqwest::Method,
     url: &str,
     ua: Option<&str>,
+    headers: &BTreeMap<String, String>,
     body: Option<&str>,
 ) -> reqwest::Result<reqwest::Response> {
     let mut request = client.request(method, url);
+    let has = |name: &str| headers.keys().any(|k| k.eq_ignore_ascii_case(name));
+    // Rotation/default UA only when the headers don't set their own.
     if let Some(ua) = ua {
-        request = request.header(reqwest::header::USER_AGENT, ua);
+        if !has("user-agent") {
+            request = request.header(reqwest::header::USER_AGENT, ua);
+        }
+    }
+    for (k, v) in headers {
+        request = request.header(k, v);
     }
     if let Some(b) = body {
-        request = request
-            .header(reqwest::header::CONTENT_TYPE, "application/json")
-            .body(b.to_owned());
+        if !has("content-type") {
+            request = request.header(reqwest::header::CONTENT_TYPE, "application/json");
+        }
+        request = request.body(b.to_owned());
     }
     request.send().await
 }

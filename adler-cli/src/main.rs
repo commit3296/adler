@@ -13,8 +13,8 @@ use std::time::{Duration, Instant};
 use adler_core::browser::{BrowserbaseBackend, BrowserbaseConfig, LocalBackend, LocalConfig};
 use adler_core::{
     BrowserBackend, Cache, CheckOutcome, Client, CorrelationReport, DoctorReport, EgressSpec,
-    ExecutorOptions, MatchKind, PermuteLevel, Registry, Site, Username, correlate, doctor,
-    executor, permute,
+    ExecutorOptions, MatchKind, PermuteLevel, Registry, Session, SessionStore, Site, Username,
+    correlate, doctor, executor, permute,
 };
 use anyhow::{Context as _, Result};
 use clap::{CommandFactory as _, Parser, ValueEnum};
@@ -225,6 +225,14 @@ struct Cli {
     /// default egress (`--proxy` or direct). See README → Egress pool.
     #[arg(long, value_name = "FILE")]
     proxy_pool: Option<PathBuf>,
+
+    /// Supply authenticated sessions from a TOML file. Each `[name]`
+    /// table is a set of HTTP headers (e.g. `Cookie`, `Authorization`)
+    /// applied to sites whose `access.session` names it — your own
+    /// (sock-puppet) login, used to reach pages behind a login wall.
+    /// Header values are secret: never logged. See README → Sessions.
+    #[arg(long, value_name = "FILE")]
+    sessions: Option<PathBuf>,
 
     /// Route through a local Tor SOCKS proxy (`socks5://127.0.0.1:9050`).
     #[arg(long)]
@@ -1255,6 +1263,25 @@ fn load_proxy_pool(path: &std::path::Path) -> Result<Vec<EgressSpec>> {
     parse_proxy_pool(&text).with_context(|| format!("in proxy pool {}", path.display()))
 }
 
+/// Parse the TOML body of a `--sessions` file: each top-level `[name]`
+/// table is a set of HTTP headers for that named session.
+fn parse_sessions(text: &str) -> Result<SessionStore> {
+    let raw: std::collections::HashMap<String, std::collections::BTreeMap<String, String>> =
+        toml::from_str(text).context("parsing sessions TOML")?;
+    let mut store = SessionStore::new();
+    for (name, headers) in raw {
+        store.insert(name, Session::from_headers(headers));
+    }
+    Ok(store)
+}
+
+/// Read and parse a `--sessions` file.
+fn load_sessions(path: &std::path::Path) -> Result<SessionStore> {
+    let text = std::fs::read_to_string(path)
+        .with_context(|| format!("reading sessions {}", path.display()))?;
+    parse_sessions(&text).with_context(|| format!("in sessions {}", path.display()))
+}
+
 async fn build_client(cli: &Cli) -> Result<Client> {
     let mut builder = Client::builder()
         .timeout(Duration::from_secs(cli.timeout))
@@ -1273,6 +1300,9 @@ async fn build_client(cli: &Cli) -> Result<Client> {
     };
     if let Some(path) = &cli.proxy_pool {
         builder = builder.egress_pool(load_proxy_pool(path)?);
+    }
+    if let Some(path) = &cli.sessions {
+        builder = builder.sessions(load_sessions(path)?);
     }
     if cli.rotate_ua {
         builder =
@@ -1807,6 +1837,26 @@ mod tests {
     #[test]
     fn empty_proxy_pool_toml_is_ok() {
         assert!(parse_proxy_pool("").expect("parses").is_empty());
+    }
+
+    #[test]
+    fn parses_sessions_toml() {
+        let toml = r#"
+            [ig]
+            Cookie = "sessionid=abc"
+            X-CSRF-Token = "tok"
+
+            [reddit]
+            Cookie = "reddit_session=xyz"
+        "#;
+        let store = parse_sessions(toml).expect("parses");
+        assert_eq!(store.len(), 2);
+        assert!(!store.is_empty());
+    }
+
+    #[test]
+    fn empty_sessions_toml_is_ok() {
+        assert!(parse_sessions("").expect("parses").is_empty());
     }
 
     fn outcome(site: &str, kind: MatchKind) -> CheckOutcome {

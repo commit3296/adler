@@ -71,6 +71,11 @@ pub enum UncertainReason {
     /// wrong location. "Couldn't reach from the required geo" is not
     /// "account absent" — hence `Uncertain`, never `NotFound`.
     GeoUnavailable,
+    /// The site's [`AccessPolicy`](crate::AccessPolicy) names a session
+    /// (`access.session`) that wasn't supplied, so the probe was skipped
+    /// rather than sent unauthenticated into a login wall — which reads
+    /// the same for an existing and a missing account.
+    SessionRequired,
     /// Any other reason (e.g. a `doctor` pre-flight skip).
     Other(String),
 }
@@ -90,6 +95,7 @@ impl fmt::Display for UncertainReason {
             Self::UsernameNotAllowed => f.write_str("username_not_allowed"),
             Self::BrowserFailed(detail) => write!(f, "browser: {detail}"),
             Self::GeoUnavailable => f.write_str("geo_unavailable"),
+            Self::SessionRequired => f.write_str("session_required"),
             Self::Other(detail) => f.write_str(detail),
         }
     }

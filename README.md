@@ -337,6 +337,40 @@ Bring your own proxies — Adler ships the routing, not the egress. The
 browser backend keeps its own egress (e.g. Browserbase's residential
 IPs); `--proxy-pool` routes the raw-HTTP path.
 
+## Sessions (reach login-walled sites)
+
+Some sites only show a profile to a logged-in user (Instagram, Threads,
+Reddit's JSON). A site can declare `access.session = "<name>"` in the
+registry; `--sessions <file>` supplies that named session's headers —
+your own (or a sock-puppet) account's — applied to the site's probe so
+it sees a real session instead of a login wall.
+
+This is "use a real account", not evasion: Adler doesn't solve
+challenges or forge anything; you bring a session you're entitled to.
+If a site names a session you didn't supply, it's reported
+`Uncertain(session_required)` rather than a login-wall false negative.
+
+The file is TOML; each `[name]` table is a set of HTTP headers (copy
+them from your browser's devtools):
+
+```toml
+# sessions.toml
+[ig]
+Cookie = "sessionid=...; csrftoken=..."
+X-IG-App-ID = "936619743392459"
+
+[reddit]
+Cookie = "reddit_session=..."
+```
+
+```bash
+adler --sessions sessions.toml alice
+```
+
+Header values are secrets — redacted from logs, never written to scan
+output. Using a sock-puppet account may breach a site's ToS; that's an
+operator decision within your engagement's scope.
+
 ## Library
 
 `adler-core` is the runtime-agnostic engine that powers the CLI;

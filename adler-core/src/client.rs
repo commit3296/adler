@@ -7,6 +7,8 @@
 //! [`MatchKind::Uncertain`](crate::MatchKind::Uncertain) on the returned
 //! outcome.
 
+use std::borrow::Cow;
+use std::collections::BTreeMap;
 use std::fmt;
 use std::num::NonZeroU32;
 use std::sync::Arc;
@@ -14,7 +16,7 @@ use std::time::{Duration, Instant};
 
 use reqwest::redirect;
 
-use crate::access::{EgressChoice, EgressPool, EgressSpec};
+use crate::access::{EgressChoice, EgressPool, EgressSpec, SessionStore};
 use crate::browser::{BrowserBackend, BrowserBudget};
 use crate::check::{CheckOutcome, MatchKind, UncertainReason};
 use crate::error::{Error, Result};
@@ -47,6 +49,9 @@ pub struct Client {
     /// Geo / IP-type egress pool for sites whose `access` policy needs a
     /// specific proxy. Empty by default → every site uses `http`.
     egress: Arc<EgressPool>,
+    /// Operator-supplied sessions, keyed by the name a site references
+    /// via `access.session`. Empty by default.
+    sessions: Arc<SessionStore>,
     throttle: HostThrottle,
     /// Global RPS cap applied across all hosts. `None` → uncapped.
     global_throttle: Option<HostThrottle>,
@@ -214,6 +219,28 @@ impl Client {
             }
         }
 
+        // Resolve an operator session if the site's access policy names
+        // one, and fold its headers (cookies / tokens) over the site's
+        // own. A named-but-missing session is reported rather than sent
+        // unauthenticated into a login wall — which reads identically
+        // for an existing and a missing account. Applies to both the
+        // HTTP and browser transports.
+        let session_headers: Cow<'_, BTreeMap<String, String>> = match &site.access.session {
+            None => Cow::Borrowed(&site.request_headers),
+            Some(name) => match self.sessions.get(name) {
+                Some(session) => Cow::Owned(session.apply(&site.request_headers)),
+                None => {
+                    return uncertain(
+                        &site.name,
+                        url,
+                        Instant::now(),
+                        UncertainReason::SessionRequired,
+                    );
+                }
+            },
+        };
+        let headers: &BTreeMap<String, String> = &session_headers;
+
         // Auto-route bot-protected sites through the browser backend when
         // one is configured. Raw HTTP can't see past their JS/login wall,
         // so this is the only way they ever produce a Found verdict.
@@ -233,7 +260,7 @@ impl Client {
                         url: &url,
                         body: None,
                         user_agent: None,
-                        headers: &site.request_headers,
+                        headers,
                         want_body: true,
                     };
                     let fetcher = BrowserFetcher::new(Arc::clone(backend));
@@ -319,7 +346,7 @@ impl Client {
             url: &url,
             body: body_for_post.as_deref(),
             user_agent: self.pick_user_agent(),
-            headers: &site.request_headers,
+            headers,
             want_body: needs_body,
         };
         match egress.fetch(&req).await {
@@ -400,6 +427,7 @@ pub struct ClientBuilder {
     browser: Option<Arc<dyn BrowserBackend>>,
     browser_budget: usize,
     egress: Vec<EgressSpec>,
+    sessions: SessionStore,
 }
 
 impl Default for ClientBuilder {
@@ -420,6 +448,7 @@ impl Default for ClientBuilder {
             browser: None,
             browser_budget: DEFAULT_BROWSER_BUDGET,
             egress: Vec::new(),
+            sessions: SessionStore::new(),
         }
     }
 }
@@ -545,6 +574,16 @@ impl ClientBuilder {
         self
     }
 
+    /// Supply operator authenticated sessions. A site whose `access`
+    /// policy names a session has that session's headers (cookies /
+    /// tokens) applied to its probe; a named-but-missing session yields
+    /// `Uncertain(SessionRequired)` rather than a login-wall false
+    /// negative. Replaces any previously set store.
+    pub fn sessions(mut self, sessions: SessionStore) -> Self {
+        self.sessions = sessions;
+        self
+    }
+
     /// Build a [`Client`].
     pub fn build(self) -> Result<Client> {
         let inner = build_reqwest(
@@ -587,6 +626,7 @@ impl ClientBuilder {
         Ok(Client {
             http: Arc::new(HttpFetcher::new(inner)),
             egress: Arc::new(EgressPool::new(egress_entries)),
+            sessions: Arc::new(self.sessions),
             throttle: HostThrottle::new(self.min_request_interval),
             global_throttle,
             retry: self.retry,
@@ -684,6 +724,7 @@ impl fmt::Debug for ClientBuilder {
             .field("browser", &self.browser.is_some())
             .field("browser_budget", &self.browser_budget)
             .field("egress", &self.egress)
+            .field("sessions", &self.sessions)
             .finish()
     }
 }
@@ -836,6 +877,7 @@ mod tests {
         site.access = crate::access::AccessPolicy {
             geo: vec![crate::access::CountryCode::new("pl").unwrap()],
             ip_type: None,
+            session: None,
         };
         let outcome = build_client().check(&site, &user()).await;
         assert_eq!(outcome.kind, MatchKind::Uncertain);
@@ -851,6 +893,63 @@ mod tests {
             recvd.len(),
             0,
             "geo-unavailable must skip the HTTP request entirely"
+        );
+    }
+
+    #[tokio::test]
+    async fn session_headers_are_sent_on_probe() {
+        // Only respond 200 when the request carries the session cookie,
+        // so a Found verdict proves the header was actually applied.
+        let server = MockServer::start().await;
+        Mock::given(any())
+            .and(wiremock::matchers::header("cookie", "sessionid=real"))
+            .respond_with(ResponseTemplate::new(200))
+            .mount(&server)
+            .await;
+        let mut headers = std::collections::BTreeMap::new();
+        headers.insert("Cookie".to_string(), "sessionid=real".to_string());
+        let mut store = SessionStore::new();
+        store.insert("acct", crate::access::Session::from_headers(headers));
+        let client = Client::builder()
+            .timeout(Duration::from_secs(2))
+            .min_request_interval(Duration::ZERO)
+            .max_retries(0)
+            .sessions(store)
+            .build()
+            .expect("client builds");
+        let mut site = site_with(&server, vec![Signal::StatusFound { codes: vec![200] }]);
+        site.access.session = Some("acct".to_string());
+        let outcome = client.check(&site, &user()).await;
+        assert_eq!(
+            outcome.kind,
+            MatchKind::Found,
+            "session cookie should unlock the 200 (got {:?})",
+            outcome.reason,
+        );
+    }
+
+    #[tokio::test]
+    async fn missing_named_session_is_session_required() {
+        let server = MockServer::start().await;
+        Mock::given(any())
+            .respond_with(ResponseTemplate::new(200))
+            .mount(&server)
+            .await;
+        let mut site = site_with(&server, vec![Signal::StatusFound { codes: vec![200] }]);
+        // Names a session the (empty) store doesn't have.
+        site.access.session = Some("not-configured".to_string());
+        let outcome = build_client().check(&site, &user()).await;
+        assert_eq!(outcome.kind, MatchKind::Uncertain);
+        assert!(
+            matches!(outcome.reason, Some(UncertainReason::SessionRequired)),
+            "expected SessionRequired, got {:?}",
+            outcome.reason,
+        );
+        let recvd = server.received_requests().await.unwrap_or_default();
+        assert_eq!(
+            recvd.len(),
+            0,
+            "a missing session must skip the request, not probe unauthenticated"
         );
     }
 

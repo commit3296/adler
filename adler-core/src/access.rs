@@ -13,6 +13,8 @@
 //! The browser transport keeps its backend's own egress; this phase
 //! routes the HTTP path only.
 
+use std::collections::{BTreeMap, HashMap};
+use std::fmt;
 use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
@@ -111,15 +113,98 @@ pub struct AccessPolicy {
     /// Require an egress of this network kind.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ip_type: Option<EgressKind>,
+    /// Name of an operator-supplied session (see `--sessions`) whose
+    /// headers (cookies / auth tokens) this site's probes must carry.
+    /// The site is unreachable without it, so a missing session yields
+    /// `Uncertain(SessionRequired)` rather than a login-wall false
+    /// `NotFound`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session: Option<String>,
 }
 
 impl AccessPolicy {
-    /// True when the policy imposes no egress constraint (the common
+    /// True when the policy imposes no constraint at all (the common
     /// case). Drives `skip_serializing_if` so existing `sites.json`
     /// entries serialise unchanged.
     #[must_use]
     pub fn is_default(&self) -> bool {
-        self.geo.is_empty() && self.ip_type.is_none()
+        self.geo.is_empty() && self.ip_type.is_none() && self.session.is_none()
+    }
+}
+
+/// An operator-supplied authenticated session for a site: a bag of HTTP
+/// headers (typically `Cookie`, sometimes `Authorization` / CSRF
+/// tokens) applied to probes for sites whose `access.session` names it.
+///
+/// This is "use a real account", not evasion — the operator brings a
+/// session they're entitled to. Header *values* are secrets: they're
+/// redacted from `Debug` and are never logged or serialised.
+#[derive(Clone, Default)]
+pub struct Session {
+    headers: BTreeMap<String, String>,
+}
+
+impl Session {
+    /// Build a session from plain header name→value pairs (e.g. parsed
+    /// from a `--sessions` config file).
+    #[must_use]
+    pub fn from_headers(headers: BTreeMap<String, String>) -> Self {
+        Self { headers }
+    }
+
+    /// Merge this session's headers over `base` (the session wins on
+    /// conflict), producing the header set for the outgoing request.
+    pub(crate) fn apply(&self, base: &BTreeMap<String, String>) -> BTreeMap<String, String> {
+        let mut out = base.clone();
+        for (k, v) in &self.headers {
+            out.insert(k.clone(), v.clone());
+        }
+        out
+    }
+}
+
+impl fmt::Debug for Session {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // Redact values — session headers carry cookies / tokens.
+        f.debug_struct("Session")
+            .field("headers", &self.headers.keys().collect::<Vec<_>>())
+            .finish_non_exhaustive()
+    }
+}
+
+/// Named-session store, indexed by the name a site references via
+/// `access.session`. Empty by default → a no-op.
+#[derive(Clone, Default, Debug)]
+pub struct SessionStore {
+    sessions: HashMap<String, Session>,
+}
+
+impl SessionStore {
+    /// An empty store.
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Insert (or replace) a named session.
+    pub fn insert(&mut self, name: impl Into<String>, session: Session) {
+        self.sessions.insert(name.into(), session);
+    }
+
+    /// True when no session is configured.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.sessions.is_empty()
+    }
+
+    /// Number of configured sessions.
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.sessions.len()
+    }
+
+    pub(crate) fn get(&self, name: &str) -> Option<&Session> {
+        self.sessions.get(name)
     }
 }
 
@@ -166,7 +251,9 @@ impl EgressPool {
     /// Constrained → a random matching egress, or [`EgressChoice::Unavailable`]
     /// when none fit (geo and/or kind don't match any pool entry).
     pub(crate) fn select(&self, policy: &AccessPolicy) -> EgressChoice {
-        if policy.is_default() {
+        // Only geo / IP-type constrain the egress; a session-only policy
+        // (no geo, no ip_type) still uses the default egress.
+        if policy.geo.is_empty() && policy.ip_type.is_none() {
             return EgressChoice::Default;
         }
         let matches: Vec<&EgressEntry> = self
@@ -225,6 +312,7 @@ mod tests {
         let policy = AccessPolicy {
             geo: vec![cc("pl")],
             ip_type: None,
+            session: None,
         };
         assert!(matches!(pool().select(&policy), EgressChoice::Use(_)));
     }
@@ -234,6 +322,7 @@ mod tests {
         let policy = AccessPolicy {
             geo: Vec::new(),
             ip_type: Some(EgressKind::Datacenter),
+            session: None,
         };
         assert!(matches!(pool().select(&policy), EgressChoice::Use(_)));
     }
@@ -245,6 +334,7 @@ mod tests {
         let policy = AccessPolicy {
             geo: vec![cc("pl")],
             ip_type: Some(EgressKind::Mobile),
+            session: None,
         };
         assert!(matches!(pool().select(&policy), EgressChoice::Unavailable));
     }
@@ -254,6 +344,7 @@ mod tests {
         let policy = AccessPolicy {
             geo: vec![cc("jp")],
             ip_type: None,
+            session: None,
         };
         assert!(matches!(pool().select(&policy), EgressChoice::Unavailable));
     }
@@ -264,7 +355,31 @@ mod tests {
         let policy = AccessPolicy {
             geo: vec![cc("pl")],
             ip_type: None,
+            session: None,
         };
         assert!(matches!(empty.select(&policy), EgressChoice::Unavailable));
+    }
+
+    #[test]
+    fn session_apply_overrides_base_headers() {
+        let mut base = BTreeMap::new();
+        base.insert("X-IG-App-ID".to_string(), "936".to_string());
+        base.insert("Cookie".to_string(), "old".to_string());
+        let mut sh = BTreeMap::new();
+        sh.insert("Cookie".to_string(), "sessionid=real".to_string());
+        let merged = Session::from_headers(sh).apply(&base);
+        // Session wins on conflict; non-conflicting base header preserved.
+        assert_eq!(merged.get("Cookie").unwrap(), "sessionid=real");
+        assert_eq!(merged.get("X-IG-App-ID").unwrap(), "936");
+    }
+
+    #[test]
+    fn session_store_insert_and_lookup() {
+        let mut store = SessionStore::new();
+        assert!(store.is_empty());
+        store.insert("ig", Session::from_headers(BTreeMap::new()));
+        assert!(!store.is_empty());
+        assert!(store.get("ig").is_some());
+        assert!(store.get("missing").is_none());
     }
 }
