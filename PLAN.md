@@ -46,6 +46,77 @@ modern terminal UX.
   failures. See README for the breakdown of what doesn't detect
   and why.
 
+## Access engine (next major initiative)
+
+**Strategic framing.** Adler's positioning is a tool real red-team /
+OSINT operators adopt over Sherlock/Maigret. The switch trigger is
+reaching *the sites that matter* (geo-restricted, fingerprinted,
+login-walled) with verdicts you can trust — access is the bottleneck,
+not signature parsing. The pieces exist but are ad-hoc (single global
+proxy, browser backends gated by the `bot-protected` tag, FlareSolverr,
+`--tor`). This initiative unifies them into one engine where **each
+site declares what it needs and a router supplies it**.
+
+**Ethical line (decided).** We build "legitimate access as a real
+user": geo/residential proxy routing, realistic TLS/HTTP fingerprints,
+JS rendering, and injection of a real (operator-supplied) session. We
+do **not** ship CAPTCHA solving or anti-detect defeat of
+human-verification. The `Fetcher` trait leaves an extension point but
+ships nothing there. The README/ethics text moves from "never bypass
+access controls" to: *access public content as a legitimate user
+would; we do not solve human-verification challenges or defeat
+controls designed to stop automation.*
+
+**Architecture.**
+
+- `Fetcher` trait normalises the request path into `FetchResponse` /
+  `FetchError`; `Client` becomes a router over fetchers. Transports:
+  `HttpFetcher` (reqwest), `ImpersonateFetcher` (`rquest`, behind an
+  `impersonate` Cargo feature so the base build stays lean),
+  `BrowserFetcher` (adapts the existing `BrowserBackend`),
+  `FlareSolverrFetcher`.
+- **Egress** layer orthogonal to transport: a pool of proxies tagged
+  `{country, kind: direct|datacenter|residential|mobile|tor}`. reqwest
+  bakes the proxy at build, so this is a lazy per-egress client cache.
+  Throttle stays per-host.
+- **Per-site `access` policy** (new `Site::access`): `geo`, `ip_type`,
+  `transport` pref, `session` name. The existing `protection` vec
+  *infers* a default transport (`tls-fingerprint`→impersonate,
+  `cloudflare`→browser/flaresolverr, `user-auth`→needs session); the
+  `region:*` tags auto-imply `access.geo` (overridable).
+- **Router with escalation**: cheap→expensive ladder
+  (http → impersonate → browser/flaresolverr), egress chosen from
+  policy, bounded by an access budget, recording what worked to feed
+  the doctor. A required geo with no matching egress, or a block after
+  escalation, yields `Uncertain(GeoUnavailable | AccessDenied |
+  ChallengeUnsolved | SessionRequired | …)` — **never** `NotFound`
+  (truthful verdicts are the whole point).
+- **Session injection** (the login-wall key): an operator-supplied
+  `Session { cookies, headers }` store (TOML / env), referenced by
+  `access.session`. Secrets are `SecretString`, never logged, scrubbed
+  from `CheckOutcome` / persisted scans. This is "use a real account",
+  not evasion — and it's what cracks the Reddit / Threads / login-wall
+  entries in *Honest limits* below.
+- **Config**: `access.toml` (egress pools + sessions) as source of
+  truth; `--proxy` stays for the trivial single-proxy case; the web UI
+  later manages the same file + per-scan egress override.
+
+**Phases (each shippable; phase 3 is what unblocks benchmarking the
+hard sites, tying back to the accuracy thesis):**
+
+- [ ] **1 — `Fetcher` seam**: hoist the HTTP + browser paths in
+  `client.rs::probe_once` behind the trait with zero behaviour change;
+  parity proven by the existing test suite.
+- [ ] **2 — Impersonate transport** (`rquest`, `impersonate` feature):
+  biggest cheap coverage win against fingerprint blocks.
+- [ ] **3 — Egress pool + geo routing**: pool, per-egress client cache,
+  `access.geo`/`ip_type`, migrate `region:*`→`access.geo`,
+  `Uncertain(GeoUnavailable)`.
+- [ ] **4 — Router + escalation + telemetry** feeding the doctor.
+- [ ] **5 — Session injection**: defeat login walls via real sessions.
+- [ ] **6 — Web UI**: manage pools / sessions / per-scan egress in the
+  SPA.
+
 ## Next
 
 In rough priority order. None of these are blocking anything that
