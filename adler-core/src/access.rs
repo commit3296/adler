@@ -65,12 +65,13 @@ impl From<CountryCode> for String {
 /// A site's `ip_type` requirement is matched against this. (`Direct`
 /// isn't a kind here — the unproxied default egress is selected by an
 /// *unconstrained* policy, not by requesting a kind.)
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 #[non_exhaustive]
 pub enum EgressKind {
     /// A datacenter / hosting-provider IP (cheap, easily fingerprinted
-    /// and blocked).
+    /// and blocked). The default when a config entry omits `kind`.
+    #[default]
     Datacenter,
     /// A residential ISP IP (harder to block; what most "real users"
     /// look like).
@@ -82,16 +83,21 @@ pub enum EgressKind {
     Tor,
 }
 
-/// A configured egress (proxy) the client can route through. Produced
-/// from CLI / config; the live client pairs each spec with its own HTTP
-/// client (reqwest bakes the proxy in at build time).
-#[derive(Debug, Clone)]
+/// A configured egress (proxy) the client can route through.
+///
+/// Produced from CLI / config; the live client pairs each spec with its
+/// own HTTP client (reqwest bakes the proxy in at build time).
+/// Deserialises from the `[[egress]]` entries of a proxy-pool config
+/// file.
+#[derive(Debug, Clone, Deserialize)]
 pub struct EgressSpec {
     /// Proxy URL — `http://`, `https://`, `socks5://`, or `socks5h://`.
     pub url: String,
     /// Country this egress exits from, if known.
+    #[serde(default)]
     pub country: Option<CountryCode>,
-    /// Network kind this egress exits from.
+    /// Network kind this egress exits from (defaults to `datacenter`).
+    #[serde(default)]
     pub kind: EgressKind,
 }
 

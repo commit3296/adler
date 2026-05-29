@@ -12,8 +12,9 @@ use std::time::{Duration, Instant};
 
 use adler_core::browser::{BrowserbaseBackend, BrowserbaseConfig, LocalBackend, LocalConfig};
 use adler_core::{
-    BrowserBackend, Cache, CheckOutcome, Client, CorrelationReport, DoctorReport, ExecutorOptions,
-    MatchKind, PermuteLevel, Registry, Site, Username, correlate, doctor, executor, permute,
+    BrowserBackend, Cache, CheckOutcome, Client, CorrelationReport, DoctorReport, EgressSpec,
+    ExecutorOptions, MatchKind, PermuteLevel, Registry, Site, Username, correlate, doctor,
+    executor, permute,
 };
 use anyhow::{Context as _, Result};
 use clap::{CommandFactory as _, Parser, ValueEnum};
@@ -216,6 +217,14 @@ struct Cli {
     /// Route all requests through a proxy (http://, https://, or socks5://).
     #[arg(long, value_name = "URL", conflicts_with = "tor")]
     proxy: Option<String>,
+
+    /// Route geo / IP-type-specific sites through a pool of proxies
+    /// defined in a TOML file (`[[egress]]` entries with `url`,
+    /// optional `country` and `kind`). Only sites whose `access` policy
+    /// requires a matching egress use the pool; everything else uses the
+    /// default egress (`--proxy` or direct). See README → Egress pool.
+    #[arg(long, value_name = "FILE")]
+    proxy_pool: Option<PathBuf>,
 
     /// Route through a local Tor SOCKS proxy (`socks5://127.0.0.1:9050`).
     #[arg(long)]
@@ -1224,6 +1233,28 @@ async fn scan(
     cached.into_iter().chain(fresh).collect()
 }
 
+/// A proxy-pool config file (`--proxy-pool`): `[[egress]]` entries
+/// describing the geo / IP-type-tagged proxies that sites can require
+/// via their access policy.
+#[derive(serde::Deserialize)]
+struct ProxyPoolFile {
+    #[serde(default)]
+    egress: Vec<EgressSpec>,
+}
+
+/// Parse the TOML body of a proxy-pool file into egress specs.
+fn parse_proxy_pool(text: &str) -> Result<Vec<EgressSpec>> {
+    let parsed: ProxyPoolFile = toml::from_str(text).context("parsing proxy pool TOML")?;
+    Ok(parsed.egress)
+}
+
+/// Read and parse a `--proxy-pool` file.
+fn load_proxy_pool(path: &std::path::Path) -> Result<Vec<EgressSpec>> {
+    let text = std::fs::read_to_string(path)
+        .with_context(|| format!("reading proxy pool {}", path.display()))?;
+    parse_proxy_pool(&text).with_context(|| format!("in proxy pool {}", path.display()))
+}
+
 async fn build_client(cli: &Cli) -> Result<Client> {
     let mut builder = Client::builder()
         .timeout(Duration::from_secs(cli.timeout))
@@ -1240,6 +1271,9 @@ async fn build_client(cli: &Cli) -> Result<Client> {
     } else {
         None
     };
+    if let Some(path) = &cli.proxy_pool {
+        builder = builder.egress_pool(load_proxy_pool(path)?);
+    }
     if cli.rotate_ua {
         builder =
             builder.rotate_user_agents(USER_AGENT_POOL.iter().map(|s| (*s).to_owned()).collect());
@@ -1747,8 +1781,33 @@ fn write_outputs(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use adler_core::{CorrelationReport, UncertainReason};
+    use adler_core::{CorrelationReport, EgressKind, UncertainReason};
     use std::collections::BTreeMap;
+
+    #[test]
+    fn parses_proxy_pool_toml() {
+        let toml = r#"
+            [[egress]]
+            url = "socks5://pl.example:1080"
+            country = "PL"
+            kind = "residential"
+
+            [[egress]]
+            url = "http://dc.example:8080"
+        "#;
+        let specs = parse_proxy_pool(toml).expect("parses");
+        assert_eq!(specs.len(), 2);
+        assert_eq!(specs[0].country.as_ref().unwrap().as_str(), "pl");
+        assert!(matches!(specs[0].kind, EgressKind::Residential));
+        // Second entry omits country/kind → None + default Datacenter.
+        assert!(specs[1].country.is_none());
+        assert!(matches!(specs[1].kind, EgressKind::Datacenter));
+    }
+
+    #[test]
+    fn empty_proxy_pool_toml_is_ok() {
+        assert!(parse_proxy_pool("").expect("parses").is_empty());
+    }
 
     fn outcome(site: &str, kind: MatchKind) -> CheckOutcome {
         CheckOutcome {

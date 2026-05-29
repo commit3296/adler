@@ -219,6 +219,7 @@ adler --permute aggressive alice  # also search spelling variants
 # throughput & network hygiene
 adler --concurrency 64 alice      # more in-flight probes (default 32)
 adler --proxy socks5://host:1080 alice
+adler --proxy-pool pool.toml alice  # geo/IP-type egress pool (see § Egress pool)
 adler --tor alice                 # local Tor SOCKS proxy
 adler --rotate-ua alice           # rotate User-Agent per request
 adler --max-rps 5 alice           # cap total request rate
@@ -297,6 +298,44 @@ The lever that matters is therefore concurrency, not micro-optimisation:
 - The result cache (`~/.cache/adler/`) skips re-probing unchanged sites
   between runs entirely.
 - `--max-rps` trades throughput for politeness when you need a global cap.
+
+## Egress pool (geo routing)
+
+Some sites only answer from a particular country, or block datacenter
+IP ranges. A site can declare what egress it needs via its `access`
+policy in the registry (a country and/or an IP type); `--proxy-pool`
+supplies the proxies that satisfy those requirements.
+
+`--proxy` still routes *everything* through one proxy (the default
+egress). `--proxy-pool` is additive and **only** kicks in for sites
+whose `access` policy requires a specific egress — everything else
+keeps using the default. If a site needs an egress the pool can't
+provide, it's reported `Uncertain(geo_unavailable)` rather than fetched
+from the wrong place — a location you can't reach is not evidence the
+account is absent.
+
+The pool is a TOML file of `[[egress]]` entries:
+
+```toml
+# pool.toml
+[[egress]]
+url = "socks5://user:pass@pl.example.com:1080"
+country = "pl"          # ISO-3166-1 alpha-2 (lowercased)
+kind = "residential"    # datacenter (default) | residential | mobile | tor
+
+[[egress]]
+url = "http://de.example.com:8080"
+country = "de"
+# kind omitted → datacenter
+```
+
+```bash
+adler --proxy-pool pool.toml alice
+```
+
+Bring your own proxies — Adler ships the routing, not the egress. The
+browser backend keeps its own egress (e.g. Browserbase's residential
+IPs); `--proxy-pool` routes the raw-HTTP path.
 
 ## Library
 

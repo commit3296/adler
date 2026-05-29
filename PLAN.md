@@ -112,17 +112,17 @@ hard sites, tying back to the accuracy thesis):**
   today — candidate fix for Phase 2.)
 - [ ] **2 — Impersonate transport** (`rquest`, `impersonate` feature):
   biggest cheap coverage win against fingerprint blocks.
-- [~] **3 — Egress pool + geo routing**. **Core landed** in `adler-core`
-  (`src/access.rs`: `CountryCode` / `EgressKind` / `EgressSpec` /
-  `AccessPolicy`; `EgressPool` + selection; `Site::access`;
-  `ClientBuilder::egress_pool` with a per-egress reqwest-client cache;
-  router resolves egress → `Uncertain(GeoUnavailable)` when a
-  constrained policy has no match — zero default behaviour change,
-  parity by the existing suite). **Remaining:** CLI / TOML config to
-  populate the pool (`--proxy-pool`; `--proxy` → single-entry); and the
-  `region:*`→`access.geo` migration, *deferred* because making it a hard
-  requirement would stop direct-fetching region-tagged sites — it needs
-  soft (prefer-then-fall-back) semantics, decided separately.
+- [x] **3 — Egress pool + geo routing**. `adler-core/src/access.rs`
+  (`CountryCode` / `EgressKind` / `EgressSpec` / `AccessPolicy`;
+  `EgressPool` + selection; `Site::access`; `ClientBuilder::egress_pool`
+  with a per-egress reqwest-client cache; router →
+  `Uncertain(GeoUnavailable)` when a constrained policy has no match —
+  zero default behaviour change). CLI: `--proxy-pool <file.toml>`
+  (`[[egress]]` with `url` / `country` / `kind`); `--proxy` stays the
+  default egress. The browser transport keeps its own egress.
+  *Deferred:* a soft `region:*`→`access.geo` migration — making it a
+  hard requirement would stop direct-fetching region-tagged sites, so
+  it needs prefer-then-fall-back semantics, decided separately.
 - [ ] **4 — Router + escalation + telemetry** feeding the doctor.
 - [ ] **5 — Session injection**: defeat login walls via real sessions.
 - [ ] **6 — Web UI**: manage pools / sessions / per-scan egress in the
