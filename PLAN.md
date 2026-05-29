@@ -104,9 +104,12 @@ controls designed to stop automation.*
 **Phases (each shippable; phase 3 is what unblocks benchmarking the
 hard sites, tying back to the accuracy thesis):**
 
-- [ ] **1 — `Fetcher` seam**: hoist the HTTP + browser paths in
+- [x] **1 — `Fetcher` seam**: hoist the HTTP + browser paths in
   `client.rs::probe_once` behind the trait with zero behaviour change;
-  parity proven by the existing test suite.
+  parity proven by the existing test suite. (`adler-core/src/transport.rs`:
+  `Fetcher` trait + `HttpFetcher` / `BrowserFetcher`; `Client` is now the
+  router. Found that `request_headers` apply only on the browser path
+  today — candidate fix for Phase 2.)
 - [ ] **2 — Impersonate transport** (`rquest`, `impersonate` feature):
   biggest cheap coverage win against fingerprint blocks.
 - [ ] **3 — Egress pool + geo routing**: pool, per-egress client cache,

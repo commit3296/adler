@@ -143,6 +143,7 @@ mod retry;
 mod robots;
 mod site;
 mod throttle;
+mod transport;
 mod username;
 
 pub mod browser;

@@ -14,14 +14,16 @@ use std::time::{Duration, Instant};
 
 use reqwest::redirect;
 
-use crate::ban;
-use crate::browser::{BrowserBackend, BrowserBudget, RenderedPage};
+use crate::browser::{BrowserBackend, BrowserBudget};
 use crate::check::{CheckOutcome, MatchKind, UncertainReason};
 use crate::error::{Error, Result};
 use crate::retry::{self, RetryPolicy};
 use crate::robots::RobotsCache;
 use crate::site::{HttpMethod, Probe, Signal, SignalVerdict, Site, aggregate};
 use crate::throttle::HostThrottle;
+use crate::transport::{
+    BROWSER_TIMEOUT, BrowserFetcher, FetchError, FetchRequest, Fetcher, HttpFetcher,
+};
 use crate::username::Username;
 
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(10);
@@ -40,7 +42,7 @@ const GLOBAL_THROTTLE_KEY: &str = "*global*";
 /// accidentally exceed a per-host budget by spawning more clients.
 #[derive(Clone)]
 pub struct Client {
-    inner: reqwest::Client,
+    http: Arc<HttpFetcher>,
     throttle: HostThrottle,
     /// Global RPS cap applied across all hosts. `None` → uncapped.
     global_throttle: Option<HostThrottle>,
@@ -114,7 +116,7 @@ impl Client {
             global.wait(GLOBAL_THROTTLE_KEY).await;
         }
         self.throttle.wait(&host).await;
-        let mut request = self.inner.get(url);
+        let mut request = self.http.client().get(url);
         if let Some(ua) = self.pick_user_agent() {
             request = request.header(reqwest::header::USER_AGENT, ua);
         }
@@ -214,14 +216,27 @@ impl Client {
         // A site is "bot-protected" in the routing sense if it carries
         // the legacy tag OR declares any specific protection mechanism
         // via the new `protection` field — either signal is enough.
-        if let Some(backend) = self.browser.as_deref() {
+        if let Some(backend) = &self.browser {
             let has_tag = site
                 .tags
                 .iter()
                 .any(|t| t.eq_ignore_ascii_case(BOT_PROTECTED_TAG));
             if has_tag || !site.protection.is_empty() {
                 if self.browser_budget.try_consume() {
-                    return self.probe_with_browser(site, &url, backend).await;
+                    let started = Instant::now();
+                    let req = FetchRequest {
+                        method: site.request_method,
+                        url: &url,
+                        body: None,
+                        user_agent: None,
+                        headers: &site.request_headers,
+                        want_body: true,
+                    };
+                    let fetcher = BrowserFetcher::new(Arc::clone(backend));
+                    return match fetcher.fetch(&req).await {
+                        Ok(resp) => self.finish(site, url, started, &resp),
+                        Err(FetchError(reason)) => uncertain(&site.name, url, started, reason),
+                    };
                 }
                 tracing::warn!(site = %site.name, "browser budget exhausted");
                 return uncertain(
@@ -258,17 +273,15 @@ impl Client {
         let started = Instant::now();
         tracing::debug!(%url, %host, "probing");
 
-        // Read the body if a signal needs it, or if enrichment is on and the
-        // site has extractor rules (extraction needs the body).
+        // Read the body only if a signal needs it, or enrichment is on
+        // and the site declares extractor rules (extraction needs it).
         let want_enrich = self.enrich && !site.extract.is_empty();
         let needs_body = want_enrich || site.signals.iter().any(crate::site::Signal::needs_body);
 
         // POST sites carry their own body payload (the username goes in
         // the body, not the URL — e.g. Anilist's GraphQL endpoint).
-        // HEAD optimisation only applies to GET-probed sites: a HEAD
-        // for a POST endpoint would defeat its purpose. Body
-        // substitution mirrors URL substitution: `{username}` in
-        // `Site::request_body` is replaced before sending.
+        // `{username}` in `Site::request_body` is substituted here,
+        // mirroring URL substitution.
         let body_for_post: Option<String> = if matches!(site.request_method, HttpMethod::Post) {
             const USERNAME_PH: &str = "{username}";
             site.request_body
@@ -278,102 +291,34 @@ impl Client {
             None
         };
 
-        // For status-only sites (only StatusFound / StatusNotFound /
-        // RedirectAbsent signals, no enrichment), HEAD avoids the body
-        // download entirely — saving bandwidth and time on the
-        // ~30% of the registry that doesn't need a body marker.
-        // Some servers reject HEAD with 405; we transparently retry
-        // with GET so the optimisation never costs accuracy. POST
-        // probes always go out as POST regardless of body needs.
-        let response = match site.request_method {
-            HttpMethod::Post => {
-                send_request_with_body(
-                    &self.inner,
-                    reqwest::Method::POST,
-                    &url,
-                    self.pick_user_agent(),
-                    body_for_post.as_deref(),
-                )
-                .await
-            }
-            HttpMethod::Get if needs_body => {
-                send_request(
-                    &self.inner,
-                    reqwest::Method::GET,
-                    &url,
-                    self.pick_user_agent(),
-                )
-                .await
-            }
-            HttpMethod::Get => {
-                match send_request(
-                    &self.inner,
-                    reqwest::Method::HEAD,
-                    &url,
-                    self.pick_user_agent(),
-                )
-                .await
-                {
-                    Ok(r) if r.status().as_u16() == 405 => {
-                        send_request(
-                            &self.inner,
-                            reqwest::Method::GET,
-                            &url,
-                            self.pick_user_agent(),
-                        )
-                        .await
-                    }
-                    other => other,
-                }
-            }
+        let req = FetchRequest {
+            method: site.request_method,
+            url: &url,
+            body: body_for_post.as_deref(),
+            user_agent: self.pick_user_agent(),
+            headers: &site.request_headers,
+            want_body: needs_body,
         };
-        let response = match response {
-            Ok(r) => r,
-            Err(err) => {
-                tracing::debug!(error = %err, "request failed");
-                return uncertain(
-                    &site.name,
-                    url,
-                    started,
-                    UncertainReason::Network(err.to_string()),
-                );
-            }
-        };
-
-        let status = response.status().as_u16();
-        let final_url = response.url().to_string();
-
-        if let Some(reason) = ban::detect_pre_body(status, response.headers()) {
-            tracing::warn!(%host, status, %reason, "ban-like response");
-            return uncertain(&site.name, url, started, reason);
+        match self.http.fetch(&req).await {
+            Ok(resp) => self.finish(site, url, started, &resp),
+            Err(FetchError(reason)) => uncertain(&site.name, url, started, reason),
         }
-        let body = if needs_body {
-            match response.text().await {
-                Ok(b) => b,
-                Err(err) => {
-                    return uncertain(
-                        &site.name,
-                        url,
-                        started,
-                        UncertainReason::BodyRead(err.to_string()),
-                    );
-                }
-            }
-        } else {
-            String::new()
-        };
+    }
 
-        if !body.is_empty() {
-            if let Some(reason) = ban::detect_in_body(&body) {
-                tracing::warn!(%host, %reason, "ban-like body");
-                return uncertain(&site.name, url, started, reason);
-            }
-        }
-
+    /// Evaluate a fetched response against the site's signals and build
+    /// the outcome. Shared by the HTTP and browser transports so the
+    /// verdict / evidence / enrichment logic lives in exactly one place.
+    fn finish(
+        &self,
+        site: &Site,
+        url: String,
+        started: Instant,
+        resp: &crate::transport::FetchResponse,
+    ) -> CheckOutcome {
         let probe = Probe {
-            status,
-            final_url: &final_url,
-            body: &body,
+            status: resp.status,
+            final_url: &resp.final_url,
+            body: &resp.body,
         };
         let votes: Vec<(&Signal, SignalVerdict)> = site
             .signals
@@ -395,78 +340,8 @@ impl Client {
                 .map(|(s, _)| s.describe_match(&probe))
                 .collect();
         }
-        if want_enrich && kind == MatchKind::Found {
-            result.enrichment = crate::enrich::extract(&body, &site.extract);
-        }
-        result
-    }
-
-    /// Render `url` through the configured [`BrowserBackend`] and run the
-    /// same signal pipeline on the result. Per-fetch failures (timeout,
-    /// navigation error, etc.) surface as `Uncertain(BrowserFailed)` so
-    /// one flaky bot-protected site can't abort the scan.
-    async fn probe_with_browser(
-        &self,
-        site: &Site,
-        url: &str,
-        backend: &dyn BrowserBackend,
-    ) -> CheckOutcome {
-        let started = Instant::now();
-        let parsed = match url::Url::parse(url) {
-            Ok(u) => u,
-            Err(err) => {
-                return uncertain(
-                    &site.name,
-                    url.to_owned(),
-                    started,
-                    UncertainReason::Other(format!("invalid url: {err}")),
-                );
-            }
-        };
-
-        let page: RenderedPage = match backend
-            .fetch(&parsed, &site.request_headers, BROWSER_TIMEOUT)
-            .await
-        {
-            Ok(p) => p,
-            Err(err) => {
-                tracing::warn!(site = %site.name, %url, error = %err, "browser fetch failed");
-                return uncertain(
-                    &site.name,
-                    url.to_owned(),
-                    started,
-                    UncertainReason::BrowserFailed(err.to_string()),
-                );
-            }
-        };
-
-        let final_url_str = page.final_url.as_str().to_owned();
-        let probe = Probe {
-            status: page.status,
-            final_url: &final_url_str,
-            body: &page.body,
-        };
-        let votes: Vec<(&Signal, SignalVerdict)> = site
-            .signals
-            .iter()
-            .map(|s| (s, s.evaluate(&probe)))
-            .collect();
-        let kind = aggregate(votes.iter().map(|(_, v)| *v));
-        let mut result = outcome(&site.name, url.to_owned(), started, kind);
-        let winning = match kind {
-            MatchKind::Found => Some(SignalVerdict::Found),
-            MatchKind::NotFound => Some(SignalVerdict::NotFound),
-            MatchKind::Uncertain => None,
-        };
-        if let Some(want) = winning {
-            result.evidence = votes
-                .iter()
-                .filter(|(_, v)| *v == want)
-                .map(|(s, _)| s.describe_match(&probe))
-                .collect();
-        }
         if self.enrich && kind == MatchKind::Found && !site.extract.is_empty() {
-            result.enrichment = crate::enrich::extract(&page.body, &site.extract);
+            result.enrichment = crate::enrich::extract(&resp.body, &site.extract);
         }
         result
     }
@@ -678,7 +553,7 @@ impl ClientBuilder {
             .respect_robots
             .then(|| RobotsCache::new(inner.clone(), "adler"));
         Ok(Client {
-            inner,
+            http: Arc::new(HttpFetcher::new(inner)),
             throttle: HostThrottle::new(self.min_request_interval),
             global_throttle,
             retry: self.retry,
@@ -735,52 +610,10 @@ impl fmt::Debug for ClientBuilder {
     }
 }
 
-/// Per-fetch timeout passed to [`BrowserBackend::fetch`]. Browser fetches
-/// (JS execution + waits) are inherently slower than raw HTTP, so this is
-/// generous on purpose.
-const BROWSER_TIMEOUT: Duration = Duration::from_secs(60);
-
 const BOT_PROTECTED_TAG: &str = "bot-protected";
 
 fn default_user_agent() -> String {
     format!("adler/{}", env!("CARGO_PKG_VERSION"))
-}
-
-/// Issue a single HTTP request with the configured client, an optional
-/// User-Agent override, and the given method. Centralised so the probe
-/// path can transparently swap HEAD for GET (and retry on 405) without
-/// duplicating the request-build logic.
-async fn send_request(
-    client: &reqwest::Client,
-    method: reqwest::Method,
-    url: &str,
-    ua: Option<&str>,
-) -> reqwest::Result<reqwest::Response> {
-    send_request_with_body(client, method, url, ua, None).await
-}
-
-/// Same as [`send_request`] but with an optional request body — used
-/// for POST probes against API endpoints (GraphQL, login form, …).
-/// When `body` is `Some`, the request is sent with a `application/json`
-/// content type by default; sites that need a different content type
-/// declare it through [`Site::request_headers`].
-async fn send_request_with_body(
-    client: &reqwest::Client,
-    method: reqwest::Method,
-    url: &str,
-    ua: Option<&str>,
-    body: Option<&str>,
-) -> reqwest::Result<reqwest::Response> {
-    let mut request = client.request(method, url);
-    if let Some(ua) = ua {
-        request = request.header(reqwest::header::USER_AGENT, ua);
-    }
-    if let Some(b) = body {
-        request = request
-            .header(reqwest::header::CONTENT_TYPE, "application/json")
-            .body(b.to_owned());
-    }
-    request.send().await
 }
 
 fn host_of(url: &str) -> String {
@@ -835,6 +668,7 @@ fn elapsed_ms(started: Instant) -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::browser::RenderedPage;
     use crate::site::{Signal, UrlTemplate};
     use wiremock::matchers::{any, method, path};
     use wiremock::{Mock, MockServer, ResponseTemplate};
