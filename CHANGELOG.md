@@ -9,6 +9,12 @@ pre-1.0 bump rules.
 
 ## [Unreleased]
 
+## [0.9.0](https://github.com/commit3296/adler/compare/v0.8.3...v0.9.0) - 2026-05-29
+
+### Added
+- *(cli)* --proxy-pool egress config for geo routing (phase 3)
+- *(core)* per-site access policy + egress pool with geo routing (phase 3 core)
+
 ## [0.8.3](https://github.com/commit3296/adler/compare/v0.8.2...v0.8.3) - 2026-05-29
 
 ### Added
