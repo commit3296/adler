@@ -374,6 +374,7 @@ pub async fn scaffold_site(
         disabled: false,
         source: None,
         popularity: None,
+        access: crate::AccessPolicy::default(),
     };
     Ok(suggest_fix(client, &probe).await.map(|fix| {
         (
@@ -449,6 +450,7 @@ mod tests {
             disabled: false,
             source: None,
             popularity: None,
+            access: crate::AccessPolicy::default(),
         }
     }
 
@@ -768,6 +770,7 @@ mod tests {
             disabled: false,
             source: None,
             popularity: None,
+            access: crate::AccessPolicy::default(),
         };
 
         let client = Client::builder()
@@ -956,6 +959,7 @@ mod tests {
             disabled: false,
             source: None,
             popularity: None,
+            access: crate::AccessPolicy::default(),
         };
         let pool = default_candidate_pool(&site);
         assert_eq!(pool.first().map(String::as_str), Some("github"));
@@ -995,6 +999,7 @@ mod tests {
             disabled: false,
             source: None,
             popularity: None,
+            access: crate::AccessPolicy::default(),
         };
         let pool = default_candidate_pool(&site);
         assert!(pool.contains(&"torvalds".to_owned()));

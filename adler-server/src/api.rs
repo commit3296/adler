@@ -664,6 +664,7 @@ mod tests {
             disabled: false,
             source: None,
             popularity: None,
+            access: adler_core::AccessPolicy::default(),
         }
     }
 

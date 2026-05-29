@@ -24,6 +24,7 @@ use std::fmt;
 
 use serde::{Deserialize, Serialize};
 
+use crate::access::AccessPolicy;
 use crate::check::MatchKind;
 use crate::error::{Error, Result};
 use crate::username::Username;
@@ -166,6 +167,14 @@ pub struct Site {
     /// accounts. Sites without a rank are skipped by `--top N`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub popularity: Option<u32>,
+    /// Egress requirement for reaching this site — country and/or IP
+    /// type the probe must exit from (see [`AccessPolicy`]). Default
+    /// (empty) means no special routing: the request uses the client's
+    /// default egress. When constrained and no configured egress fits,
+    /// the probe is reported `Uncertain(GeoUnavailable)` rather than
+    /// fetched from the wrong location.
+    #[serde(default, skip_serializing_if = "AccessPolicy::is_default")]
+    pub access: AccessPolicy,
 }
 
 /// A specific anti-bot mechanism a site is known to deploy. Used to
@@ -774,6 +783,7 @@ mod tests {
             disabled: false,
             source: None,
             popularity: None,
+            access: crate::AccessPolicy::default(),
         }
     }
 

@@ -270,6 +270,7 @@ mod tests {
             disabled: false,
             source: None,
             popularity: None,
+            access: crate::AccessPolicy::default(),
         }
     }
 

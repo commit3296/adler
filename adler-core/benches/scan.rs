@@ -41,6 +41,7 @@ fn make_sites(server: &MockServer) -> Vec<Site> {
             disabled: false,
             source: None,
             popularity: None,
+            access: adler_core::AccessPolicy::default(),
         })
         .collect()
 }

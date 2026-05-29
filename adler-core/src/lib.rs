@@ -128,6 +128,7 @@
 //! Each change has a migration block in [the
 //! CHANGELOG](https://github.com/commit3296/adler/blob/main/CHANGELOG.md).
 
+mod access;
 mod ban;
 mod cache;
 mod check;
@@ -148,6 +149,7 @@ mod username;
 
 pub mod browser;
 
+pub use access::{AccessPolicy, CountryCode, EgressKind, EgressSpec};
 pub use browser::{BrowserBackend, BrowserBudget, RenderedPage};
 pub use cache::Cache;
 pub use check::{CheckOutcome, MatchKind, UncertainReason};

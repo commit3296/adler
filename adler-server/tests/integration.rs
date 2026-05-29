@@ -46,6 +46,7 @@ fn site(name: &str, base: &str, segment: &str) -> Site {
         disabled: false,
         source: None,
         popularity: None,
+        access: adler_core::AccessPolicy::default(),
     }
 }
 

@@ -14,6 +14,7 @@ use std::time::{Duration, Instant};
 
 use reqwest::redirect;
 
+use crate::access::{EgressChoice, EgressPool, EgressSpec};
 use crate::browser::{BrowserBackend, BrowserBudget};
 use crate::check::{CheckOutcome, MatchKind, UncertainReason};
 use crate::error::{Error, Result};
@@ -43,6 +44,9 @@ const GLOBAL_THROTTLE_KEY: &str = "*global*";
 #[derive(Clone)]
 pub struct Client {
     http: Arc<HttpFetcher>,
+    /// Geo / IP-type egress pool for sites whose `access` policy needs a
+    /// specific proxy. Empty by default → every site uses `http`.
+    egress: Arc<EgressPool>,
     throttle: HostThrottle,
     /// Global RPS cap applied across all hosts. `None` → uncapped.
     global_throttle: Option<HostThrottle>,
@@ -248,6 +252,25 @@ impl Client {
             }
         }
 
+        // Egress selection: route the HTTP path through a geo / IP-type
+        // matching proxy when the site's access policy demands one. An
+        // unconstrained policy uses the default egress; a constrained
+        // policy with no matching egress is reported `GeoUnavailable`
+        // rather than fetched from the wrong location (a false
+        // `NotFound` would be worse than an honest `Uncertain`).
+        let egress: Arc<HttpFetcher> = match self.egress.select(&site.access) {
+            EgressChoice::Default => Arc::clone(&self.http),
+            EgressChoice::Use(fetcher) => fetcher,
+            EgressChoice::Unavailable => {
+                return uncertain(
+                    &site.name,
+                    url,
+                    Instant::now(),
+                    UncertainReason::GeoUnavailable,
+                );
+            }
+        };
+
         let host = host_of(&url);
 
         // robots.txt gate, before consuming a throttle slot or probing.
@@ -299,7 +322,7 @@ impl Client {
             headers: &site.request_headers,
             want_body: needs_body,
         };
-        match self.http.fetch(&req).await {
+        match egress.fetch(&req).await {
             Ok(resp) => self.finish(site, url, started, &resp),
             Err(FetchError(reason)) => uncertain(&site.name, url, started, reason),
         }
@@ -376,6 +399,7 @@ pub struct ClientBuilder {
     respect_robots: bool,
     browser: Option<Arc<dyn BrowserBackend>>,
     browser_budget: usize,
+    egress: Vec<EgressSpec>,
 }
 
 impl Default for ClientBuilder {
@@ -395,6 +419,7 @@ impl Default for ClientBuilder {
             respect_robots: false,
             browser: None,
             browser_budget: DEFAULT_BROWSER_BUDGET,
+            egress: Vec::new(),
         }
     }
 }
@@ -511,39 +536,46 @@ impl ClientBuilder {
         self
     }
 
+    /// Configure the egress pool: proxies tagged by country / IP type
+    /// that sites with an `access` policy can require. Sites without a
+    /// policy are unaffected (they use the default egress / `--proxy`).
+    /// Replaces any previously set pool.
+    pub fn egress_pool(mut self, egress: Vec<EgressSpec>) -> Self {
+        self.egress = egress;
+        self
+    }
+
     /// Build a [`Client`].
     pub fn build(self) -> Result<Client> {
-        let redirect_policy = if self.follow_redirects {
-            redirect::Policy::limited(self.redirect_limit)
-        } else {
-            redirect::Policy::none()
-        };
-        let mut builder = reqwest::Client::builder()
-            .user_agent(self.user_agent)
-            .timeout(self.timeout)
-            .connect_timeout(self.connect_timeout)
-            .redirect(redirect_policy);
-        if let Some(proxy_url) = &self.proxy {
-            // reqwest treats a schemeless string (e.g. "not-a-url") as a host
-            // and silently defaults it to http://, so every probe would fail
-            // confusingly. Require an explicit, supported scheme up front.
-            const SCHEMES: [&str; 4] = ["http://", "https://", "socks5://", "socks5h://"];
-            if !SCHEMES.iter().any(|s| proxy_url.starts_with(s)) {
-                return Err(Error::HttpSetup {
-                    message: format!(
-                        "invalid proxy {proxy_url:?}: must start with one of {}",
-                        SCHEMES.join(", ")
-                    ),
-                });
-            }
-            let proxy = reqwest::Proxy::all(proxy_url).map_err(|e| Error::HttpSetup {
-                message: format!("invalid proxy {proxy_url:?}: {e}"),
-            })?;
-            builder = builder.proxy(proxy);
+        let inner = build_reqwest(
+            &self.user_agent,
+            self.timeout,
+            self.connect_timeout,
+            self.follow_redirects,
+            self.redirect_limit,
+            self.proxy.as_deref(),
+        )?;
+
+        // One HTTP client per configured egress — `reqwest` bakes the
+        // proxy in at build time, so geo / IP-type routing means a
+        // distinct client per proxy, paired with its match metadata.
+        let mut egress_entries = Vec::with_capacity(self.egress.len());
+        for spec in &self.egress {
+            let client = build_reqwest(
+                &self.user_agent,
+                self.timeout,
+                self.connect_timeout,
+                self.follow_redirects,
+                self.redirect_limit,
+                Some(&spec.url),
+            )?;
+            egress_entries.push((
+                spec.country.clone(),
+                spec.kind,
+                Arc::new(HttpFetcher::new(client)),
+            ));
         }
-        let inner = builder.build().map_err(|e| Error::HttpSetup {
-            message: e.to_string(),
-        })?;
+
         let global_throttle = self.max_rps.map(|rps| {
             // Min spacing between any two requests = 1s / rps.
             let interval = Duration::from_secs(1) / rps.get();
@@ -554,6 +586,7 @@ impl ClientBuilder {
             .then(|| RobotsCache::new(inner.clone(), "adler"));
         Ok(Client {
             http: Arc::new(HttpFetcher::new(inner)),
+            egress: Arc::new(EgressPool::new(egress_entries)),
             throttle: HostThrottle::new(self.min_request_interval),
             global_throttle,
             retry: self.retry,
@@ -564,6 +597,50 @@ impl ClientBuilder {
             browser_budget: Arc::new(BrowserBudget::new(self.browser_budget)),
         })
     }
+}
+
+/// Build a configured `reqwest::Client`, optionally routed through a
+/// proxy. Shared by the default client and every egress in the pool so
+/// they get identical timeout / redirect / User-Agent settings.
+fn build_reqwest(
+    user_agent: &str,
+    timeout: Duration,
+    connect_timeout: Duration,
+    follow_redirects: bool,
+    redirect_limit: usize,
+    proxy: Option<&str>,
+) -> Result<reqwest::Client> {
+    let redirect_policy = if follow_redirects {
+        redirect::Policy::limited(redirect_limit)
+    } else {
+        redirect::Policy::none()
+    };
+    let mut builder = reqwest::Client::builder()
+        .user_agent(user_agent.to_owned())
+        .timeout(timeout)
+        .connect_timeout(connect_timeout)
+        .redirect(redirect_policy);
+    if let Some(proxy_url) = proxy {
+        // reqwest treats a schemeless string (e.g. "not-a-url") as a host
+        // and silently defaults it to http://, so every probe would fail
+        // confusingly. Require an explicit, supported scheme up front.
+        const SCHEMES: [&str; 4] = ["http://", "https://", "socks5://", "socks5h://"];
+        if !SCHEMES.iter().any(|s| proxy_url.starts_with(s)) {
+            return Err(Error::HttpSetup {
+                message: format!(
+                    "invalid proxy {proxy_url:?}: must start with one of {}",
+                    SCHEMES.join(", ")
+                ),
+            });
+        }
+        let proxy = reqwest::Proxy::all(proxy_url).map_err(|e| Error::HttpSetup {
+            message: format!("invalid proxy {proxy_url:?}: {e}"),
+        })?;
+        builder = builder.proxy(proxy);
+    }
+    builder.build().map_err(|e| Error::HttpSetup {
+        message: e.to_string(),
+    })
 }
 
 /// Default ceiling on browser-backed probes per scan when no other value
@@ -606,6 +683,7 @@ impl fmt::Debug for ClientBuilder {
             .field("respect_robots", &self.respect_robots)
             .field("browser", &self.browser.is_some())
             .field("browser_budget", &self.browser_budget)
+            .field("egress", &self.egress)
             .finish()
     }
 }
@@ -705,6 +783,7 @@ mod tests {
             disabled: false,
             source: None,
             popularity: None,
+            access: crate::AccessPolicy::default(),
         }
     }
 
@@ -739,6 +818,39 @@ mod tests {
             recvd.len(),
             0,
             "regex_check mismatch must skip the HTTP request entirely"
+        );
+    }
+
+    #[tokio::test]
+    async fn geo_constrained_site_with_no_egress_is_geo_unavailable() {
+        // A mock that would 200 on anything — if the geo gate failed to
+        // short-circuit, "alice" would resolve to Found here.
+        let server = MockServer::start().await;
+        Mock::given(any())
+            .respond_with(ResponseTemplate::new(200))
+            .mount(&server)
+            .await;
+        let mut site = site_with(&server, vec![Signal::StatusFound { codes: vec![200] }]);
+        // Require a Polish egress; the default client has no egress pool,
+        // so nothing can satisfy it.
+        site.access = crate::access::AccessPolicy {
+            geo: vec![crate::access::CountryCode::new("pl").unwrap()],
+            ip_type: None,
+        };
+        let outcome = build_client().check(&site, &user()).await;
+        assert_eq!(outcome.kind, MatchKind::Uncertain);
+        assert!(
+            matches!(outcome.reason, Some(UncertainReason::GeoUnavailable)),
+            "expected GeoUnavailable, got {:?}",
+            outcome.reason,
+        );
+        // The site must NOT have been probed — an unreachable geo is not
+        // evidence of absence, and we don't fetch from the wrong location.
+        let recvd = server.received_requests().await.unwrap_or_default();
+        assert_eq!(
+            recvd.len(),
+            0,
+            "geo-unavailable must skip the HTTP request entirely"
         );
     }
 
@@ -932,6 +1044,7 @@ mod tests {
             disabled: false,
             source: None,
             popularity: None,
+            access: crate::AccessPolicy::default(),
         };
         let client = Client::builder()
             .timeout(Duration::from_millis(500))
@@ -1141,6 +1254,7 @@ mod tests {
             disabled: false,
             source: None,
             popularity: None,
+            access: crate::AccessPolicy::default(),
         };
         let client = Client::builder()
             .timeout(Duration::from_millis(500))
@@ -1240,6 +1354,7 @@ mod tests {
             disabled: false,
             source: None,
             popularity: None,
+            access: crate::AccessPolicy::default(),
         };
         let site_b = Site {
             name: "B".into(),
@@ -1259,6 +1374,7 @@ mod tests {
             disabled: false,
             source: None,
             popularity: None,
+            access: crate::AccessPolicy::default(),
         };
         // 2 RPS → ~500 ms between requests. A large interval keeps the
         // assertion robust even when the first probe's own duration (which
@@ -1327,6 +1443,7 @@ mod tests {
             disabled: false,
             source: None,
             popularity: None,
+            access: crate::AccessPolicy::default(),
         };
         let allowed = Site {
             name: "Yes".into(),
@@ -1346,6 +1463,7 @@ mod tests {
             disabled: false,
             source: None,
             popularity: None,
+            access: crate::AccessPolicy::default(),
         };
 
         let no = client.check(&disallowed, &user()).await;
@@ -1648,6 +1766,7 @@ mod tests {
             disabled: false,
             source: None,
             popularity: None,
+            access: crate::AccessPolicy::default(),
         };
         let outcome = build_client().check(&site, &user()).await;
         assert_eq!(outcome.kind, MatchKind::Found);

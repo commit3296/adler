@@ -65,6 +65,12 @@ pub enum UncertainReason {
     /// The browser backend itself failed (timeout, navigation error,
     /// session drop, …) for a `bot-protected` site.
     BrowserFailed(String),
+    /// The site's [`AccessPolicy`](crate::AccessPolicy) requires an
+    /// egress (country / IP type) that no configured proxy in the pool
+    /// satisfies, so the probe was skipped rather than fetched from the
+    /// wrong location. "Couldn't reach from the required geo" is not
+    /// "account absent" — hence `Uncertain`, never `NotFound`.
+    GeoUnavailable,
     /// Any other reason (e.g. a `doctor` pre-flight skip).
     Other(String),
 }
@@ -83,6 +89,7 @@ impl fmt::Display for UncertainReason {
             Self::BrowserBudget => f.write_str("browser_budget_exceeded"),
             Self::UsernameNotAllowed => f.write_str("username_not_allowed"),
             Self::BrowserFailed(detail) => write!(f, "browser: {detail}"),
+            Self::GeoUnavailable => f.write_str("geo_unavailable"),
             Self::Other(detail) => f.write_str(detail),
         }
     }
