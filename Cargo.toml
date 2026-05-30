@@ -53,7 +53,7 @@ chromiumoxide = { version = "0.9", default-features = false }
 # `Browser::connect(wss://...)` fails with "TLS support not compiled in"
 # on cloud-CDP endpoints. Declare async-tungstenite ourselves with rustls
 # + webpki-roots so cargo's feature unification gives chromiumoxide TLS.
-async-tungstenite = { version = "0.32", default-features = false, features = ["tokio-runtime", "tokio-rustls-webpki-roots"] }
+async-tungstenite = { version = "0.34", default-features = false, features = ["tokio-runtime", "tokio-rustls-webpki-roots"] }
 secrecy = "0.10"
 async-trait = "0.1"
 url = "2"
@@ -61,7 +61,7 @@ futures = "0.3"
 # Web server (adler-server crate): axum router + SSE. tower-http only
 # pulls the features we actually need (CORS for the Vite dev-server,
 # request tracing).
-axum = { version = "0.7", default-features = false, features = [
+axum = { version = "0.8", default-features = false, features = [
     "http1",
     "json",
     "matched-path",
@@ -70,7 +70,7 @@ axum = { version = "0.7", default-features = false, features = [
     "query",
 ] }
 tower = { version = "0.5", default-features = false, features = ["util"] }
-tower-http = { version = "0.5", default-features = false, features = [
+tower-http = { version = "0.6", default-features = false, features = [
     "cors",
     "trace",
 ] }
