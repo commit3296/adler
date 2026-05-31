@@ -1,0 +1,18 @@
+# Synthetic-nonsense usernames known not to exist anywhere.
+#
+# Generation rule: prefix `adler-bench-` plus a hex digest. The prefix is
+# intentional — these usernames are not collisions on most sites because the
+# hyphenation and length push them past common username-validity regexes
+# (Reddit, Twitter, TikTok all reject patterns like this). On sites that DO
+# allow them, they are extremely unlikely to be registered.
+#
+# If a bench run reports a `Found` on one of these for any tool, do NOT
+# silently treat it as a false positive — investigate. Either (a) someone
+# registered the username after generation (rare; rotate the list), or
+# (b) the tool's signature is over-broad (which is the bug we want to surface).
+#
+# Rotate this list by re-running derive-ground-truth.py with --rotate-nonsense
+# if a bench run flags collisions.
+adler-bench-2026-a7f3
+adler-bench-2026-c91e
+adler-bench-2026-2d8b
