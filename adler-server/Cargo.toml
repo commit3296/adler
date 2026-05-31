@@ -24,7 +24,7 @@ include = [
 ]
 
 [dependencies]
-adler-core = { path = "../adler-core", version = "0.9.0" }
+adler-core = { path = "../adler-core", version = "0.10.0" }
 axum.workspace = true
 tower.workspace = true
 tower-http.workspace = true
