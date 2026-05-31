@@ -391,10 +391,13 @@ cargo install adler-cli --features impersonate
 
 The feature pulls in BoringSSL and needs `cmake`, a C++ compiler, and
 `libclang` at build time (on Fedora: `dnf install cmake gcc-c++
-clang`; on Debian/Ubuntu: `apt install cmake clang libclang-dev`). The
-release binaries on GitHub do not currently ship with the feature
-enabled; build from source if you need it. Sites with mixed
-protections (e.g. `tls-fingerprint` + `cloudflare`) stay on the
+clang`; on Debian/Ubuntu: `apt install cmake clang libclang-dev`).
+`cargo binstall adler-cli` ships impersonate-enabled binaries for
+x86_64-linux, both macOS targets, and Windows; the
+`aarch64-unknown-linux-gnu` binary is built without the feature (cross-
+compiled BoringSSL toolchain isn't wired up), so on aarch64 Linux use
+`cargo install adler-cli --features impersonate` instead. Sites with
+mixed protections (e.g. `tls-fingerprint` + `cloudflare`) stay on the
 browser-backend path.
 
 ## Library

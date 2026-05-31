@@ -37,17 +37,26 @@ jobs:
         include:
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
+            features: impersonate
           - target: aarch64-unknown-linux-gnu
             os: ubuntu-latest
+            # Cross-compiling BoringSSL to aarch64-linux from an x86_64
+            # runner needs an aarch64 C/C++ toolchain wired through to
+            # boring-sys2; ship the slimmer build here for now and let
+            # users opt back in via `cargo install --features impersonate`.
+            features: ""
           - target: x86_64-apple-darwin
             # macos-13 was deprecated 2025-09-22 and is effectively
             # unavailable in queues; `macos-15-intel` is GitHub's official
             # x86_64 Intel migration target (good through ~Fall 2027).
             os: macos-15-intel
+            features: impersonate
           - target: aarch64-apple-darwin
             os: macos-14
+            features: impersonate
           - target: x86_64-pc-windows-msvc
             os: windows-latest
+            features: impersonate
     steps:
       - uses: actions/checkout@v6
 
@@ -55,6 +64,31 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
+
+      # BoringSSL (via boring-sys2, pulled in by wreq for the
+      # `impersonate` feature) compiles from C/C++ at build time and
+      # uses bindgen, so the host needs cmake, a C++ compiler, and
+      # libclang. The steps below short-circuit when this target is
+      # built without the feature.
+      - name: Install BoringSSL build deps (Linux)
+        if: matrix.os == 'ubuntu-latest' && matrix.features == 'impersonate'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake clang libclang-dev
+
+      - name: Install BoringSSL build deps (macOS)
+        if: startsWith(matrix.os, 'macos') && matrix.features == 'impersonate'
+        run: |
+          command -v cmake >/dev/null || brew install cmake
+
+      - name: Install BoringSSL build deps (Windows)
+        if: matrix.os == 'windows-latest' && matrix.features == 'impersonate'
+        shell: bash
+        run: |
+          # LLVM is preinstalled at C:\Program Files\LLVM on the
+          # windows-latest runner image; bindgen needs LIBCLANG_PATH
+          # to locate libclang.dll.
+          echo "LIBCLANG_PATH=C:\\Program Files\\LLVM\\bin" >> "$GITHUB_ENV"
 
       # adler-server's `rust-embed` bakes the SolidJS bundle in
       # `web/dist/` into the final binary. dist/ is gitignored, so we
@@ -80,6 +114,10 @@ jobs:
           # Matches the binstall pkg-url: adler-<target>.tar.gz / .zip
           archive: adler-$target
           target: ${{ matrix.target }}
+          # When non-empty, ships the binary with TLS-fingerprint
+          # impersonation built in (Chrome 134 via wreq + BoringSSL).
+          # See the matrix above for per-target settings.
+          features: ${{ matrix.features }}
           # rustls (no OpenSSL) means no system TLS dep to cross-link.
           tar: unix
           zip: windows
