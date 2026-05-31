@@ -14,11 +14,89 @@
 > *Named for Irene Adler — "the Woman", the one who outwitted Sherlock Holmes.
 > Where Sherlock searched, Adler outsmarts.*
 
-OSINT username search across hundreds of sites. A modern successor to Sherlock —
-multi-signal detection, self-healing site signatures, optional enrichment and
-cross-site correlation, written in Rust.
+OSINT username search across ~3,000 sites, in Rust. Honest verdicts and built
+to reach the hard ones — Cloudflare-walled, TLS-fingerprinted, geo-restricted,
+login-walled. See [PLAN.md](PLAN.md) for the roadmap.
 
-> **Status:** in development. See [PLAN.md](PLAN.md) for the full roadmap.
+## How Adler compares
+
+Open-source username-search tools that OSINT operators actually consider, on
+the dimensions that matter when sites push back:
+
+|                              | [Sherlock][cmp-s] | [Maigret][cmp-m] | [Blackbird][cmp-b] | [Snoop][cmp-sn] | **Adler** |
+| ---------------------------- | :---: | :---: | :---: | :---: | :---: |
+| Approx. sites                | 400 | 3,000 | 600 | 5,400 | 3,000 [^cmp-1] |
+| Verdict model                | Found / NotFound | Found / NotFound | Found / NotFound | Found / NotFound | **Found / NotFound / Uncertain(reason)** |
+| Bot-protected sites (Instagram, X, …) | — | — | — | — | **headless Chrome via `--browser-backend`** |
+| TLS-fingerprint blocking     | — | — | — | — | **Chrome 134 handshake via `--features impersonate`** |
+| Proxy routing                | one global | one global + Tor + I2P | — | — | one global **or** per-site policy via `--proxy-pool` |
+| Cookies / sessions           | — | global `cookies.txt` | — | — | **per-site named sessions** via `--sessions` |
+| Registry self-heal           | — | — | — | — | **`--doctor --fix` diffs responses, proposes new signatures** |
+| Web UI                       | — | yes (results graph, reports) | — | — | `--web` — live SSE-streaming SolidJS SPA + JSON API |
+| Output formats               | text / CSV / XLSX / JSON | text / JSON / CSV / HTML / PDF / XMind / D3 | text / CSV / PDF | text / CSV / HTML | text / JSON / NDJSON / CSV / HTML |
+| Embeddable library           | — | yes (Python async) | — | — | `adler-core` on crates.io (Rust) |
+| Runtime / packaging          | Python | Python | Python | Python | **Rust — single static binary, `cargo binstall`** |
+
+[^cmp-1]: Sherlock + Maigret + WhatsMyName lineages combined; see [*Site registry*](#site-registry).
+
+[cmp-s]: https://github.com/sherlock-project/sherlock
+[cmp-m]: https://github.com/soxoj/maigret
+[cmp-b]: https://github.com/p1ngul1n0/blackbird
+[cmp-sn]: https://github.com/snooppr/snoop
+
+**Adler's thesis: honest verdicts plus access for the sites that matter.** A
+`NotFound` from a Python-HTTP-only tool on a Cloudflare-walled, TLS-
+fingerprinted, geo-restricted, or login-walled site is often just "I gave up
+at the first wall." Adler reports `Uncertain(reason)` when it couldn't verify,
+and ships the transports you need to break the wall yourself — headless
+browser, Chrome handshake emulation, per-site geo / IP-type egress, operator-
+supplied sessions. We do not solve CAPTCHAs or evade human-verification (see
+[*Ethics & responsible use*](#ethics--responsible-use)).
+
+## Detection rate
+
+Recall depends on where you scan from. A `--doctor` pass on 2026-05-26
+against the bundled registry (411 sites):
+
+| Scan source | Sites where a known-existing account is found | Recall |
+| --- | ---: | ---: |
+| Datacenter IP (Hetzner / Leaseweb DE) | 282 / 411 | 68.6% |
+| US residential proxy pool (DECODO) | **305 / 411** | **74.2%** |
+
+The residential lift is real: ~40 sites swap their verdict between
+`Uncertain` (datacenter) and `Found` (residential) — most are
+Cloudflare-walled or geo-restricted (RU-segment, plus platforms like
+Reddit, Imgur, Patreon). The remaining ~26% breaks down roughly as:
+
+- **Bot-protected sites** tagged `bot-protected` (Instagram and
+  X/Twitter today) — these serve a JS login wall to a plain HTTP
+  request; a clean IP doesn't help, you need a browser backend.
+  Exclude them with `--exclude-tag bot-protected`.
+- **Stale Sherlock-imported `known_present` accounts** that no
+  longer exist on the live site. The `--doctor --suggest-known-present`
+  tool (new in v0.4.0) probes a small candidate pool (the site's
+  brand name, plus `torvalds` / `octocat` / `admin` / …) and prints
+  a paste-ready snippet for any site where it finds a live account.
+  Discovery surfaced 19 healable entries on the most recent sweep;
+  the remaining placeholders need either a contributor-found
+  candidate or a deeper repair via `--doctor --fix`.
+- **Sites whose detection rule fires for *every* username** —
+  signal repair territory, not username repair. `--doctor --fix`
+  diffs the responses and proposes a tighter signal.
+- **Sites that don't reliably distinguish found from not-found** for
+  unauthenticated requests at all — investigated and not added
+  rather than ship false-positive entries: Reddit, TikTok,
+  Pinterest, and Threads. See issues
+  [#11–#14](https://github.com/commit3296/adler/issues?q=is%3Aissue+label%3A%22help+wanted%22)
+  for the specific failure modes and what would unblock each.
+
+Run the same check yourself: `adler --doctor` (uses your current IP)
+or `adler --doctor --proxy <url>` (via your own proxy). With
+`--browser-backend browserbase` the doctor's `--fix` mode routes
+bot-protected sites through a real Chrome session, so the diff sees
+real profile pages rather than two identical login walls. With
+`--suggest-known-present` you get an OVERRIDES block per healable
+site.
 
 ## Crates
 
@@ -68,50 +146,127 @@ Logging is controlled by the `ADLER_LOG` env var (defaults to `adler=info`):
 ADLER_LOG=adler=debug cargo run -p adler-cli -- alice
 ```
 
-## Detection rate
+## Usage
 
-Recall depends on where you scan from. A `--doctor` pass on 2026-05-26
-against the bundled registry (411 sites):
+`adler <username>` scans the embedded registry; everything else is a knob.
+Text output shows Found and Uncertain rows by default and hides NotFound —
+pass `--all` for the full list. Results stream into a terminal as they
+resolve; piped output is collected and ordered. For a browser view, pass
+`--web` (see [*Web UI*](#web-ui) below). Exit codes: `0` found, `1` nothing
+found, `2` error.
 
-| Scan source | Sites where a known-existing account is found | Recall |
-| --- | ---: | ---: |
-| Datacenter IP (Hetzner / Leaseweb DE) | 282 / 411 | 68.6% |
-| US residential proxy pool (DECODO) | **305 / 411** | **74.2%** |
+`adler --help` has the complete flag reference; the buckets below cover the
+common ones by intent.
 
-The residential lift is real: ~40 sites swap their verdict between
-`Uncertain` (datacenter) and `Found` (residential) — most are
-Cloudflare-walled or geo-restricted (RU-segment, plus platforms like
-Reddit, Imgur, Patreon). The remaining ~26% breaks down roughly as:
+### Filtering
 
-- **Bot-protected sites** tagged `bot-protected` (Instagram and
-  X/Twitter today) — these serve a JS login wall to a plain HTTP
-  request; a clean IP doesn't help, you need a browser backend.
-  Exclude them with `--exclude-tag bot-protected`.
-- **Stale Sherlock-imported `known_present` accounts** that no
-  longer exist on the live site. The `--doctor --suggest-known-present`
-  tool (new in v0.4.0) probes a small candidate pool (the site's
-  brand name, plus `torvalds` / `octocat` / `admin` / …) and prints
-  a paste-ready snippet for any site where it finds a live account.
-  Discovery surfaced 19 healable entries on the most recent sweep;
-  the remaining placeholders need either a contributor-found
-  candidate or a deeper repair via `--doctor --fix`.
-- **Sites whose detection rule fires for *every* username** —
-  signal repair territory, not username repair. `--doctor --fix`
-  diffs the responses and proposes a tighter signal.
-- **Sites that don't reliably distinguish found from not-found** for
-  unauthenticated requests at all — investigated and not added
-  rather than ship false-positive entries: Reddit, TikTok,
-  Pinterest, and Threads. See issues
-  [#11–#14](https://github.com/commit3296/adler/issues?q=is%3Aissue+label%3A%22help+wanted%22)
-  for the specific failure modes and what would unblock each.
+```bash
+adler --only github,gitlab alice         # restrict to matching site names
+adler --exclude reddit alice             # drop matching site names
+adler --tag social,dev alice             # filter by tag(s)
+adler --tag region:ru alice              # by region tag
+adler --exclude-tag bot-protected alice  # skip login-walled sites
+adler --list-sites --only git            # discover filter terms (no scan)
+adler --list-tags                        # show all tags + counts
+```
 
-Run the same check yourself: `adler --doctor` (uses your current IP)
-or `adler --doctor --proxy <url>` (via your own proxy). With
-`--browser-backend browserbase` the doctor's `--fix` mode routes
-bot-protected sites through a real Chrome session, so the diff sees
-real profile pages rather than two identical login walls. With
-`--suggest-known-present` you get an OVERRIDES block per healable
-site.
+### Output
+
+```bash
+adler --format json alice > out.json     # JSON array
+adler --format ndjson alice              # one JSON object per line (jq-friendly)
+adler --format csv alice > out.csv       # spreadsheet table
+adler --format html alice > out.html     # self-contained HTML report
+adler --all alice                        # include NotFound rows
+adler -q alice                           # quiet: only Found URLs
+adler --explain alice                    # show which signal produced each verdict
+adler --color never alice                # disable colors (also honors NO_COLOR)
+```
+
+### Network & sessions
+
+```bash
+adler --concurrency 64 alice             # in-flight probes (default 32)
+adler --max-rps 5 alice                  # cap total request rate
+adler --proxy socks5://host:1080 alice   # single proxy for everything
+adler --proxy-pool pool.toml alice       # per-site geo/IP-type routing — see § Egress pool
+adler --sessions sessions.toml alice     # operator-supplied sessions — see § Sessions
+adler --tor alice                        # local Tor SOCKS proxy
+adler --rotate-ua alice                  # rotate User-Agent per request
+```
+
+For TLS-fingerprint-blocked sites, build with `--features impersonate` (see
+[*TLS-fingerprint impersonation*](#tls-fingerprint-impersonation-optional-build-feature)).
+
+### Browser & cache
+
+```bash
+adler --browser-backend local alice          # headless Chrome for bot-protected
+adler --browser-backend browserbase alice    # Browserbase cloud session
+adler --browser-budget 20 alice              # cap browser-routed probes (default 50)
+adler --no-browser alice                     # off for this run
+
+adler --no-cache alice                       # bypass the result cache
+adler --cache-ttl 86400 alice                # custom TTL (default 3600 s)
+adler --cache-clear                          # drop the cache
+```
+
+Cache lives at `~/.cache/adler/`. See [*Browser backend*](#browser-backend-optional)
+for the cost / setup trade-offs.
+
+### Batch & enrichment
+
+```bash
+adler --input users.txt                      # batch many usernames, grouped output
+adler --watch alice                          # diff vs last run; new/removed
+adler --watch --interval 3600 alice          # keep watching
+adler --enrich alice                         # extract name/bio/avatar
+adler --correlate alice                      # group accounts by signal overlap
+adler --permute aggressive alice             # search spelling variants
+adler --completions zsh > _adler             # shell completions
+```
+
+## Web UI
+
+`adler --web` boots a small in-process HTTP server and serves a SolidJS
+SPA from the same binary — no separate frontend deployment, no extra
+process to manage. Once the server is up, kick off scans, watch outcomes
+stream in over SSE, persist them to disk, and diff them against earlier
+runs.
+
+```bash
+adler --web                          # http://127.0.0.1:8080
+adler --web --web-bind 0.0.0.0:9000  # listen on all interfaces, custom port
+```
+
+What you get in the browser:
+
+- **Live scan view** — outcomes stream in as they resolve (SSE), grouped
+  by category, with per-row evidence (verdict reason, response snippet,
+  URL) and a one-click retry.
+- **History modal** — every finished scan is persisted to
+  `~/.cache/adler/scans/` (oldest 200, atomic writes). Reopen any past
+  scan via `#/scan/<id>` deep-links.
+- **Compare with previous** — pick any two persisted scans and diff
+  them side-by-side (`#/diff/<a>/<b>`); shows accounts gained / lost /
+  flipped between the two runs. Esc / back-button exits.
+- **Filters & sort** — by verdict, category, presence of evidence,
+  hidden NotFound rows. Preferences persist to localStorage.
+- **NSFW gate** — off by default; the toggle is hidden behind a
+  confirmation, matching the CLI's `--nsfw` opt-in.
+
+The server exposes a small JSON API at `/api/*` (`/health`, `/sites`,
+`/scans`, `POST /scan`, `GET /scan/:id`, `GET /scan/:id/stream`,
+`POST /scan/:id/retry`) — useful if you want to drive Adler from a
+different frontend or a script. SSE consumers should subscribe to the
+`/stream` endpoint and treat each event as one outcome.
+
+The bundled SPA is baked into the binary at compile time
+(`rust-embed`), so the deployed unit is just the `adler` executable
+plus whatever scan-cache directory you point it at. The SolidJS
+project lives at `adler-server/web/`; if you build from source, run
+`npm ci && npm run build` there before `cargo build` — Vite emits
+`web/dist/`, which `rust-embed` reads directly.
 
 ## Browser backend (optional)
 
@@ -181,123 +336,6 @@ Browser fetches are inherently 5–10× slower than raw HTTP and (for
 accounts on the bot-protected subset, but on the rest of the registry
 they would add latency for no recall gain — which is why routing is
 opt-in and tag-driven, not blanket.
-
-## Usage
-
-```bash
-adler alice                       # scan the embedded registry
-adler --only github,gitlab alice  # restrict to matching sites
-adler --exclude reddit alice      # drop matching sites
-adler --list-sites --only git     # discover filter terms (no scan)
-adler --tag social,dev alice      # scan only sites tagged social or dev
-adler --tag region:ru alice       # scan only Russia-region sites
-adler --exclude-tag bot-protected alice  # skip login-walled sites (fast clean run)
-adler --list-tags                 # show all tags + site counts (no scan)
-adler --explain alice             # show which signal produced each verdict
-adler --input users.txt           # batch: scan many usernames, grouped output
-adler --watch alice               # diff against the last run; new/removed accounts
-adler --watch --interval 3600 alice  # keep watching every hour
-adler --all alice                 # also show NotFound rows (hidden by default)
-adler -q alice                    # quiet: print only found URLs
-adler --color never alice         # never colorize (also honors NO_COLOR)
-
-# output formats
-adler --format json alice         # JSON array
-adler --format ndjson alice       # one JSON object per line (jq-friendly)
-adler --format csv alice > out.csv  # spreadsheet-friendly table
-adler --format html alice > out.html   # self-contained HTML report
-
-# interactive web UI (see § Web UI below)
-adler --web                       # launch http://127.0.0.1:8080 with the bundled SPA
-adler --web --web-bind 0.0.0.0:9000  # custom address
-
-# deeper analysis (these fetch fresh data, bypassing the cache)
-adler --enrich alice              # extract name/bio/avatar from profiles
-adler --correlate alice           # group accounts that look like one person
-adler --permute aggressive alice  # also search spelling variants
-
-# throughput & network hygiene
-adler --concurrency 64 alice      # more in-flight probes (default 32)
-adler --proxy socks5://host:1080 alice
-adler --proxy-pool pool.toml alice  # geo/IP-type egress pool (see § Egress pool)
-adler --tor alice                 # local Tor SOCKS proxy
-adler --rotate-ua alice           # rotate User-Agent per request
-adler --max-rps 5 alice           # cap total request rate
-
-# shell completions
-adler --completions zsh > _adler
-```
-
-By default the text output shows Found and Uncertain results and hides the
-(usually many) NotFound rows — pass `--all` for the full list. On an
-interactive terminal, results stream in as they resolve; piped output is
-collected and ordered. For an interactive browser-based view of a running
-scan — search, filter, evidence drawers, side-by-side diff against an older
-scan — pass `--web` (see [*Web UI*](#web-ui) below).
-
-Results are cached between runs (`~/.cache/adler/`, 1 h TTL); use
-`--no-cache`, `--cache-ttl`, or `--cache-clear` to control it. Exit codes:
-`0` something found, `1` nothing found, `2` error.
-
-## Web UI
-
-`adler --web` boots a small in-process HTTP server and serves a SolidJS
-SPA from the same binary — no separate frontend deployment, no extra
-process to manage. Once the server is up, kick off scans, watch outcomes
-stream in over SSE, persist them to disk, and diff them against earlier
-runs.
-
-```bash
-adler --web                          # http://127.0.0.1:8080
-adler --web --web-bind 0.0.0.0:9000  # listen on all interfaces, custom port
-```
-
-What you get in the browser:
-
-- **Live scan view** — outcomes stream in as they resolve (SSE), grouped
-  by category, with per-row evidence (verdict reason, response snippet,
-  URL) and a one-click retry.
-- **History modal** — every finished scan is persisted to
-  `~/.cache/adler/scans/` (oldest 200, atomic writes). Reopen any past
-  scan via `#/scan/<id>` deep-links.
-- **Compare with previous** — pick any two persisted scans and diff
-  them side-by-side (`#/diff/<a>/<b>`); shows accounts gained / lost /
-  flipped between the two runs. Esc / back-button exits.
-- **Filters & sort** — by verdict, category, presence of evidence,
-  hidden NotFound rows. Preferences persist to localStorage.
-- **NSFW gate** — off by default; the toggle is hidden behind a
-  confirmation, matching the CLI's `--nsfw` opt-in.
-
-The server exposes a small JSON API at `/api/*` (`/health`, `/sites`,
-`/scans`, `POST /scan`, `GET /scan/:id`, `GET /scan/:id/stream`,
-`POST /scan/:id/retry`) — useful if you want to drive Adler from a
-different frontend or a script. SSE consumers should subscribe to the
-`/stream` endpoint and treat each event as one outcome.
-
-The bundled SPA is baked into the binary at compile time
-(`rust-embed`), so the deployed unit is just the `adler` executable
-plus whatever scan-cache directory you point it at. The SolidJS
-project lives at `adler-server/web/`; if you build from source, run
-`npm ci && npm run build` there before `cargo build` — Vite emits
-`web/dist/`, which `rust-embed` reads directly.
-
-## Performance
-
-A scan is network-bound: the engine itself is negligible. The `executor::run`
-benchmark (`cargo bench -p adler-core`) fans out 50 probes against a local
-mock server in **~1.6 ms total — roughly 32 µs per site** of framework
-overhead (~30K sites/s), while a real HTTP request takes 100–1000 ms. So
-wall-clock time is set almost entirely by how many requests are in flight.
-
-The lever that matters is therefore concurrency, not micro-optimisation:
-
-- `--concurrency` (default **32**) bounds in-flight probes. Most sites are
-  distinct hosts, so the per-host throttle rarely serialises; raising it
-  (e.g. `--concurrency 64`) shortens large scans, with diminishing returns
-  past your network's limits.
-- The result cache (`~/.cache/adler/`) skips re-probing unchanged sites
-  between runs entirely.
-- `--max-rps` trades throughput for politeness when you need a global cap.
 
 ## Egress pool (geo routing)
 
@@ -400,6 +438,24 @@ compiled BoringSSL toolchain isn't wired up), so on aarch64 Linux use
 mixed protections (e.g. `tls-fingerprint` + `cloudflare`) stay on the
 browser-backend path.
 
+## Performance
+
+A scan is network-bound: the engine itself is negligible. The `executor::run`
+benchmark (`cargo bench -p adler-core`) fans out 50 probes against a local
+mock server in **~1.6 ms total — roughly 32 µs per site** of framework
+overhead (~30K sites/s), while a real HTTP request takes 100–1000 ms. So
+wall-clock time is set almost entirely by how many requests are in flight.
+
+The lever that matters is therefore concurrency, not micro-optimisation:
+
+- `--concurrency` (default **32**) bounds in-flight probes. Most sites are
+  distinct hosts, so the per-host throttle rarely serialises; raising it
+  (e.g. `--concurrency 64`) shortens large scans, with diminishing returns
+  past your network's limits.
+- The result cache (`~/.cache/adler/`) skips re-probing unchanged sites
+  between runs entirely.
+- `--max-rps` trades throughput for politeness when you need a global cap.
+
 ## Library
 
 `adler-core` is the runtime-agnostic engine that powers the CLI;
@@ -499,6 +555,46 @@ cargo fmt --all --check
 cargo clippy --all-targets --workspace -- -D warnings
 cargo test --workspace
 ```
+
+## FAQ / Troubleshooting
+
+**Why is everything coming back as `Uncertain`?** Almost always a datacenter
+IP that's been mass-banned at the CDN edge. Try `--proxy socks5://...` with a
+residential proxy, or `--browser-backend local` for sites tagged
+`bot-protected`. `adler --explain alice` prints the signal that flagged each
+verdict, so you can tell *why* it was inconclusive (`cloudflare_challenge`,
+`geo_unavailable`, `session_required`, …).
+
+**Why does Adler report fewer Found accounts than Sherlock or Maigret?**
+Adler's `NotFound` means "verified absent from a working response." Sherlock
+and Maigret return `NotFound` even when the response was a Cloudflare wall,
+login page, or anti-bot challenge — those are false negatives. Check Adler's
+`Uncertain` bucket: most of the apparent "missing" hits are there, with a
+*reason*. Resolve the wall (browser, residential IP, sessions) and they
+flip to `Found`.
+
+**How do I scan Instagram / X (Twitter) / Threads?** They're tagged
+`bot-protected` — plain HTTP gets a login wall. Use `--browser-backend local`
+(free, local Chrome) or `--browser-backend browserbase` (paid, residential
+cloud). For Instagram specifically, supplying a session via `--sessions` lets
+you reach the authenticated profile (see [*Sessions*](#sessions-reach-login-walled-sites)).
+
+**`--proxy` vs `--proxy-pool` — which do I want?** `--proxy` routes
+*everything* through one proxy. `--proxy-pool` is per-site: the registry
+declares "this site needs a UK residential IP", Adler picks a matching
+egress from the pool; sites without a constraint use the default. Mix them
+freely.
+
+**A site's signature is stale — how do I fix it?** `adler --doctor --only
+<site>` reproduces the failure; `adler --doctor --fix --only <site>` diffs
+present/absent responses and proposes a corrected signature. Paste it into a
+local override or open a PR.
+
+**Is it legal to use sock-puppet accounts for `--sessions`?** Adler ships
+nothing here — you bring the session. Whether your engagement authorises
+operating under a pseudonymous account against a site's ToS is an operator
+decision; see [*Ethics & responsible use*](#ethics--responsible-use) for our
+line.
 
 ## Ethics & responsible use
 
