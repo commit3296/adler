@@ -9,6 +9,15 @@ pre-1.0 bump rules.
 
 ## [Unreleased]
 
+## [0.10.0](https://github.com/commit3296/adler/compare/v0.9.0...v0.10.0) - 2026-05-31
+
+### Added
+- *(core)* impersonate transport behind the `impersonate` Cargo feature (phase 2)
+- operator session injection for login-walled sites (access engine phase 5)
+
+### Fixed
+- *(server)* axum 0.8.9 compat — KeepAliveStream return type, {param} route syntax
+
 ## [0.9.0](https://github.com/commit3296/adler/compare/v0.8.3...v0.9.0) - 2026-05-29
 
 ### Added
