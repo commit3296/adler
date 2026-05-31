@@ -259,3 +259,171 @@ async fn send(
     }
     request.send().await
 }
+
+#[cfg(feature = "impersonate")]
+pub(crate) use impersonate::ImpersonateFetcher;
+
+/// Browser-impersonating HTTP transport (`wreq` + `BoringSSL`), gated by
+/// the `impersonate` Cargo feature. A site whose protection list is
+/// *only* [`ProtectionKind::TlsFingerprint`](crate::ProtectionKind) is
+/// routed here instead of the heavyweight browser backend — much
+/// cheaper, since a real TLS handshake from `wreq` matches Chrome's
+/// JA3/JA4 fingerprint without launching a browser process.
+#[cfg(feature = "impersonate")]
+mod impersonate {
+    use super::{
+        FetchError, FetchRequest, FetchResponse, Fetcher, HttpMethod, UncertainReason, ban,
+    };
+    use async_trait::async_trait;
+    use std::collections::BTreeMap;
+
+    /// Chrome version we impersonate. Picked from
+    /// [`wreq_util::Emulation`]; bump as Chrome moves so the JA3/JA4
+    /// fingerprint stays "current Chrome" — old emulations get filtered
+    /// out by WAFs over time.
+    const EMULATION: wreq_util::Emulation = wreq_util::Emulation::Chrome134;
+
+    pub(crate) struct ImpersonateFetcher {
+        inner: wreq::Client,
+    }
+
+    impl ImpersonateFetcher {
+        pub(crate) fn new() -> crate::error::Result<Self> {
+            let inner = wreq::Client::builder()
+                .emulation(EMULATION)
+                .build()
+                .map_err(|e| crate::error::Error::HttpSetup {
+                    message: format!("wreq client init: {e}"),
+                })?;
+            Ok(Self { inner })
+        }
+    }
+
+    #[async_trait]
+    impl Fetcher for ImpersonateFetcher {
+        async fn fetch(&self, req: &FetchRequest<'_>) -> Result<FetchResponse, FetchError> {
+            // Method dispatch mirrors `HttpFetcher`: POST always POST;
+            // GET reads the body only when needed, otherwise HEAD with
+            // a transparent 405 → GET retry.
+            let sent = match req.method {
+                HttpMethod::Post => {
+                    send(
+                        &self.inner,
+                        wreq::Method::POST,
+                        req.url,
+                        req.user_agent,
+                        req.headers,
+                        req.body,
+                    )
+                    .await
+                }
+                HttpMethod::Get if req.want_body => {
+                    send(
+                        &self.inner,
+                        wreq::Method::GET,
+                        req.url,
+                        req.user_agent,
+                        req.headers,
+                        None,
+                    )
+                    .await
+                }
+                HttpMethod::Get => {
+                    match send(
+                        &self.inner,
+                        wreq::Method::HEAD,
+                        req.url,
+                        req.user_agent,
+                        req.headers,
+                        None,
+                    )
+                    .await
+                    {
+                        Ok(r) if r.status().as_u16() == 405 => {
+                            send(
+                                &self.inner,
+                                wreq::Method::GET,
+                                req.url,
+                                req.user_agent,
+                                req.headers,
+                                None,
+                            )
+                            .await
+                        }
+                        other => other,
+                    }
+                }
+            };
+
+            let response = match sent {
+                Ok(r) => r,
+                Err(err) => {
+                    tracing::debug!(url = %req.url, error = %err, "impersonate request failed");
+                    return Err(FetchError(UncertainReason::Network(err.to_string())));
+                }
+            };
+
+            let status = response.status().as_u16();
+            let final_url = response.url().to_string();
+
+            if let Some(reason) = ban::detect_pre_body(status, response.headers()) {
+                tracing::warn!(url = %req.url, status, %reason, "ban-like response");
+                return Err(FetchError(reason));
+            }
+
+            let body = if req.want_body {
+                match response.text().await {
+                    Ok(b) => b,
+                    Err(err) => {
+                        return Err(FetchError(UncertainReason::BodyRead(err.to_string())));
+                    }
+                }
+            } else {
+                String::new()
+            };
+
+            if !body.is_empty() {
+                if let Some(reason) = ban::detect_in_body(&body) {
+                    tracing::warn!(url = %req.url, %reason, "ban-like body");
+                    return Err(FetchError(reason));
+                }
+            }
+
+            Ok(FetchResponse {
+                status,
+                final_url,
+                body,
+            })
+        }
+    }
+
+    async fn send(
+        client: &wreq::Client,
+        method: wreq::Method,
+        url: &str,
+        ua: Option<&str>,
+        headers: &BTreeMap<String, String>,
+        body: Option<&str>,
+    ) -> wreq::Result<wreq::Response> {
+        let mut request = client.request(method, url);
+        let has = |name: &str| headers.keys().any(|k| k.eq_ignore_ascii_case(name));
+        // wreq's emulation already sets a Chrome User-Agent on every
+        // request; only override when we have a rotation UA AND the
+        // caller hasn't put their own UA in headers.
+        if let Some(ua) = ua {
+            if !has("user-agent") {
+                request = request.header(wreq::header::USER_AGENT, ua);
+            }
+        }
+        for (k, v) in headers {
+            request = request.header(k, v);
+        }
+        if let Some(b) = body {
+            if !has("content-type") {
+                request = request.header(wreq::header::CONTENT_TYPE, "application/json");
+            }
+            request = request.body(b.to_owned());
+        }
+        request.send().await
+    }
+}

@@ -60,3 +60,18 @@ jobs:
       # broken `///` example slips through CI.
       - name: cargo test --doc
         run: cargo test --workspace --doc
+
+      # `impersonate` is an optional feature (wreq + BoringSSL via cmake +
+      # bindgen via libclang). Off by default in our other CI steps, so a
+      # `#[cfg(feature = "impersonate")]` regression would slip through.
+      # Install the toolchain and check the feature compiles + tests.
+      - name: Install BoringSSL build deps (impersonate feature)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake clang libclang-dev
+
+      - name: cargo clippy --features impersonate
+        run: cargo clippy -p adler-cli --features impersonate --all-targets -- -D warnings
+
+      - name: cargo test --features impersonate
+        run: cargo test -p adler-core --features impersonate --all-targets

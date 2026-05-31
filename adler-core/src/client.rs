@@ -24,6 +24,8 @@ use crate::retry::{self, RetryPolicy};
 use crate::robots::RobotsCache;
 use crate::site::{HttpMethod, Probe, Signal, SignalVerdict, Site, aggregate};
 use crate::throttle::HostThrottle;
+#[cfg(feature = "impersonate")]
+use crate::transport::ImpersonateFetcher;
 use crate::transport::{
     BROWSER_TIMEOUT, BrowserFetcher, FetchError, FetchRequest, Fetcher, HttpFetcher,
 };
@@ -66,6 +68,11 @@ pub struct Client {
     /// Browser backend used for `bot-protected` sites. `None` → those sites
     /// stay on the raw HTTP path and typically end up `Uncertain`.
     browser: Option<Arc<dyn BrowserBackend>>,
+    /// TLS-fingerprint-impersonating HTTP client (`wreq`). Built when
+    /// the `impersonate` Cargo feature is on; routes sites whose
+    /// `protection` is exactly `TlsFingerprint`.
+    #[cfg(feature = "impersonate")]
+    impersonate: Option<Arc<ImpersonateFetcher>>,
     /// Per-scan cap on browser fetches. Shared across `Client::check` calls
     /// for a single scan, so several tasks compete for the same budget.
     browser_budget: Arc<BrowserBudget>,
@@ -276,6 +283,37 @@ impl Client {
                     Instant::now(),
                     UncertainReason::BrowserBudget,
                 );
+            }
+        }
+
+        // Phase 2: route pure-`TlsFingerprint` sites through the
+        // impersonating transport — a real BoringSSL TLS handshake from
+        // `wreq` matches Chrome's JA3/JA4 fingerprint that triggered the
+        // protection tag, at a fraction of the cost of a real browser.
+        // Mixed-protection sites (TLS-fingerprint + Cloudflare, etc.)
+        // keep going through the browser path above, where they were.
+        #[cfg(feature = "impersonate")]
+        if let Some(fetcher) = &self.impersonate {
+            let pure_tls = site.protection.len() == 1
+                && site.protection[0] == crate::site::ProtectionKind::TlsFingerprint
+                && !site
+                    .tags
+                    .iter()
+                    .any(|t| t.eq_ignore_ascii_case(BOT_PROTECTED_TAG));
+            if pure_tls {
+                let started = Instant::now();
+                let req = FetchRequest {
+                    method: site.request_method,
+                    url: &url,
+                    body: None,
+                    user_agent: self.pick_user_agent(),
+                    headers,
+                    want_body: true,
+                };
+                return match fetcher.fetch(&req).await {
+                    Ok(resp) => self.finish(site, url, started, &resp),
+                    Err(FetchError(reason)) => uncertain(&site.name, url, started, reason),
+                };
             }
         }
 
@@ -623,6 +661,11 @@ impl ClientBuilder {
         let robots = self
             .respect_robots
             .then(|| RobotsCache::new(inner.clone(), "adler"));
+        // Build the impersonate fetcher up front when the feature is on;
+        // surface a wreq init failure as `HttpSetup` so the caller sees
+        // it the same way they'd see a bad `--proxy` URL.
+        #[cfg(feature = "impersonate")]
+        let impersonate = Some(Arc::new(ImpersonateFetcher::new()?));
         Ok(Client {
             http: Arc::new(HttpFetcher::new(inner)),
             egress: Arc::new(EgressPool::new(egress_entries)),
@@ -635,6 +678,8 @@ impl ClientBuilder {
             robots,
             browser: self.browser,
             browser_budget: Arc::new(BrowserBudget::new(self.browser_budget)),
+            #[cfg(feature = "impersonate")]
+            impersonate,
         })
     }
 }
@@ -950,6 +995,47 @@ mod tests {
             recvd.len(),
             0,
             "a missing session must skip the request, not probe unauthenticated"
+        );
+    }
+
+    #[cfg(feature = "impersonate")]
+    #[tokio::test]
+    async fn impersonate_routes_pure_tls_fingerprint_site() {
+        let server = MockServer::start().await;
+        Mock::given(any())
+            .respond_with(ResponseTemplate::new(200))
+            .mount(&server)
+            .await;
+        let client = Client::builder()
+            .timeout(Duration::from_secs(2))
+            .min_request_interval(Duration::ZERO)
+            .max_retries(0)
+            .build()
+            .expect("client builds with impersonate");
+        let mut site = site_with(&server, vec![Signal::StatusFound { codes: vec![200] }]);
+        // Pure TLS-fingerprint protection — exactly the shape that
+        // routes to the impersonate fetcher.
+        site.protection = vec![crate::site::ProtectionKind::TlsFingerprint];
+        let outcome = client.check(&site, &user()).await;
+        assert_eq!(
+            outcome.kind,
+            MatchKind::Found,
+            "expected Found (reason {:?})",
+            outcome.reason,
+        );
+        // wreq's Chrome-134 emulation sets a Chrome-shaped User-Agent —
+        // observable proof that the request came from the impersonate
+        // path and not the default `adler/<version>` HTTP fetcher.
+        let recvd = server.received_requests().await.expect("received requests");
+        assert_eq!(recvd.len(), 1, "expected exactly one request");
+        let ua = recvd[0]
+            .headers
+            .get("user-agent")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("");
+        assert!(
+            ua.contains("Chrome/"),
+            "expected Chrome-shaped UA from wreq, got {ua:?}"
         );
     }
 

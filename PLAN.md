@@ -110,8 +110,16 @@ hard sites, tying back to the accuracy thesis):**
   `Fetcher` trait + `HttpFetcher` / `BrowserFetcher`; `Client` is now the
   router. Found that `request_headers` apply only on the browser path
   today — candidate fix for Phase 2.)
-- [ ] **2 — Impersonate transport** (`rquest`, `impersonate` feature):
-  biggest cheap coverage win against fingerprint blocks.
+- [x] **2 — Impersonate transport** (`wreq 5.3` + `wreq-util 2.2`,
+  behind the `impersonate` Cargo feature). `ImpersonateFetcher` wraps
+  a Chrome-134 `wreq::Client`; sites whose `protection` list is
+  *exactly* `tls-fingerprint` route through it (a real BoringSSL
+  handshake matches Chrome's JA3/JA4 fingerprint without launching a
+  real browser). Mixed-protection sites keep going through the
+  browser-backend path. Build deps: cmake + a C++ compiler +
+  libclang; off by default. CLI pass-through:
+  `cargo install adler-cli --features impersonate`. CI validates both
+  feature configurations.
 - [x] **3 — Egress pool + geo routing**. `adler-core/src/access.rs`
   (`CountryCode` / `EgressKind` / `EgressSpec` / `AccessPolicy`;
   `EgressPool` + selection; `Site::access`; `ClientBuilder::egress_pool`

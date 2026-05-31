@@ -38,6 +38,13 @@ tokio = { workspace = true }
 tracing.workspace = true
 tracing-subscriber.workspace = true
 
+[features]
+# Pass-through for the `impersonate` transport. Heavy build (cmake +
+# C++ compiler + libclang); off by default. Enable with
+# `cargo install adler-cli --features impersonate` or via release
+# binaries built with the feature.
+impersonate = ["adler-core/impersonate"]
+
 [dev-dependencies]
 assert_cmd.workspace = true
 insta.workspace = true

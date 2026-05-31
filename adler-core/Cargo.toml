@@ -30,6 +30,19 @@ thiserror.workspace = true
 tokio = { workspace = true }
 tracing.workspace = true
 url.workspace = true
+# Phase 2 — optional TLS-fingerprint impersonation. `wreq` + BoringSSL
+# is heavy (cmake + a C++ compiler + libclang at build time), so the
+# feature is opt-in. Without it the build stays toolchain-light.
+wreq = { workspace = true, optional = true }
+wreq-util = { workspace = true, optional = true }
+
+[features]
+# Enable the impersonating HTTP transport: sites with a pure
+# `TlsFingerprint` protection are routed through a `wreq` client
+# emulating Chrome instead of either raw HTTP (would be blocked) or
+# the heavyweight browser backend (slow). Builds require cmake, a C++
+# compiler, and libclang.
+impersonate = ["dep:wreq", "dep:wreq-util"]
 
 [dev-dependencies]
 criterion.workspace = true

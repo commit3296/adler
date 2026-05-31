@@ -371,6 +371,32 @@ Header values are secrets — redacted from logs, never written to scan
 output. Using a sock-puppet account may breach a site's ToS; that's an
 operator decision within your engagement's scope.
 
+## TLS-fingerprint impersonation (optional build feature)
+
+Some sites read the TLS handshake's JA3 / JA4 fingerprint and serve a
+block page to anything that doesn't look like a real browser — `rustls`
+or `reqwest`'s default fingerprints are well-known and easy to
+filter. Sites tagged `protection: tls-fingerprint` in the registry
+declare this.
+
+Build Adler with the `impersonate` feature to enable an in-process
+`wreq` HTTP client emulating Chrome 134 (BoringSSL handshake matches
+real Chrome's JA3 / JA4 / HTTP-2 fingerprint). Sites whose protection
+is *only* TLS fingerprint then route through it — much cheaper than
+spinning up a real browser:
+
+```bash
+cargo install adler-cli --features impersonate
+```
+
+The feature pulls in BoringSSL and needs `cmake`, a C++ compiler, and
+`libclang` at build time (on Fedora: `dnf install cmake gcc-c++
+clang`; on Debian/Ubuntu: `apt install cmake clang libclang-dev`). The
+release binaries on GitHub do not currently ship with the feature
+enabled; build from source if you need it. Sites with mixed
+protections (e.g. `tls-fingerprint` + `cloudflare`) stay on the
+browser-backend path.
+
 ## Library
 
 `adler-core` is the runtime-agnostic engine that powers the CLI;
