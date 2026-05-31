@@ -23,7 +23,7 @@ use axum::Json;
 use axum::Router;
 use axum::extract::{Path as AxumPath, State};
 use axum::http::StatusCode;
-use axum::response::sse::{Event, KeepAlive, Sse};
+use axum::response::sse::{Event, KeepAlive, KeepAliveStream, Sse};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use futures::Stream;
@@ -42,9 +42,9 @@ pub fn router(state: AppState) -> Router {
         .route("/api/sites", get(list_sites))
         .route("/api/scans", get(list_scans))
         .route("/api/scan", post(start_scan))
-        .route("/api/scan/:id", get(get_scan))
-        .route("/api/scan/:id/stream", get(stream_scan))
-        .route("/api/scan/:id/retry", post(retry_site))
+        .route("/api/scan/{id}", get(get_scan))
+        .route("/api/scan/{id}/stream", get(stream_scan))
+        .route("/api/scan/{id}/retry", post(retry_site))
         .layer(
             CorsLayer::new()
                 .allow_origin(Any)
@@ -469,7 +469,7 @@ async fn retry_site(
 async fn stream_scan(
     State(state): State<AppState>,
     AxumPath(id): AxumPath<String>,
-) -> Result<Sse<SseStream>, ApiError> {
+) -> Result<Sse<KeepAliveStream<SseStream>>, ApiError> {
     let scan_id = ScanId::from(id);
     if let Some(scan) = state.get_scan(&scan_id).await {
         let stream: SseStream = Box::pin(scan_event_stream(scan));
