@@ -9,6 +9,13 @@ pre-1.0 bump rules.
 
 ## [Unreleased]
 
+## [0.11.0](https://github.com/commit3296/adler/compare/v0.10.0...v0.11.0) - 2026-06-01
+
+### Added
+- *(server)* per-scan egress subset selection (phase 6b)
+- *(server)* read-only access engine view + transport telemetry in SPA (phase 6a)
+- *(core)* escalation router + transport telemetry (access engine phase 4)
+
 ## [0.10.0](https://github.com/commit3296/adler/compare/v0.9.0...v0.10.0) - 2026-05-31
 
 ### Added
