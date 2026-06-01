@@ -155,18 +155,29 @@ hard sites, tying back to the accuracy thesis):**
   `Uncertain(SessionRequired)`. CLI — `--sessions <file.toml>`
   (`[name]` tables of headers). Header values redacted from `Debug`,
   never logged/serialised.
-- [ ] **6 — Web UI**: manage pools / sessions / per-scan egress in the
-  SPA. *Phase 6a shipped:* `GET /api/access` surfaces a read-only view
-  (`{country, kind}` per egress; session *names* only — proxy URLs and
-  session header values never leave the process); SPA has an "Access
-  engine" modal in the TopBar showing both tables with edit-via-files
-  hint; `ResultRow` now renders a small `transport` chip when a probe
-  used impersonate or browser (and a `browser*` chip when the cheap
-  path escalated). *Phase 6b open:* per-scan egress subset — needs
-  `Client::with_egress_subset(&[name])` (cheap-clone with a filtered
-  `Arc<EgressPool>`), a `name: Option<String>` on `EgressSpec`, an
-  `egress_names: Vec<String>` field on `POST /api/scan`, and a
-  multi-select control in the scan-launch form.
+- [x] **6 — Web UI**: manage pools / sessions / per-scan egress in the
+  SPA. *Phase 6a:* `GET /api/access` surfaces a read-only view
+  (`{name, country, kind}` per egress; session *names* only — proxy
+  URLs and session header values never leave the process); SPA has an
+  "Access engine" modal in the TopBar; `ResultRow` shows a small
+  `transport` chip when a probe used impersonate or browser (with `*`
+  on automatic escalations). *Phase 6b:* per-scan egress subset.
+  `EgressSpec.name: Option<String>` (serde-default — non-breaking
+  TOML); `EgressPool::subset`; `Client::with_egress_subset(&[name])`
+  does a cheap shallow clone that shares throttle / sessions / budgets
+  with the parent so per-request subsets don't get a fresh
+  per-scan budget. `POST /api/scan` accepts `egress_names: Vec<String>`
+  validated against the loaded pool (unknown name → 400
+  `unknown_egress`); the scan dispatches against a subset client when
+  the list is non-empty, the full pool otherwise. SPA's Advanced
+  filters modal grows an Egress section that toggles named pool
+  entries; selections appear as chips in the active-filters strip and
+  are kept across preset switches (orthogonal concerns); a
+  post-restart pool rotation prunes stale selections via
+  `actions.setAccessConfig`. *Inline editing of pool URLs / session
+  secrets is intentionally NOT exposed* — those are secrets and the
+  HTTP API may be bound to `0.0.0.0`; edits happen by updating the
+  TOML files and restarting the server.
 
 ## Next
 

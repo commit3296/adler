@@ -106,6 +106,7 @@ export type EgressKind = "datacenter" | "residential" | "mobile" | "tor";
 /// deliberately absent — they typically embed credentials and have no
 /// business reaching the browser.
 export interface EgressSummary {
+    name?: string;
     country?: string;
     kind: EgressKind;
 }
@@ -128,6 +129,9 @@ export interface StartScanBody {
     nsfw?: boolean;
     concurrency?: number;
     deadline_secs?: number;
+    /// Subset of the loaded `--proxy-pool` to route through for this
+    /// scan, selected by `name`. Empty / omitted = full pool.
+    egress_names?: string[];
 }
 
 export interface RetryResponse {

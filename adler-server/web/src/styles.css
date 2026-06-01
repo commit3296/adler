@@ -1774,6 +1774,22 @@
         .transport-chip.transport-impersonate { color: var(--amber-text); }
         .transport-chip.transport-browser { color: var(--green-text); }
 
+        /* ────────── form helper line ────────── */
+        .form-help {
+            font-family: var(--sans);
+            font-size: 0.82rem;
+            line-height: 1.5;
+            color: var(--fg-dim);
+            margin: 0 0 0.5rem;
+        }
+        .form-help code {
+            font-family: var(--mono);
+            font-size: 0.78rem;
+            background: var(--bg);
+            padding: 0.05rem 0.3rem;
+            border-radius: var(--r);
+        }
+
         /* ────────── reduced motion ──────────
            Honour the OS "reduce motion" setting globally: collapse all
            animations/transitions (view-in, shimmer, modalin, pulse, …)

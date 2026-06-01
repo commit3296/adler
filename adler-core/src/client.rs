@@ -111,6 +111,47 @@ impl Client {
         self.sessions.names()
     }
 
+    /// Names of the configured egresses (in registration order, only
+    /// those that supplied a name). Used by the server to validate
+    /// per-scan `egress_names` against the loaded pool.
+    #[must_use]
+    pub fn egress_names(&self) -> Vec<String> {
+        self.egress.names()
+    }
+
+    /// Returns a new client identical to this one except its egress
+    /// pool is restricted to entries whose `name` matches one of
+    /// `names`. An empty `names` slice is treated as "no filter" and
+    /// returns a clone of the full pool.
+    ///
+    /// Cheap to call repeatedly: all shared state (HTTP clients,
+    /// throttle, sessions, budgets, browser backend, …) is
+    /// `Arc`-cloned so the returned client shares the parent's
+    /// per-scan caps (browser budget, escalation budget, throttle
+    /// state) rather than each subset getting a fresh one. This is the
+    /// right behaviour for a single web-server instance handing out
+    /// per-request clients.
+    #[must_use]
+    pub fn with_egress_subset(&self, names: &[String]) -> Self {
+        Self {
+            http: Arc::clone(&self.http),
+            egress: Arc::new(self.egress.subset(names)),
+            sessions: Arc::clone(&self.sessions),
+            throttle: self.throttle.clone(),
+            global_throttle: self.global_throttle.clone(),
+            retry: self.retry.clone(),
+            user_agents: Arc::clone(&self.user_agents),
+            enrich: self.enrich,
+            robots: self.robots.clone(),
+            browser: self.browser.clone(),
+            #[cfg(feature = "impersonate")]
+            impersonate: self.impersonate.clone(),
+            browser_budget: Arc::clone(&self.browser_budget),
+            escalation_budget: Arc::clone(&self.escalation_budget),
+            escalation_enabled: self.escalation_enabled,
+        }
+    }
+
     /// Probe a single site for `username`, retrying on transient bans.
     ///
     /// Network failures, timeouts, and unexpected response shapes all yield
@@ -759,6 +800,7 @@ impl ClientBuilder {
                 Some(&spec.url),
             )?;
             egress_entries.push((
+                spec.name.clone(),
                 spec.country.clone(),
                 spec.kind,
                 Arc::new(HttpFetcher::new(client)),

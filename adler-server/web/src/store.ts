@@ -7,6 +7,7 @@ import { createStore, produce } from "solid-js/store";
 import { ApiClientError, api } from "./api";
 import { CATEGORIES, categoryForTags, type Preset } from "./constants";
 import type {
+    AccessResponse,
     CheckOutcome,
     ScanListEntry,
     SiteSummary,
@@ -133,6 +134,11 @@ export interface FilterState {
     excludeTag: string[];
     top: number | null;
     nsfw: boolean;
+    /// Per-scan egress subset — names from the loaded `--proxy-pool`.
+    /// Empty = use the full pool. Persists across scans within a
+    /// session, but not across reloads (operator usually wants to start
+    /// fresh; restart-the-server semantics already imply that).
+    egressNames: string[];
 }
 
 export interface ViewState {
@@ -185,6 +191,11 @@ export interface AppStore {
     /// own scan in turn, and the per-scan `clearScan` must not wipe it.
     batch: BatchState | null;
     history: ScanListEntry[];
+    /// Access-engine config from `GET /api/access`. Loaded once at
+    /// startup; the Access modal can refetch on demand. `null` until
+    /// the bootstrap fetch resolves (or stays null if the endpoint
+    /// errors — non-fatal).
+    accessConfig: AccessResponse | null;
     view: ViewState;
     ui: UiState;
 }
@@ -202,6 +213,7 @@ const [store, set] = createStore<AppStore>({
         excludeTag: ["bot-protected"],
         top: null,
         nsfw: persisted.nsfw ?? false,
+        egressNames: [],
     },
     scan: null,
     diff: null,
@@ -210,6 +222,7 @@ const [store, set] = createStore<AppStore>({
     serverVersion: null,
     batch: null,
     history: [],
+    accessConfig: null,
     view: {
         sort: persisted.sort ?? "status",
         groupBy: persisted.groupBy ?? "category",
@@ -263,6 +276,22 @@ export const actions = {
     setHistory(list: ScanListEntry[]) {
         set("history", list);
     },
+    setAccessConfig(a: AccessResponse) {
+        set("accessConfig", a);
+        // Prune any selected egress that's no longer in the pool — a
+        // post-restart subset rotation should clear stale chip state.
+        const known = new Set(
+            a.egress.map((e) => e.name).filter((n): n is string => !!n),
+        );
+        const stale = store.filter.egressNames.filter((n) => !known.has(n));
+        if (stale.length > 0) {
+            set(
+                "filter",
+                "egressNames",
+                store.filter.egressNames.filter((n) => known.has(n)),
+            );
+        }
+    },
 
     // Filter mutations
     applyPreset(p: Preset) {
@@ -272,6 +301,10 @@ export const actions = {
             excludeTag: (p.filter.exclude_tag ?? []).slice(),
             top: p.filter.top ?? null,
             nsfw: !!p.filter.nsfw,
+            // Egress is orthogonal to the catalog presets — preserve
+            // it across preset switches so the operator's transport
+            // choice doesn't silently flip.
+            egressNames: store.filter.egressNames.slice(),
         };
         set("filter", filter);
     },
@@ -302,6 +335,20 @@ export const actions = {
     setNsfw(on: boolean) {
         set("filter", "presetId", null);
         set("filter", "nsfw", on);
+    },
+    toggleEgress(name: string) {
+        set(
+            "filter",
+            "egressNames",
+            produce((names: string[]) => {
+                const idx = names.indexOf(name);
+                if (idx >= 0) names.splice(idx, 1);
+                else names.push(name);
+            }),
+        );
+    },
+    clearEgress() {
+        set("filter", "egressNames", []);
     },
 
     // Scan lifecycle

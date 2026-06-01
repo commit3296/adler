@@ -255,14 +255,20 @@ What you get in the browser:
 - **NSFW gate** — off by default; the toggle is hidden behind a
   confirmation, matching the CLI's `--nsfw` opt-in.
 - **Access engine view** — the shield icon in the top bar opens a
-  read-only panel showing what's loaded from `--proxy-pool` (country +
-  kind per egress, never proxy URLs) and `--sessions` (names only,
-  never header values). Sensitive material is kept off the HTTP API by
-  design; editing happens by updating the TOML files and restarting
-  the server. Outcomes also carry a small `transport` chip when a
-  probe ran via impersonate or the browser (with a `*` suffix when the
-  cheap path automatically escalated), so it's clear which transport
-  produced each verdict.
+  read-only panel showing what's loaded from `--proxy-pool` (name,
+  country + kind per egress, never proxy URLs) and `--sessions`
+  (names only, never header values). Sensitive material is kept off
+  the HTTP API by design; editing happens by updating the TOML files
+  and restarting the server. Outcomes also carry a small `transport`
+  chip when a probe ran via impersonate or the browser (with a `*`
+  suffix when the cheap path automatically escalated), so it's clear
+  which transport produced each verdict.
+- **Per-scan egress subset** — when a pool is loaded, Advanced filters
+  shows an Egress section that toggles named entries from the pool;
+  the next scan routes through that subset only. Sites whose access
+  policy can't be satisfied by the chosen subset land in
+  `Uncertain(geo_unavailable)` — same honest verdict as if no egress
+  matched at all.
 
 The server exposes a small JSON API at `/api/*` (`/health`, `/sites`,
 `/access`, `/scans`, `POST /scan`, `GET /scan/:id`,
@@ -404,11 +410,13 @@ The pool is a TOML file of `[[egress]]` entries:
 ```toml
 # pool.toml
 [[egress]]
+name = "pl-residential"  # optional; needed for per-scan subset selection in --web
 url = "socks5://user:pass@pl.example.com:1080"
-country = "pl"          # ISO-3166-1 alpha-2 (lowercased)
-kind = "residential"    # datacenter (default) | residential | mobile | tor
+country = "pl"           # ISO-3166-1 alpha-2 (lowercased)
+kind = "residential"     # datacenter (default) | residential | mobile | tor
 
 [[egress]]
+name = "de-datacenter"
 url = "http://de.example.com:8080"
 country = "de"
 # kind omitted → datacenter

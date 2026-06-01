@@ -111,6 +111,8 @@ export const App: Component = () => {
         if (store.filter.excludeTag.length) body.exclude_tag = store.filter.excludeTag;
         if (store.filter.top != null) body.top = store.filter.top;
         if (store.filter.nsfw) body.nsfw = true;
+        if (store.filter.egressNames.length)
+            body.egress_names = store.filter.egressNames;
 
         try {
             const r = await api.startScan(body);
@@ -365,6 +367,11 @@ export const App: Component = () => {
         api.sites()
             .then(actions.setCatalog)
             .catch(() => actions.toast("Failed to load catalogue", "error"));
+        api.access()
+            .then((a) => actions.setAccessConfig(a))
+            .catch(() => {
+                // /api/access is a luxury, not a blocker — silent on fail.
+            });
         refreshHistory();
         historyTimer = window.setInterval(refreshHistory, 8000);
 

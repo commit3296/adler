@@ -26,14 +26,29 @@ export const AdvancedFilters: Component = () => {
             const p = PRESETS.find((x) => x.id === store.filter.presetId);
             if (p) return [{ kind: "preset" as const, label: p.label }];
         }
-        const out: { kind: "tag" | "extag" | "top" | "nsfw"; label: string }[] = [];
+        const out: {
+            kind: "tag" | "extag" | "top" | "nsfw" | "egress";
+            label: string;
+        }[] = [];
         for (const t of store.filter.tag) out.push({ kind: "tag", label: t });
         for (const t of store.filter.excludeTag) out.push({ kind: "extag", label: t });
         if (store.filter.top != null)
             out.push({ kind: "top", label: `top ≤ ${store.filter.top}` });
         if (store.filter.nsfw) out.push({ kind: "nsfw", label: "nsfw" });
+        for (const e of store.filter.egressNames)
+            out.push({ kind: "egress", label: `egress: ${e}` });
         return out;
     });
+
+    /// Named egresses available for per-scan subset selection.
+    /// Filter out unnamed ones up front — those can't be referenced by
+    /// name and shouldn't appear as toggleable controls.
+    const egresses = createMemo(() =>
+        (store.accessConfig?.egress ?? []).filter(
+            (e): e is { name: string; country?: string; kind: typeof e.kind } =>
+                !!e.name,
+        ),
+    );
 
     function clearChip(c: { kind: string; label: string }) {
         if (c.kind === "preset") actions.applyPreset(PRESETS.find((p) => p.id === "all")!);
@@ -41,6 +56,8 @@ export const AdvancedFilters: Component = () => {
         else if (c.kind === "extag") actions.removeExcludeTag(c.label);
         else if (c.kind === "top") actions.setTop(null);
         else if (c.kind === "nsfw") actions.setNsfw(false);
+        else if (c.kind === "egress")
+            actions.toggleEgress(c.label.replace(/^egress: /, ""));
     }
 
     return (
@@ -147,6 +164,45 @@ export const AdvancedFilters: Component = () => {
                     />
                     Include sites tagged <code>nsfw</code>
                 </label>
+
+                <Show when={egresses().length > 0}>
+                    <label class="form-label">
+                        Egress (per-scan subset)
+                    </label>
+                    <p class="form-help">
+                        Restrict this scan to a subset of the loaded{" "}
+                        <code>--proxy-pool</code>. Empty = full pool. Sites
+                        whose access policy can't be satisfied by your
+                        subset land in{" "}
+                        <code>Uncertain(geo_unavailable)</code> — same
+                        honest verdict as if no egress matched at all.
+                    </p>
+                    <div class="tag-grid">
+                        <For each={egresses()}>
+                            {(e) => {
+                                const active = () =>
+                                    store.filter.egressNames.includes(e.name);
+                                return (
+                                    <label
+                                        class={`tag-check ${active() ? "active" : ""}`}
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            checked={active()}
+                                            onChange={() =>
+                                                actions.toggleEgress(e.name)
+                                            }
+                                        />
+                                        {e.name}
+                                        <span class="ct">
+                                            {e.country ?? "—"}/{e.kind}
+                                        </span>
+                                    </label>
+                                );
+                            }}
+                        </For>
+                    </div>
+                </Show>
             </fieldset>
         </Modal>
     );

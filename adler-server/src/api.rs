@@ -237,6 +237,14 @@ struct StartScanRequest {
     /// Optional total scan deadline in seconds.
     #[serde(default)]
     deadline_secs: Option<u64>,
+    /// Subset of the configured egress pool to use for this scan,
+    /// selected by `name`. Empty (or omitted) uses the full pool.
+    /// Unknown names → 400 `unknown_egress`. Sites whose access policy
+    /// can't be satisfied by the chosen subset land in
+    /// `Uncertain(geo_unavailable)` — the same honest verdict the engine
+    /// returns when a constrained policy can't be matched at all.
+    #[serde(default)]
+    egress_names: Vec<String>,
 }
 
 #[derive(Serialize)]
@@ -309,6 +317,27 @@ async fn start_scan(
         ));
     }
 
+    // Validate per-scan egress subset (if any) against the configured
+    // pool. Unknown names are rejected at the boundary rather than
+    // silently dropping to "no egress matched" — that would make a
+    // user-facing typo look like a deeper config problem.
+    if !req.egress_names.is_empty() {
+        let known: std::collections::HashSet<String> =
+            state.client.egress_names().into_iter().collect();
+        let bad: Vec<&String> = req
+            .egress_names
+            .iter()
+            .filter(|n| !known.contains(n.as_str()))
+            .collect();
+        if !bad.is_empty() {
+            let names: Vec<&str> = bad.iter().map(|s| s.as_str()).collect();
+            return Err(ApiError::bad_request(
+                "unknown_egress",
+                format!("egress not in pool: {}", names.join(", ")),
+            ));
+        }
+    }
+
     let mut options = ExecutorOptions::default();
     if let Some(c) = req.concurrency {
         options = options.concurrency(c);
@@ -330,9 +359,19 @@ async fn start_scan(
             dir: dir.clone(),
         });
 
+    // Per-scan client: when egress_names is non-empty, swap the pool
+    // for a subset. The new Client shares all other state (throttle,
+    // sessions, budgets) with the parent. When egress_names is empty,
+    // skip the wrap entirely so the shared default client is re-used.
+    let scan_client: Arc<adler_core::Client> = if req.egress_names.is_empty() {
+        state.client.clone()
+    } else {
+        Arc::new(state.client.with_egress_subset(&req.egress_names))
+    };
+
     crate::scan::spawn(
         handle,
-        state.client.clone(),
+        scan_client,
         Arc::from(sites.into_boxed_slice()),
         username,
         options,
@@ -795,11 +834,13 @@ mod tests {
                 url: "http://corp-proxy.invalid:8080".into(),
                 country: adler_core::CountryCode::new("de"),
                 kind: EgressKind::Datacenter,
+                name: Some("corp-de".into()),
             },
             EgressSpec {
                 url: "socks5://user:hunter2@residential.invalid:1080".into(),
                 country: adler_core::CountryCode::new("us"),
                 kind: EgressKind::Residential,
+                name: Some("us-residential".into()),
             },
         ];
         let mut sessions = SessionStore::new();
@@ -851,14 +892,105 @@ mod tests {
         let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
         let egress = v["egress"].as_array().unwrap();
         assert_eq!(egress.len(), 2);
+        assert_eq!(egress[0]["name"], "corp-de");
         assert_eq!(egress[0]["country"], "de");
         assert_eq!(egress[0]["kind"], "datacenter");
+        assert_eq!(egress[1]["name"], "us-residential");
         assert_eq!(egress[1]["country"], "us");
         assert_eq!(egress[1]["kind"], "residential");
 
         let sessions = v["sessions"].as_array().unwrap();
         assert_eq!(sessions.len(), 1);
         assert_eq!(sessions[0]["name"], "instagram");
+    }
+
+    #[tokio::test]
+    async fn start_scan_rejects_unknown_egress_name() {
+        use adler_core::{EgressKind, EgressSpec};
+        let mock = MockServer::start().await;
+        let sites = vec![site("A", &mock.uri(), "a")];
+        let pool = vec![EgressSpec {
+            url: "http://only-one.invalid:8080".into(),
+            country: adler_core::CountryCode::new("de"),
+            kind: EgressKind::Datacenter,
+            name: Some("only-one".into()),
+        }];
+        let client = Client::builder()
+            .timeout(Duration::from_secs(2))
+            .min_request_interval(Duration::ZERO)
+            .egress_pool(pool)
+            .build()
+            .unwrap();
+        let app = router(AppState::new(sites, client, 16));
+
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/scan")
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(
+                        r#"{"username":"alice","egress_names":["does-not-exist"]}"#,
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+        let body = to_bytes(resp.into_body(), 1024).await.unwrap();
+        let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(v["error"], "unknown_egress");
+        assert!(
+            v["message"].as_str().unwrap().contains("does-not-exist"),
+            "message should name the bad egress, got {}",
+            v["message"]
+        );
+    }
+
+    #[tokio::test]
+    async fn start_scan_accepts_known_egress_name() {
+        use adler_core::{EgressKind, EgressSpec};
+        let mock = MockServer::start().await;
+        Mock::given(any())
+            .and(path("/a/alice"))
+            .respond_with(ResponseTemplate::new(200))
+            .mount(&mock)
+            .await;
+        let sites = vec![site("A", &mock.uri(), "a")];
+        let pool = vec![EgressSpec {
+            url: "http://corp-de.invalid:8080".into(),
+            country: adler_core::CountryCode::new("de"),
+            kind: EgressKind::Datacenter,
+            name: Some("corp-de".into()),
+        }];
+        let client = Client::builder()
+            .timeout(Duration::from_secs(2))
+            .min_request_interval(Duration::ZERO)
+            .egress_pool(pool)
+            .build()
+            .unwrap();
+        let app = router(AppState::new(sites, client, 16));
+
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/scan")
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(
+                        r#"{"username":"alice","egress_names":["corp-de"]}"#,
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        // Known egress name; the scan is accepted (the actual probe
+        // outcome happens off-task and is checked elsewhere — this
+        // assertion just covers the validation boundary).
+        assert_eq!(resp.status(), StatusCode::OK);
+        let body = to_bytes(resp.into_body(), 1024).await.unwrap();
+        let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert!(v["scan_id"].is_string());
     }
 
     #[tokio::test]

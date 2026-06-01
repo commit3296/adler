@@ -101,6 +101,13 @@ pub struct EgressSpec {
     /// Network kind this egress exits from (defaults to `datacenter`).
     #[serde(default)]
     pub kind: EgressKind,
+    /// Operator-supplied identifier for this egress — used by the web
+    /// UI's per-scan egress subset selection (and by any other call
+    /// site that needs to refer to a specific egress by stable name).
+    /// Optional: an unnamed egress still participates in policy-based
+    /// matching, it just can't be selected by name.
+    #[serde(default)]
+    pub name: Option<String>,
 }
 
 /// What a site needs from its egress. The default (empty) means "no
@@ -222,12 +229,16 @@ impl SessionStore {
 /// Read-only metadata for one configured egress, surfaced via
 /// [`Client::egress_summary`](crate::Client::egress_summary).
 ///
-/// Carries only the match-relevant facets (country + kind); the proxy
-/// URL is *deliberately omitted* — those typically embed credentials
-/// (`socks5://user:pass@host:1080`) that have no business landing in a
-/// JSON response served to a browser.
+/// Carries only the match-relevant facets (name + country + kind); the
+/// proxy URL is *deliberately omitted* — those typically embed
+/// credentials (`socks5://user:pass@host:1080`) that have no business
+/// landing in a JSON response served to a browser.
 #[derive(Debug, Clone, Serialize)]
 pub struct EgressSummary {
+    /// Operator-supplied name, if any. Used by per-scan egress subset
+    /// selection (`POST /api/scan` with `egress_names`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
     /// Country this egress exits from, if declared.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub country: Option<CountryCode>,
@@ -238,6 +249,7 @@ pub struct EgressSummary {
 /// One built egress: its match metadata plus the HTTP client that
 /// routes through it.
 struct EgressEntry {
+    name: Option<String>,
     country: Option<CountryCode>,
     kind: EgressKind,
     fetcher: Arc<HttpFetcher>,
@@ -260,12 +272,23 @@ pub(crate) enum EgressChoice {
     Unavailable,
 }
 
+/// Constructor tuple for [`EgressPool`]: one row per configured proxy
+/// carries its operator-supplied `name` (if any), its country and
+/// kind, and the already-built `reqwest`-backed fetcher.
+pub(crate) type EgressEntryTuple = (
+    Option<String>,
+    Option<CountryCode>,
+    EgressKind,
+    Arc<HttpFetcher>,
+);
+
 impl EgressPool {
-    pub(crate) fn new(entries: Vec<(Option<CountryCode>, EgressKind, Arc<HttpFetcher>)>) -> Self {
+    pub(crate) fn new(entries: Vec<EgressEntryTuple>) -> Self {
         Self {
             entries: entries
                 .into_iter()
-                .map(|(country, kind, fetcher)| EgressEntry {
+                .map(|(name, country, kind, fetcher)| EgressEntry {
+                    name,
                     country,
                     kind,
                     fetcher,
@@ -274,7 +297,7 @@ impl EgressPool {
         }
     }
 
-    /// Read-only view of the pool — `(country, kind)` for every
+    /// Read-only view of the pool — `(name, country, kind)` for every
     /// configured egress, in the order they were registered. Used by the
     /// `GET /api/access` endpoint so the SPA can show what's configured
     /// without ever touching proxy URLs.
@@ -282,10 +305,55 @@ impl EgressPool {
         self.entries
             .iter()
             .map(|e| EgressSummary {
+                name: e.name.clone(),
                 country: e.country.clone(),
                 kind: e.kind,
             })
             .collect()
+    }
+
+    /// Return a new pool containing only entries whose `name` matches
+    /// one of `names`. Entries without a name are excluded (they can't
+    /// be referenced by name). `names` being empty is treated as "no
+    /// filter" and a clone of the full pool is returned — that
+    /// preserves the policy-driven default for callers who didn't ask
+    /// for an explicit subset.
+    pub(crate) fn subset(&self, names: &[String]) -> Self {
+        if names.is_empty() {
+            return Self {
+                entries: self
+                    .entries
+                    .iter()
+                    .map(|e| EgressEntry {
+                        name: e.name.clone(),
+                        country: e.country.clone(),
+                        kind: e.kind,
+                        fetcher: Arc::clone(&e.fetcher),
+                    })
+                    .collect(),
+            };
+        }
+        let wanted: std::collections::HashSet<&str> = names.iter().map(String::as_str).collect();
+        Self {
+            entries: self
+                .entries
+                .iter()
+                .filter(|e| e.name.as_deref().is_some_and(|n| wanted.contains(n)))
+                .map(|e| EgressEntry {
+                    name: e.name.clone(),
+                    country: e.country.clone(),
+                    kind: e.kind,
+                    fetcher: Arc::clone(&e.fetcher),
+                })
+                .collect(),
+        }
+    }
+
+    /// Names of egresses configured in this pool, in registration
+    /// order. Used by the server to validate `egress_names` on
+    /// `POST /api/scan`.
+    pub(crate) fn names(&self) -> Vec<String> {
+        self.entries.iter().filter_map(|e| e.name.clone()).collect()
     }
 
     /// Pick an egress for `policy`. Unconstrained → [`EgressChoice::Default`].
@@ -329,8 +397,18 @@ mod tests {
 
     fn pool() -> EgressPool {
         EgressPool::new(vec![
-            (Some(cc("pl")), EgressKind::Residential, dummy_fetcher()),
-            (Some(cc("de")), EgressKind::Datacenter, dummy_fetcher()),
+            (
+                None,
+                Some(cc("pl")),
+                EgressKind::Residential,
+                dummy_fetcher(),
+            ),
+            (
+                None,
+                Some(cc("de")),
+                EgressKind::Datacenter,
+                dummy_fetcher(),
+            ),
         ])
     }
 
