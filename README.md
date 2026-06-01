@@ -16,7 +16,19 @@
 
 OSINT username search across ~3,000 sites, in Rust. Honest verdicts and built
 to reach the hard ones — Cloudflare-walled, TLS-fingerprinted, geo-restricted,
-login-walled. See [PLAN.md](PLAN.md) for the roadmap.
+login-walled.
+
+## Documentation
+
+- 📖 [**adler-docs**](https://commit3296.github.io/adler-docs/) — the user
+  manual: install, the access engine, the web UI, embedding, FAQ.
+- 🦀 [docs.rs/adler-core](https://docs.rs/adler-core) — Rust API reference.
+- 🗺️ [PLAN.md](PLAN.md) — roadmap and the design behind the
+  access-engine phases.
+
+This README covers the elevator pitch (compare table, detection rate
+data) plus install / quickstart; deeper material lives on the docs
+site so it can evolve independently of crate releases.
 
 ## How Adler compares
 
@@ -148,508 +160,123 @@ ADLER_LOG=adler=debug cargo run -p adler-cli -- alice
 
 ## Usage
 
-`adler <username>` scans the embedded registry; everything else is a knob.
-Text output shows Found and Uncertain rows by default and hides NotFound —
-pass `--all` for the full list. Results stream into a terminal as they
-resolve; piped output is collected and ordered. For a browser view, pass
-`--web` (see [*Web UI*](#web-ui) below). Exit codes: `0` found, `1` nothing
-found, `2` error.
+`adler <username>` scans the embedded registry; everything else is a
+knob. Text output shows Found and Uncertain by default and hides
+NotFound — pass `--all` for the full list. Results stream into a
+terminal as they resolve; piped output is collected and ordered. Exit
+codes: `0` found, `1` nothing found, `2` error.
 
-`adler --help` has the complete flag reference; the buckets below cover the
-common ones by intent.
-
-### Filtering
+A few of the most common knobs:
 
 ```bash
-adler --only github,gitlab alice         # restrict to matching site names
-adler --exclude reddit alice             # drop matching site names
-adler --tag social,dev alice             # filter by tag(s)
-adler --tag region:ru alice              # by region tag
-adler --exclude-tag bot-protected alice  # skip login-walled sites
-adler --list-sites --only git            # discover filter terms (no scan)
-adler --list-tags                        # show all tags + counts
+adler --tag dev,social alice               # filter by tags
+adler --format ndjson alice                # one JSON object per line
+adler --proxy socks5://host:1080 alice     # single proxy for everything
+adler --browser-backend local alice        # bot-protected sites via Chrome
+adler --input users.txt                    # batch many usernames
+adler --watch alice                        # diff vs last run
 ```
 
-### Output
-
-```bash
-adler --format json alice > out.json     # JSON array
-adler --format ndjson alice              # one JSON object per line (jq-friendly)
-adler --format csv alice > out.csv       # spreadsheet table
-adler --format html alice > out.html     # self-contained HTML report
-adler --all alice                        # include NotFound rows
-adler -q alice                           # quiet: only Found URLs
-adler --explain alice                    # show which signal produced each verdict
-adler --color never alice                # disable colors (also honors NO_COLOR)
-```
-
-### Network & sessions
-
-```bash
-adler --concurrency 64 alice             # in-flight probes (default 32)
-adler --max-rps 5 alice                  # cap total request rate
-adler --proxy socks5://host:1080 alice   # single proxy for everything
-adler --proxy-pool pool.toml alice       # per-site geo/IP-type routing — see § Egress pool
-adler --sessions sessions.toml alice     # operator-supplied sessions — see § Sessions
-adler --tor alice                        # local Tor SOCKS proxy
-adler --rotate-ua alice                  # rotate User-Agent per request
-```
-
-For TLS-fingerprint-blocked sites, build with `--features impersonate` (see
-[*TLS-fingerprint impersonation*](#tls-fingerprint-impersonation-optional-build-feature)).
-
-### Browser & cache
-
-```bash
-adler --browser-backend local alice          # headless Chrome for bot-protected
-adler --browser-backend browserbase alice    # Browserbase cloud session
-adler --browser-budget 20 alice              # cap browser-routed probes (default 50)
-adler --no-browser alice                     # off for this run
-
-adler --no-cache alice                       # bypass the result cache
-adler --cache-ttl 86400 alice                # custom TTL (default 3600 s)
-adler --cache-clear                          # drop the cache
-```
-
-Cache lives at `~/.cache/adler/`. See [*Browser backend*](#browser-backend-optional)
-for the cost / setup trade-offs.
-
-### Batch & enrichment
-
-```bash
-adler --input users.txt                      # batch many usernames, grouped output
-adler --watch alice                          # diff vs last run; new/removed
-adler --watch --interval 3600 alice          # keep watching
-adler --enrich alice                         # extract name/bio/avatar
-adler --correlate alice                      # group accounts by signal overlap
-adler --permute aggressive alice             # search spelling variants
-adler --completions zsh > _adler             # shell completions
-```
+→ Complete flag reference, grouped by intent (filtering / output /
+network & sessions / browser & cache / batch & enrichment), is on the
+[**Usage**](https://commit3296.github.io/adler-docs/usage/) page.
+`adler --help` lists every flag with its short doc; the docs page adds
+the bigger picture.
 
 ## Web UI
 
 `adler --web` boots a small in-process HTTP server and serves a SolidJS
-SPA from the same binary — no separate frontend deployment, no extra
-process to manage. Once the server is up, kick off scans, watch outcomes
-stream in over SSE, persist them to disk, and diff them against earlier
-runs.
+SPA from the same binary — live SSE-streamed scans, persisted history,
+side-by-side diff against an earlier run, a read-only access-engine
+panel, and per-scan egress subset selection when a `--proxy-pool` is
+loaded.
 
 ```bash
 adler --web                          # http://127.0.0.1:8080
 adler --web --web-bind 0.0.0.0:9000  # listen on all interfaces, custom port
 ```
 
-What you get in the browser:
+> **Warning** — the default bind is loopback. Switching to `0.0.0.0`
+> exposes the JSON API to your network. Adler is not built to face the
+> open internet; put auth in front of any non-loopback bind.
 
-- **Live scan view** — outcomes stream in as they resolve (SSE), grouped
-  by category, with per-row evidence (verdict reason, response snippet,
-  URL) and a one-click retry.
-- **History modal** — every finished scan is persisted to
-  `~/.cache/adler/scans/` (oldest 200, atomic writes). Reopen any past
-  scan via `#/scan/<id>` deep-links.
-- **Compare with previous** — pick any two persisted scans and diff
-  them side-by-side (`#/diff/<a>/<b>`); shows accounts gained / lost /
-  flipped between the two runs. Esc / back-button exits.
-- **Filters & sort** — by verdict, category, presence of evidence,
-  hidden NotFound rows. Preferences persist to localStorage.
-- **NSFW gate** — off by default; the toggle is hidden behind a
-  confirmation, matching the CLI's `--nsfw` opt-in.
-- **Access engine view** — the shield icon in the top bar opens a
-  read-only panel showing what's loaded from `--proxy-pool` (name,
-  country + kind per egress, never proxy URLs) and `--sessions`
-  (names only, never header values). Sensitive material is kept off
-  the HTTP API by design; editing happens by updating the TOML files
-  and restarting the server. Outcomes also carry a small `transport`
-  chip when a probe ran via impersonate or the browser (with a `*`
-  suffix when the cheap path automatically escalated), so it's clear
-  which transport produced each verdict.
-- **Per-scan egress subset** — when a pool is loaded, Advanced filters
-  shows an Egress section that toggles named entries from the pool;
-  the next scan routes through that subset only. Sites whose access
-  policy can't be satisfied by the chosen subset land in
-  `Uncertain(geo_unavailable)` — same honest verdict as if no egress
-  matched at all.
+→ The
+[**Web UI**](https://commit3296.github.io/adler-docs/web-ui/) page
+covers the full feature set, the `/api/*` surface, and the deployment
+notes (the SPA is `rust-embed`'d into the binary; rebuild from source
+with `npm ci && npm run build` in `adler-server/web/`).
 
-The server exposes a small JSON API at `/api/*` (`/health`, `/sites`,
-`/access`, `/scans`, `POST /scan`, `GET /scan/:id`,
-`GET /scan/:id/stream`, `POST /scan/:id/retry`) — useful if you want
-to drive Adler from a different frontend or a script. SSE consumers
-should subscribe to the `/stream` endpoint and treat each event as one
-outcome.
+## Access engine
 
-The bundled SPA is baked into the binary at compile time
-(`rust-embed`), so the deployed unit is just the `adler` executable
-plus whatever scan-cache directory you point it at. The SolidJS
-project lives at `adler-server/web/`; if you build from source, run
-`npm ci && npm run build` there before `cargo build` — Vite emits
-`web/dist/`, which `rust-embed` reads directly.
+Adler ships a transport ladder for sites a plain HTTP client can't see —
+that's the whole reason it scores ahead of Sherlock / Maigret on the
+hard subset of the registry:
 
-## Browser backend (optional)
+- **Browser backend** (`--browser-backend local` / `browserbase`) — real
+  headless Chrome for sites tagged `bot-protected` (Instagram, X /
+  Twitter today). Bounded by `--browser-budget` so a misconfigured flag
+  can't burn a quota.
+- **TLS-fingerprint impersonation** (`cargo install --features
+  impersonate`) — in-process Chrome 134 BoringSSL handshake for sites
+  tagged `protection: tls-fingerprint`. Much cheaper than a real
+  browser.
+- **Egress pool** (`--proxy-pool <file>`) — per-site geo / IP-type
+  routing. Sites with an `access` policy pick a matching proxy; sites
+  without stay on the default egress.
+- **Sessions** (`--sessions <file>`) — operator-supplied cookies /
+  tokens for login-walled sites. Per-site `[name]` tables; values
+  redacted from logs.
+- **Automatic escalation** (`--escalation-budget N` / `--no-escalation`)
+  — when the cheap path returns `Uncertain(cloudflare_challenge |
+  rate_limited)`, the router automatically retries through the browser
+  backend. Bounded by its own budget. Outcomes carry `transport` and
+  `escalations` telemetry so it's clear which path produced each
+  verdict.
 
-A small subset of sites — currently **Instagram and Twitter**
-(`adler --list-tags` shows the live count; the tag is kept narrow
-because every additional candidate we investigated either detects
-fine without a browser or is structurally unscrapable even *with*
-one — see *Detection rate* above) — serve a JavaScript login wall
-or a Cloudflare challenge to a plain HTTP request. They're tagged
-`bot-protected` and, on the raw HTTP path, will *always* return
-`Uncertain` because the response looks identical for an existing
-account and a missing one.
-
-With `--browser-backend` Adler routes those sites (and *only* those —
-everything else stays on the fast HTTP path) through a real headless
-Chrome that runs JS, accepts cookies, and returns the final post-render
-DOM. The same detection signals then apply, and a verdict becomes
-possible.
-
-Two backends are supported, picked at the CLI:
-
-| Flag | What it does | Cost | Requirements |
-|---|---|---|---|
-| `--browser-backend local` | Launches headless Chrome on your machine via [`chromiumoxide`](https://crates.io/crates/chromiumoxide) | Free | Chrome / Chromium installed locally |
-| `--browser-backend browserbase` | Opens a remote session on [Browserbase](https://browserbase.com) and connects over the CDP WebSocket | Pay per session-minute (≈ $0.05/min) | `ADLER_BROWSERBASE_API_KEY` and `ADLER_BROWSERBASE_PROJECT_ID` env vars. Drives CDP through a small in-tree async client (`adler-core/src/browser/cdp.rs`) — neither `chromiumoxide` nor `headless_chrome` could attach to Browserbase's remote browser cleanly (issue #5), so we wrote our own. |
-
-Both reuse a single browser instance across all routed fetches for the
-scan, so cost / setup overhead is one-time.
-
-### Examples
-
-```bash
-# Use local Chrome — pairs cleanly with --proxy (passed through as
-# --proxy-server to the child process).
-adler --browser-backend local --proxy socks5h://USER:PASS@HOST:PORT alice
-
-# Cloud session with residential / mobile IP and anti-fingerprint baked in.
-export ADLER_BROWSERBASE_API_KEY=bb_live_...
-export ADLER_BROWSERBASE_PROJECT_ID=...
-adler --browser-backend browserbase alice
-
-# Cap the number of browser-routed probes (default 50). Once exceeded,
-# remaining bot-protected sites return Uncertain(browser_budget_exceeded).
-adler --browser-backend browserbase --browser-budget 10 alice
-
-# Disable for one run even if the env / a shell alias has it on.
-adler --no-browser alice
-```
-
-### Guardrails
-
-- **Per-scan budget** — `--browser-budget N` caps how many browser
-  fetches a single scan may consume. Default is 50, ≈ 5× the
-  `bot-protected` subset of the registry, so the cap only ever fires if
-  a flag is misconfigured.
-- **No surprise routing** — only sites tagged `bot-protected` are sent
-  through the browser. Everything else is unaffected. Use
-  `adler --list-tags` to see what's tagged.
-- **Privacy** — the `browserbase` backend sends the URLs you scan to a
-  third-party US-based service. The `local` backend doesn't leave your
-  machine (modulo whatever proxy you've configured Chrome to use).
-
-### Trade-offs vs. raw HTTP
-
-Browser fetches are inherently 5–10× slower than raw HTTP and (for
-`browserbase`) cost real money. They're the only way to detect
-accounts on the bot-protected subset, but on the rest of the registry
-they would add latency for no recall gain — which is why routing is
-opt-in and tag-driven, not blanket.
-
-## Automatic escalation
-
-The pre-tag routing above handles sites the registry has *already*
-marked as `bot-protected` (Instagram, X/Twitter today). It can't help
-with the long tail — sites that look like a normal HTTP target until
-the moment they sit behind a Cloudflare edge or a 429 rate-limit and
-return an interstitial page. Without help, those sites land in
-`Uncertain(cloudflare_challenge | rate_limited)` on every scan from
-the cheap path.
-
-When a browser backend is configured, Adler watches for those
-escalation-worthy `Uncertain` reasons on the cheap path and
-automatically retries through the browser — flipping the verdict
-from `Uncertain` to `Found` / `NotFound` without the operator having
-to pre-tag the site. Each retry consumes one slot of a separate
-`--escalation-budget` (default `30`), so a Cloudflare-walled long
-tail doesn't quietly blow up your Browserbase bill.
-
-```bash
-adler --browser-backend local alice                 # escalation on, default budget 30
-adler --browser-backend local --escalation-budget 50 alice
-adler --browser-backend local --no-escalation alice  # cheap-path verdicts only
-```
-
-Outcomes carry a `transport` field (`http` / `impersonate` /
-`browser`) and an `escalations` count (0 in the happy path, 1 when
-escalation fired) so downstream tools can tell which path produced
-each verdict. Sites that never escalate stay on the cheap, fast HTTP
-path; only the ones that hit a wall pay the browser-fetch cost.
-
-Escalation only triggers on reasons a browser plausibly resolves —
-`CloudflareChallenge` and `RateLimited`. Operator-policy
-`Uncertain`s (`robots_disallowed`, `session_required`,
-`geo_unavailable`, `username_not_allowed`, deadline / scheduler /
-captcha) are kept as-is so escalation doesn't waste budget on
-hopeless cases.
-
-## Egress pool (geo routing)
-
-Some sites only answer from a particular country, or block datacenter
-IP ranges. A site can declare what egress it needs via its `access`
-policy in the registry (a country and/or an IP type); `--proxy-pool`
-supplies the proxies that satisfy those requirements.
-
-`--proxy` still routes *everything* through one proxy (the default
-egress). `--proxy-pool` is additive and **only** kicks in for sites
-whose `access` policy requires a specific egress — everything else
-keeps using the default. If a site needs an egress the pool can't
-provide, it's reported `Uncertain(geo_unavailable)` rather than fetched
-from the wrong place — a location you can't reach is not evidence the
-account is absent.
-
-The pool is a TOML file of `[[egress]]` entries:
-
-```toml
-# pool.toml
-[[egress]]
-name = "pl-residential"  # optional; needed for per-scan subset selection in --web
-url = "socks5://user:pass@pl.example.com:1080"
-country = "pl"           # ISO-3166-1 alpha-2 (lowercased)
-kind = "residential"     # datacenter (default) | residential | mobile | tor
-
-[[egress]]
-name = "de-datacenter"
-url = "http://de.example.com:8080"
-country = "de"
-# kind omitted → datacenter
-```
-
-```bash
-adler --proxy-pool pool.toml alice
-```
-
-Bring your own proxies — Adler ships the routing, not the egress. The
-browser backend keeps its own egress (e.g. Browserbase's residential
-IPs); `--proxy-pool` routes the raw-HTTP path.
-
-## Sessions (reach login-walled sites)
-
-Some sites only show a profile to a logged-in user (Instagram, Threads,
-Reddit's JSON). A site can declare `access.session = "<name>"` in the
-registry; `--sessions <file>` supplies that named session's headers —
-your own (or a sock-puppet) account's — applied to the site's probe so
-it sees a real session instead of a login wall.
-
-This is "use a real account", not evasion: Adler doesn't solve
-challenges or forge anything; you bring a session you're entitled to.
-If a site names a session you didn't supply, it's reported
-`Uncertain(session_required)` rather than a login-wall false negative.
-
-The file is TOML; each `[name]` table is a set of HTTP headers (copy
-them from your browser's devtools):
-
-```toml
-# sessions.toml
-[ig]
-Cookie = "sessionid=...; csrftoken=..."
-X-IG-App-ID = "936619743392459"
-
-[reddit]
-Cookie = "reddit_session=..."
-```
-
-```bash
-adler --sessions sessions.toml alice
-```
-
-Header values are secrets — redacted from logs, never written to scan
-output. Using a sock-puppet account may breach a site's ToS; that's an
-operator decision within your engagement's scope.
-
-## TLS-fingerprint impersonation (optional build feature)
-
-Some sites read the TLS handshake's JA3 / JA4 fingerprint and serve a
-block page to anything that doesn't look like a real browser — `rustls`
-or `reqwest`'s default fingerprints are well-known and easy to
-filter. Sites tagged `protection: tls-fingerprint` in the registry
-declare this.
-
-Build Adler with the `impersonate` feature to enable an in-process
-`wreq` HTTP client emulating Chrome 134 (BoringSSL handshake matches
-real Chrome's JA3 / JA4 / HTTP-2 fingerprint). Sites whose protection
-is *only* TLS fingerprint then route through it — much cheaper than
-spinning up a real browser:
-
-```bash
-cargo install adler-cli --features impersonate
-```
-
-The feature pulls in BoringSSL and needs `cmake`, a C++ compiler, and
-`libclang` at build time (on Fedora: `dnf install cmake gcc-c++
-clang`; on Debian/Ubuntu: `apt install cmake clang libclang-dev`).
-`cargo binstall adler-cli` ships impersonate-enabled binaries for
-x86_64-linux, both macOS targets, and Windows; the
-`aarch64-unknown-linux-gnu` binary is built without the feature (cross-
-compiled BoringSSL toolchain isn't wired up), so on aarch64 Linux use
-`cargo install adler-cli --features impersonate` instead. Sites with
-mixed protections (e.g. `tls-fingerprint` + `cloudflare`) stay on the
-browser-backend path.
-
-## Performance
-
-A scan is network-bound: the engine itself is negligible. The `executor::run`
-benchmark (`cargo bench -p adler-core`) fans out 50 probes against a local
-mock server in **~1.6 ms total — roughly 32 µs per site** of framework
-overhead (~30K sites/s), while a real HTTP request takes 100–1000 ms. So
-wall-clock time is set almost entirely by how many requests are in flight.
-
-The lever that matters is therefore concurrency, not micro-optimisation:
-
-- `--concurrency` (default **32**) bounds in-flight probes. Most sites are
-  distinct hosts, so the per-host throttle rarely serialises; raising it
-  (e.g. `--concurrency 64`) shortens large scans, with diminishing returns
-  past your network's limits.
-- The result cache (`~/.cache/adler/`) skips re-probing unchanged sites
-  between runs entirely.
-- `--max-rps` trades throughput for politeness when you need a global cap.
+→ Full guide with the TOML formats, guardrails, and trade-offs lives at
+[**Access engine**](https://commit3296.github.io/adler-docs/access-engine/).
 
 ## Library
 
-`adler-core` is the runtime-agnostic engine that powers the CLI;
-it's published separately on
-[crates.io](https://crates.io/crates/adler-core) so you can embed
-username detection in your own Rust tools. Add to your `Cargo.toml`:
+`adler-core` is the runtime-agnostic engine that powers the CLI,
+published separately on [crates.io](https://crates.io/crates/adler-core)
+for embedding in your own Rust tools — a Discord bot that checks
+usernames, a security tool that flags exposed identities across a
+watchlist, a CI gate that asserts a name isn't claimed elsewhere.
 
 ```toml
 [dependencies]
-adler-core = "0.8"
+adler-core = "0.10"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```
 
-Minimal worked example — load the embedded registry, scan one
-username, print the hits:
-
-```rust
-use adler_core::{Client, ExecutorOptions, MatchKind, Registry, Username, executor};
-
-#[tokio::main]
-async fn main() -> adler_core::Result<()> {
-    let registry = Registry::default_embedded()?;
-    // filter(include, exclude, tags, exclude_tags, include_nsfw)
-    // — empty slices = no name/tag filter; `false` keeps the
-    // default NSFW auto-exclusion.
-    let sites = registry.filter(&[], &[], &[], &[], false);
-    let username = Username::new("torvalds")?;
-    let client = Client::builder().build()?;
-
-    let outcomes = executor::run(
-        &client, &sites, &username, ExecutorOptions::default(),
-    ).await;
-
-    for outcome in outcomes.iter().filter(|o| o.kind == MatchKind::Found) {
-        println!("found: {} → {}", outcome.site, outcome.url);
-    }
-    Ok(())
-}
-```
-
-See [`docs.rs/adler-core`](https://docs.rs/adler-core) for the
-full API. Notable knobs:
-
-| | |
-|---|---|
-| `Client::builder()` | timeout, redirect policy, user-agent rotation, proxy, retry, rotate-UA, throttle, cache, browser backend, NSFW gate. |
-| `Registry::filter` | include/exclude by name substring, tag, `nsfw` opt-in (the 5th `include_nsfw: bool` parameter — pass `true` to scan adult sites). |
-| `Site::request_headers` | per-site HTTP headers (e.g. Instagram's `X-IG-App-ID`); browser backends apply via `Network.setExtraHTTPHeaders`. |
-| `Site::regex_check` | per-site username-validity regex. Mismatched usernames short-circuit to `Uncertain(UsernameNotAllowed)` without a network request. |
-| `Site::known_present` | `KnownPresent::Single(String)` or `KnownPresent::Multiple(Vec<String>)`; `--doctor` passes if **any** declared username resolves to `Found`. |
-| `BrowserBackend` trait | route bot-protected sites through real Chrome. Built-in: `LocalBackend` (chromiumoxide) and `BrowserbaseBackend` (cloud CDP). |
-
-**Breaking changes since 0.1:** the `Registry::filter` signature
-grew an `include_nsfw: bool` (v0.4.0), `Site::known_present` now
-accepts a `KnownPresent` enum instead of `Option<String>` (v0.3.0),
-`Site::request_headers` and `Site::regex_check` are new fields
-(v0.2.0 / v0.4.0 respectively). The
-[CHANGELOG](CHANGELOG.md) has the migration notes for each.
+→ Minimal worked example, the notable `ClientBuilder` knobs, and the
+per-version breaking-change log are on the
+[**Embedding**](https://commit3296.github.io/adler-docs/embedding/)
+page. The complete API reference is on
+[docs.rs/adler-core](https://docs.rs/adler-core).
 
 ## Site registry
 
-The default registry (`adler-core/data/sites.json`, ~2.5k sites) is generated
-from MIT-licensed upstream data — the
-[Sherlock project](https://github.com/sherlock-project/sherlock) (base) plus
-the [Maigret project](https://github.com/soxoj/maigret) (engine-inherited
-forum platforms and additional sites) — via `scripts/import_sherlock.py`
-and `scripts/import_maigret.py`. Detections are imported **unverified** —
-upstream signatures rot over time. Validate them with the built-in health
-check:
+The default registry (`adler-core/data/sites.json`, ~2.5k sites) is
+generated from MIT-licensed upstream data — Sherlock + Maigret + an
+opt-in WhatsMyName tranche (CC BY-SA 4.0; pass `--no-wmn` to drop it
+when redistributing scan output under MIT only). Detections are imported
+**unverified** — `adler --doctor` validates every signal, `--doctor
+--fix` proposes corrected ones.
 
-```bash
-adler --doctor                 # check every site's signature
-adler --doctor --only github   # check a subset
-```
+→ Detailed lineage, schema, signal model, and doctor workflow live in
+[**Site registry**](https://commit3296.github.io/adler-docs/site-registry/).
 
-`--doctor` probes each site's known-present user (must be Found) and a random
-nonsense user (must not be Found), reporting any site whose detection no
-longer holds. `--doctor --fix` additionally suggests a corrected signature
-for failing sites by diffing the present/absent responses. A nightly GitHub
-Actions workflow (`.github/workflows/doctor.yml`) runs the check across the
-whole registry and flags structural rot.
+## Troubleshooting
 
-A supplementary registry derived from
-[WhatsMyName](https://github.com/WebBreacher/WhatsMyName) is shipped in
-`adler-core/data/sites_wmn.json` and is **included by default** for
-maximum coverage — it adds ~675 sites with two-sided body+status
-detection signatures. The file is licensed CC BY-SA 4.0; if you
-redistribute Adler scan output and need an MIT-only data lineage,
-pass `--no-wmn` to drop the tranche.
+Common questions ("Why is everything Uncertain?", "Why does Adler find
+fewer accounts than Sherlock?", "How do I scan Instagram?", …) are
+covered in the [**FAQ**](https://commit3296.github.io/adler-docs/faq/) on
+the docs site.
 
-## Quality bar
-
-CI must pass on every push:
-
-```bash
-cargo fmt --all --check
-cargo clippy --all-targets --workspace -- -D warnings
-cargo test --workspace
-```
-
-## FAQ / Troubleshooting
-
-**Why is everything coming back as `Uncertain`?** Almost always a datacenter
-IP that's been mass-banned at the CDN edge. Try `--proxy socks5://...` with a
-residential proxy, or `--browser-backend local` for sites tagged
-`bot-protected`. `adler --explain alice` prints the signal that flagged each
-verdict, so you can tell *why* it was inconclusive (`cloudflare_challenge`,
-`geo_unavailable`, `session_required`, …).
-
-**Why does Adler report fewer Found accounts than Sherlock or Maigret?**
-Adler's `NotFound` means "verified absent from a working response." Sherlock
-and Maigret return `NotFound` even when the response was a Cloudflare wall,
-login page, or anti-bot challenge — those are false negatives. Check Adler's
-`Uncertain` bucket: most of the apparent "missing" hits are there, with a
-*reason*. Resolve the wall (browser, residential IP, sessions) and they
-flip to `Found`.
-
-**How do I scan Instagram / X (Twitter) / Threads?** They're tagged
-`bot-protected` — plain HTTP gets a login wall. Use `--browser-backend local`
-(free, local Chrome) or `--browser-backend browserbase` (paid, residential
-cloud). For Instagram specifically, supplying a session via `--sessions` lets
-you reach the authenticated profile (see [*Sessions*](#sessions-reach-login-walled-sites)).
-
-**`--proxy` vs `--proxy-pool` — which do I want?** `--proxy` routes
-*everything* through one proxy. `--proxy-pool` is per-site: the registry
-declares "this site needs a UK residential IP", Adler picks a matching
-egress from the pool; sites without a constraint use the default. Mix them
-freely.
-
-**A site's signature is stale — how do I fix it?** `adler --doctor --only
-<site>` reproduces the failure; `adler --doctor --fix --only <site>` diffs
-present/absent responses and proposes a corrected signature. Paste it into a
-local override or open a PR.
-
-**Is it legal to use sock-puppet accounts for `--sessions`?** Adler ships
-nothing here — you bring the session. Whether your engagement authorises
-operating under a pseudonymous account against a site's ToS is an operator
-decision; see [*Ethics & responsible use*](#ethics--responsible-use) for our
-line.
+For CI / contributor-facing commands (`cargo fmt`, `cargo clippy`,
+`cargo test`), see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Ethics & responsible use
 
