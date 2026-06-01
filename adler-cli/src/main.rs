@@ -275,6 +275,22 @@ struct Cli {
     #[arg(long)]
     no_browser: bool,
 
+    /// Per-scan cap on automatic escalations from the cheap transport
+    /// (HTTP / impersonate) to the browser when the cheap path returns
+    /// `Uncertain(cloudflare_challenge | rate_limited)`. Independent of
+    /// `--browser-budget` so the pre-tagged `bot-protected` subset and the
+    /// long-tail escalation subset don't fight over the same number.
+    /// Defaults to `adler_core::DEFAULT_ESCALATION_BUDGET`.
+    #[arg(long, default_value_t = adler_core::DEFAULT_ESCALATION_BUDGET, value_name = "N")]
+    escalation_budget: usize,
+
+    /// Disable automatic escalation entirely — the cheap transport's
+    /// outcome stands even when its `Uncertain` reason is one a browser
+    /// fetch would resolve. Useful when benchmarking the raw HTTP signals
+    /// or when you want strict cheap-path semantics.
+    #[arg(long)]
+    no_escalation: bool,
+
     /// Extract profile fields (name, bio, avatar, …) from found accounts on
     /// sites that declare extractor rules. Implies a fresh scan (skips the
     /// cache) so enrichment data is current.
@@ -1313,6 +1329,11 @@ async fn build_client(cli: &Cli) -> Result<Client> {
         builder = builder.browser(backend).browser_budget(cli.browser_budget);
     }
 
+    builder = builder.escalation_budget(cli.escalation_budget);
+    if cli.no_escalation {
+        builder = builder.disable_escalation();
+    }
+
     builder
         // --correlate needs profile fields, so it implies enrichment.
         .enrich(cli.enrich || cli.correlate)
@@ -1868,6 +1889,8 @@ mod tests {
             elapsed_ms: 1,
             enrichment: BTreeMap::new(),
             evidence: Vec::new(),
+            transport: None,
+            escalations: 0,
         }
     }
 

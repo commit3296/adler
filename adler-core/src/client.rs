@@ -76,6 +76,16 @@ pub struct Client {
     /// Per-scan cap on browser fetches. Shared across `Client::check` calls
     /// for a single scan, so several tasks compete for the same budget.
     browser_budget: Arc<BrowserBudget>,
+    /// Per-scan cap on *automatic escalations* from a cheap transport to
+    /// the browser when the cheap path returns
+    /// `Uncertain(CloudflareChallenge | RateLimited)`. Independent of
+    /// `browser_budget` so the pre-tagged `bot-protected` subset and the
+    /// long-tail escalation subset don't fight over the same number.
+    escalation_budget: Arc<crate::escalation::EscalationBudget>,
+    /// Whether automatic escalation runs at all. `false` keeps the cheap
+    /// transport's outcome verbatim — useful for benchmarking the raw
+    /// signals without the access-engine lift on top.
+    escalation_enabled: bool,
 }
 
 impl Client {
@@ -271,18 +281,22 @@ impl Client {
                         want_body: true,
                     };
                     let fetcher = BrowserFetcher::new(Arc::clone(backend));
-                    return match fetcher.fetch(&req).await {
+                    let mut outcome = match fetcher.fetch(&req).await {
                         Ok(resp) => self.finish(site, url, started, &resp),
                         Err(FetchError(reason)) => uncertain(&site.name, url, started, reason),
                     };
+                    outcome.transport = Some(crate::escalation::TransportTier::Browser);
+                    return outcome;
                 }
                 tracing::warn!(site = %site.name, "browser budget exhausted");
-                return uncertain(
+                let mut outcome = uncertain(
                     &site.name,
                     url,
                     Instant::now(),
                     UncertainReason::BrowserBudget,
                 );
+                outcome.transport = Some(crate::escalation::TransportTier::Browser);
+                return outcome;
             }
         }
 
@@ -310,10 +324,12 @@ impl Client {
                     headers,
                     want_body: true,
                 };
-                return match fetcher.fetch(&req).await {
-                    Ok(resp) => self.finish(site, url, started, &resp),
-                    Err(FetchError(reason)) => uncertain(&site.name, url, started, reason),
+                let mut primary = match fetcher.fetch(&req).await {
+                    Ok(resp) => self.finish(site, url.clone(), started, &resp),
+                    Err(FetchError(reason)) => uncertain(&site.name, url.clone(), started, reason),
                 };
+                primary.transport = Some(crate::escalation::TransportTier::Impersonate);
+                return self.maybe_escalate(site, &url, headers, primary).await;
             }
         }
 
@@ -387,10 +403,60 @@ impl Client {
             headers,
             want_body: needs_body,
         };
-        match egress.fetch(&req).await {
-            Ok(resp) => self.finish(site, url, started, &resp),
-            Err(FetchError(reason)) => uncertain(&site.name, url, started, reason),
+        let mut primary = match egress.fetch(&req).await {
+            Ok(resp) => self.finish(site, url.clone(), started, &resp),
+            Err(FetchError(reason)) => uncertain(&site.name, url.clone(), started, reason),
+        };
+        primary.transport = Some(crate::escalation::TransportTier::Http);
+        self.maybe_escalate(site, &url, headers, primary).await
+    }
+
+    /// If the cheap transport returned an `Uncertain` reason a browser
+    /// fetch could plausibly resolve, retry through the browser backend
+    /// and stamp the new outcome as escalated. Bounded by
+    /// [`escalation_budget`](ClientBuilder::escalation_budget).
+    async fn maybe_escalate(
+        &self,
+        site: &Site,
+        url: &str,
+        headers: &BTreeMap<String, String>,
+        primary: CheckOutcome,
+    ) -> CheckOutcome {
+        if !self.escalation_enabled || primary.kind != MatchKind::Uncertain {
+            return primary;
         }
+        let Some(reason) = &primary.reason else {
+            return primary;
+        };
+        if !crate::escalation::should_escalate(reason) {
+            return primary;
+        }
+        let Some(backend) = &self.browser else {
+            return primary;
+        };
+        if !self.escalation_budget.try_consume() {
+            tracing::debug!(site = %site.name, "escalation budget exhausted");
+            return primary;
+        }
+
+        tracing::debug!(site = %site.name, reason = %reason, "escalating to browser");
+        let started = Instant::now();
+        let req = FetchRequest {
+            method: site.request_method,
+            url,
+            body: None,
+            user_agent: None,
+            headers,
+            want_body: true,
+        };
+        let fetcher = BrowserFetcher::new(Arc::clone(backend));
+        let mut escalated = match fetcher.fetch(&req).await {
+            Ok(resp) => self.finish(site, url.to_owned(), started, &resp),
+            Err(FetchError(r)) => uncertain(&site.name, url.to_owned(), started, r),
+        };
+        escalated.transport = Some(crate::escalation::TransportTier::Browser);
+        escalated.escalations = 1;
+        escalated
     }
 
     /// Evaluate a fetched response against the site's signals and build
@@ -449,6 +515,11 @@ pub struct RawResponse {
 /// Builder for [`Client`].
 #[derive(Clone)]
 #[must_use = "ClientBuilder does nothing until `.build()` is called"]
+// A configuration builder accumulates many small flags; the four bool
+// fields here are semantically independent (redirect / enrich /
+// respect-robots / escalation), so collapsing them into a state machine
+// or enum would obscure rather than clarify.
+#[allow(clippy::struct_excessive_bools)]
 pub struct ClientBuilder {
     timeout: Duration,
     connect_timeout: Duration,
@@ -466,6 +537,8 @@ pub struct ClientBuilder {
     browser_budget: usize,
     egress: Vec<EgressSpec>,
     sessions: SessionStore,
+    escalation_budget: usize,
+    escalation_enabled: bool,
 }
 
 impl Default for ClientBuilder {
@@ -487,6 +560,8 @@ impl Default for ClientBuilder {
             browser_budget: DEFAULT_BROWSER_BUDGET,
             egress: Vec::new(),
             sessions: SessionStore::new(),
+            escalation_budget: DEFAULT_ESCALATION_BUDGET,
+            escalation_enabled: true,
         }
     }
 }
@@ -603,6 +678,26 @@ impl ClientBuilder {
         self
     }
 
+    /// Per-scan cap on automatic escalations from the cheap transport
+    /// (HTTP / impersonate) to the browser when the cheap path returns
+    /// `Uncertain(CloudflareChallenge | RateLimited)`. Independent of
+    /// [`browser_budget`](Self::browser_budget). Defaults to
+    /// [`DEFAULT_ESCALATION_BUDGET`]. `cap = 0` is equivalent to
+    /// [`disable_escalation`](Self::disable_escalation).
+    pub const fn escalation_budget(mut self, cap: usize) -> Self {
+        self.escalation_budget = cap;
+        self
+    }
+
+    /// Disable automatic escalation entirely — the cheap transport's
+    /// outcome is returned verbatim, even when its `Uncertain` reason is
+    /// one a browser fetch would resolve. Useful for benchmarking the
+    /// raw HTTP signals without the access-engine lift on top.
+    pub const fn disable_escalation(mut self) -> Self {
+        self.escalation_enabled = false;
+        self
+    }
+
     /// Configure the egress pool: proxies tagged by country / IP type
     /// that sites with an `access` policy can require. Sites without a
     /// policy are unaffected (they use the default egress / `--proxy`).
@@ -678,6 +773,10 @@ impl ClientBuilder {
             robots,
             browser: self.browser,
             browser_budget: Arc::new(BrowserBudget::new(self.browser_budget)),
+            escalation_budget: Arc::new(crate::escalation::EscalationBudget::new(
+                self.escalation_budget,
+            )),
+            escalation_enabled: self.escalation_enabled,
             #[cfg(feature = "impersonate")]
             impersonate,
         })
@@ -736,6 +835,17 @@ fn build_reqwest(
 /// burning a whole Browserbase quota.
 pub const DEFAULT_BROWSER_BUDGET: usize = 50;
 
+/// Default ceiling on *automatic escalation* fetches per scan (HTTP /
+/// impersonate → browser when the cheap path returns
+/// `Uncertain(CloudflareChallenge | RateLimited)`).
+///
+/// Independent of [`DEFAULT_BROWSER_BUDGET`]: a `bot-protected` site that
+/// goes straight to the browser consumes browser budget; a non-pre-tagged
+/// site that escalates from HTTP to browser consumes one of each. Sized so
+/// a few-percent escalation rate across a typical registry stays under the
+/// cap without thinking about it.
+pub const DEFAULT_ESCALATION_BUDGET: usize = 30;
+
 impl fmt::Debug for Client {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Client")
@@ -747,6 +857,8 @@ impl fmt::Debug for Client {
             .field("robots", &self.robots.is_some())
             .field("browser", &self.browser.is_some())
             .field("browser_budget", &self.browser_budget)
+            .field("escalation_budget", &self.escalation_budget)
+            .field("escalation_enabled", &self.escalation_enabled)
             .finish_non_exhaustive()
     }
 }
@@ -770,6 +882,8 @@ impl fmt::Debug for ClientBuilder {
             .field("browser_budget", &self.browser_budget)
             .field("egress", &self.egress)
             .field("sessions", &self.sessions)
+            .field("escalation_budget", &self.escalation_budget)
+            .field("escalation_enabled", &self.escalation_enabled)
             .finish()
     }
 }
@@ -810,6 +924,8 @@ fn outcome(site: &str, url: String, started: Instant, kind: MatchKind) -> CheckO
         elapsed_ms: elapsed_ms(started),
         enrichment: std::collections::BTreeMap::new(),
         evidence: Vec::new(),
+        transport: None,
+        escalations: 0,
     }
 }
 
@@ -822,6 +938,8 @@ fn uncertain(site: &str, url: String, started: Instant, reason: UncertainReason)
         elapsed_ms: elapsed_ms(started),
         enrichment: std::collections::BTreeMap::new(),
         evidence: Vec::new(),
+        transport: None,
+        escalations: 0,
     }
 }
 
@@ -1984,5 +2102,177 @@ mod tests {
         assert_eq!(recvd.len(), 2);
         assert_eq!(recvd[0].method.as_str(), "HEAD");
         assert_eq!(recvd[1].method.as_str(), "GET");
+    }
+
+    // ------------------------------------------------------------------
+    // Phase 4 — automatic escalation when the cheap transport hits a
+    // Cloudflare / rate-limit Uncertain that the browser could resolve.
+    // ------------------------------------------------------------------
+
+    /// Mocked HTTP that always responds with a Cloudflare 503 (server
+    /// header + 503 status — what the pre-body ban detector turns into
+    /// `Uncertain(CloudflareChallenge)`).
+    async fn cloudflare_503_server() -> MockServer {
+        let server = MockServer::start().await;
+        Mock::given(any())
+            .respond_with(ResponseTemplate::new(503).insert_header("server", "cloudflare"))
+            .mount(&server)
+            .await;
+        server
+    }
+
+    #[tokio::test]
+    async fn http_success_stamps_http_transport_no_escalations() {
+        let server = MockServer::start().await;
+        Mock::given(any())
+            .respond_with(ResponseTemplate::new(200))
+            .mount(&server)
+            .await;
+        let site = site_with(&server, vec![Signal::StatusFound { codes: vec![200] }]);
+        let outcome = build_client().check(&site, &user()).await;
+        assert_eq!(outcome.kind, MatchKind::Found);
+        assert_eq!(
+            outcome.transport,
+            Some(crate::escalation::TransportTier::Http),
+            "successful HTTP probe must stamp Http transport"
+        );
+        assert_eq!(outcome.escalations, 0, "no escalation on the happy path");
+    }
+
+    #[tokio::test]
+    async fn escalates_cloudflare_uncertain_to_browser_and_stamps_one() {
+        let server = cloudflare_503_server().await;
+        // Browser returns a 200 that the StatusFound signal turns into Found.
+        let backend = Arc::new(RecordingBackend::with_page(RenderedPage {
+            status: 200,
+            final_url: url::Url::parse(&format!("{}/alice", server.uri())).unwrap(),
+            body: String::new(),
+            elapsed_ms: 5,
+        }));
+        let client = Client::builder()
+            .min_request_interval(Duration::ZERO)
+            .max_retries(0)
+            .browser(Arc::clone(&backend) as Arc<dyn BrowserBackend>)
+            .build()
+            .unwrap();
+        // Non-bot-protected site — HTTP path runs first, hits Cloudflare,
+        // escalation routes to the browser, browser's 200 → Found.
+        let site = site_with(&server, vec![Signal::StatusFound { codes: vec![200] }]);
+        let outcome = client.check(&site, &user()).await;
+        assert_eq!(
+            outcome.kind,
+            MatchKind::Found,
+            "escalation should flip CF challenge to Found via browser (reason {:?})",
+            outcome.reason
+        );
+        assert_eq!(
+            outcome.transport,
+            Some(crate::escalation::TransportTier::Browser),
+            "escalated outcome must be stamped Browser"
+        );
+        assert_eq!(
+            outcome.escalations, 1,
+            "exactly one escalation should have fired"
+        );
+        assert_eq!(backend.call_count(), 1, "browser invoked exactly once");
+    }
+
+    #[tokio::test]
+    async fn disable_escalation_leaves_cloudflare_uncertain_untouched() {
+        let server = cloudflare_503_server().await;
+        let backend = Arc::new(RecordingBackend::with_page(RenderedPage {
+            status: 200,
+            final_url: url::Url::parse(&format!("{}/alice", server.uri())).unwrap(),
+            body: String::new(),
+            elapsed_ms: 0,
+        }));
+        let client = Client::builder()
+            .min_request_interval(Duration::ZERO)
+            .max_retries(0)
+            .browser(Arc::clone(&backend) as Arc<dyn BrowserBackend>)
+            .disable_escalation()
+            .build()
+            .unwrap();
+        let site = site_with(&server, vec![Signal::StatusFound { codes: vec![200] }]);
+        let outcome = client.check(&site, &user()).await;
+        assert_eq!(outcome.kind, MatchKind::Uncertain);
+        assert!(matches!(
+            outcome.reason,
+            Some(UncertainReason::CloudflareChallenge)
+        ));
+        assert_eq!(
+            outcome.transport,
+            Some(crate::escalation::TransportTier::Http),
+            "primary transport must still be stamped"
+        );
+        assert_eq!(outcome.escalations, 0);
+        assert_eq!(
+            backend.call_count(),
+            0,
+            "browser must not be touched when --no-escalation"
+        );
+    }
+
+    #[tokio::test]
+    async fn escalation_budget_zero_keeps_browser_untouched() {
+        let server = cloudflare_503_server().await;
+        let backend = Arc::new(RecordingBackend::with_page(RenderedPage {
+            status: 200,
+            final_url: url::Url::parse(&format!("{}/alice", server.uri())).unwrap(),
+            body: String::new(),
+            elapsed_ms: 0,
+        }));
+        let client = Client::builder()
+            .min_request_interval(Duration::ZERO)
+            .max_retries(0)
+            .browser(Arc::clone(&backend) as Arc<dyn BrowserBackend>)
+            .escalation_budget(0)
+            .build()
+            .unwrap();
+        let site = site_with(&server, vec![Signal::StatusFound { codes: vec![200] }]);
+        let outcome = client.check(&site, &user()).await;
+        assert_eq!(outcome.kind, MatchKind::Uncertain);
+        assert!(matches!(
+            outcome.reason,
+            Some(UncertainReason::CloudflareChallenge)
+        ));
+        assert_eq!(outcome.escalations, 0);
+        assert_eq!(
+            backend.call_count(),
+            0,
+            "zero budget must deny every escalation"
+        );
+    }
+
+    #[tokio::test]
+    async fn escalation_consumes_budget_then_stops() {
+        let server = cloudflare_503_server().await;
+        let backend = Arc::new(RecordingBackend::with_page(RenderedPage {
+            status: 200,
+            final_url: url::Url::parse(&format!("{}/alice", server.uri())).unwrap(),
+            body: String::new(),
+            elapsed_ms: 0,
+        }));
+        let client = Client::builder()
+            .min_request_interval(Duration::ZERO)
+            .max_retries(0)
+            .browser(Arc::clone(&backend) as Arc<dyn BrowserBackend>)
+            .escalation_budget(1)
+            .build()
+            .unwrap();
+        let site = site_with(&server, vec![Signal::StatusFound { codes: vec![200] }]);
+        // First call burns the only escalation slot.
+        let first = client.check(&site, &user()).await;
+        assert_eq!(first.kind, MatchKind::Found);
+        assert_eq!(first.escalations, 1);
+        // Second call's escalation is denied → cheap-path Uncertain survives.
+        let second = client.check(&site, &user()).await;
+        assert_eq!(second.kind, MatchKind::Uncertain);
+        assert!(matches!(
+            second.reason,
+            Some(UncertainReason::CloudflareChallenge)
+        ));
+        assert_eq!(second.escalations, 0);
+        assert_eq!(backend.call_count(), 1, "browser called exactly once total");
     }
 }

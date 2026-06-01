@@ -337,6 +337,43 @@ accounts on the bot-protected subset, but on the rest of the registry
 they would add latency for no recall gain — which is why routing is
 opt-in and tag-driven, not blanket.
 
+## Automatic escalation
+
+The pre-tag routing above handles sites the registry has *already*
+marked as `bot-protected` (Instagram, X/Twitter today). It can't help
+with the long tail — sites that look like a normal HTTP target until
+the moment they sit behind a Cloudflare edge or a 429 rate-limit and
+return an interstitial page. Without help, those sites land in
+`Uncertain(cloudflare_challenge | rate_limited)` on every scan from
+the cheap path.
+
+When a browser backend is configured, Adler watches for those
+escalation-worthy `Uncertain` reasons on the cheap path and
+automatically retries through the browser — flipping the verdict
+from `Uncertain` to `Found` / `NotFound` without the operator having
+to pre-tag the site. Each retry consumes one slot of a separate
+`--escalation-budget` (default `30`), so a Cloudflare-walled long
+tail doesn't quietly blow up your Browserbase bill.
+
+```bash
+adler --browser-backend local alice                 # escalation on, default budget 30
+adler --browser-backend local --escalation-budget 50 alice
+adler --browser-backend local --no-escalation alice  # cheap-path verdicts only
+```
+
+Outcomes carry a `transport` field (`http` / `impersonate` /
+`browser`) and an `escalations` count (0 in the happy path, 1 when
+escalation fired) so downstream tools can tell which path produced
+each verdict. Sites that never escalate stay on the cheap, fast HTTP
+path; only the ones that hit a wall pay the browser-fetch cost.
+
+Escalation only triggers on reasons a browser plausibly resolves —
+`CloudflareChallenge` and `RateLimited`. Operator-policy
+`Uncertain`s (`robots_disallowed`, `session_required`,
+`geo_unavailable`, `username_not_allowed`, deadline / scheduler /
+captcha) are kept as-is so escalation doesn't waste budget on
+hopeless cases.
+
 ## Egress pool (geo routing)
 
 Some sites only answer from a particular country, or block datacenter

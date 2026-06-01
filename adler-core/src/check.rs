@@ -126,6 +126,23 @@ pub struct CheckOutcome {
     /// fired). Surfaced by `--explain`; always present in JSON output.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub evidence: Vec<String>,
+    /// Which transport produced this outcome (HTTP / impersonate / browser).
+    /// `None` only on outcomes from older persisted scans saved before this
+    /// field existed; live scans always populate it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transport: Option<crate::escalation::TransportTier>,
+    /// Number of *automatic* escalations to a heavier transport beyond the
+    /// site's primary route — usually 0, at most 1 today (HTTP / impersonate
+    /// → browser on `Uncertain(CloudflareChallenge | RateLimited)`).
+    /// Stamped so the doctor can spot sites where the primary route
+    /// systematically fails and the registry should pre-tag them.
+    #[serde(default, skip_serializing_if = "is_zero_u8")]
+    pub escalations: u8,
+}
+
+#[allow(clippy::trivially_copy_pass_by_ref)]
+fn is_zero_u8(n: &u8) -> bool {
+    *n == 0
 }
 
 #[cfg(test)]
@@ -165,6 +182,8 @@ mod tests {
             elapsed_ms: 42,
             enrichment: BTreeMap::new(),
             evidence: Vec::new(),
+            transport: None,
+            escalations: 0,
         };
         let json = serde_json::to_string(&outcome).unwrap();
         assert!(
@@ -174,6 +193,14 @@ mod tests {
         assert!(
             !json.contains("enrichment"),
             "enrichment must be omitted when empty"
+        );
+        assert!(
+            !json.contains("transport"),
+            "transport must be omitted when None"
+        );
+        assert!(
+            !json.contains("escalations"),
+            "escalations must be omitted when zero"
         );
         assert!(json.contains("\"kind\":\"found\""));
         assert!(json.contains("\"elapsed_ms\":42"));
@@ -189,6 +216,8 @@ mod tests {
             elapsed_ms: 5_000,
             enrichment: BTreeMap::new(),
             evidence: Vec::new(),
+            transport: None,
+            escalations: 0,
         };
         let json = serde_json::to_string(&outcome).unwrap();
         assert!(json.contains("\"reason\":\"rate_limited\""), "{json}");

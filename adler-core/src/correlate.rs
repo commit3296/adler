@@ -255,6 +255,8 @@ mod tests {
             elapsed_ms: 1,
             enrichment,
             evidence: Vec::new(),
+            transport: None,
+            escalations: 0,
         }
     }
 

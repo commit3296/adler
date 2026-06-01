@@ -409,6 +409,8 @@ fn dummy_outcome(site: &str, note: &str) -> CheckOutcome {
         elapsed_ms: 0,
         enrichment: std::collections::BTreeMap::new(),
         evidence: Vec::new(),
+        transport: None,
+        escalations: 0,
     }
 }
 

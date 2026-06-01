@@ -114,6 +114,8 @@ where
                         elapsed_ms: 0,
                         enrichment: std::collections::BTreeMap::new(),
                         evidence: Vec::new(),
+                        transport: None,
+                        escalations: 0,
                     };
                 }
             };
@@ -130,6 +132,8 @@ where
                         elapsed_ms: 0,
                         enrichment: std::collections::BTreeMap::new(),
                         evidence: Vec::new(),
+                        transport: None,
+                        escalations: 0,
                     },
                 },
             };

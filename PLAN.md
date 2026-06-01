@@ -131,7 +131,21 @@ hard sites, tying back to the accuracy thesis):**
   *Deferred:* a soft `region:*`→`access.geo` migration — making it a
   hard requirement would stop direct-fetching region-tagged sites, so
   it needs prefer-then-fall-back semantics, decided separately.
-- [ ] **4 — Router + escalation + telemetry** feeding the doctor.
+- [x] **4 — Router + escalation + telemetry**.
+  `adler-core/src/escalation.rs`: `TransportTier` (http / impersonate /
+  browser) + `EscalationBudget` + `should_escalate(reason)`. The router
+  stamps every outcome with the transport that produced it, and when the
+  cheap path returns `Uncertain(CloudflareChallenge | RateLimited)` it
+  retries through the browser backend (if configured) — flipping
+  not-pre-tagged Cloudflare-walled sites without operator intervention.
+  Bounded by `DEFAULT_ESCALATION_BUDGET = 30` (independent of
+  `BrowserBudget`); CLI exposes `--escalation-budget N` and
+  `--no-escalation`. `CheckOutcome` gains `transport` + `escalations`
+  fields (serde defaults so old persisted scans still parse).
+  *Deferred:* feeding telemetry back into `--doctor --fix` so it can
+  suggest auto-tagging sites that escalate consistently as
+  `protection: cloudflare` — needs accumulated cross-scan data, separate
+  iteration.
 - [x] **5 — Session injection**: defeat login walls via real sessions.
   `adler-core` — `Session` / `SessionStore`, `AccessPolicy.session`,
   `ClientBuilder::sessions`; the router folds session headers over the

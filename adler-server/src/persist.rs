@@ -174,6 +174,8 @@ mod tests {
                     elapsed_ms: 120,
                     enrichment: BTreeMap::new(),
                     evidence: vec!["HTTP 200 (status_found)".into()],
+                    transport: None,
+                    escalations: 0,
                 },
                 CheckOutcome {
                     site: "GitLab".into(),
@@ -183,6 +185,8 @@ mod tests {
                     elapsed_ms: 90,
                     enrichment: BTreeMap::new(),
                     evidence: vec!["HTTP 404 (status_not_found)".into()],
+                    transport: None,
+                    escalations: 0,
                 },
             ],
             elapsed_ms: 210,

@@ -137,6 +137,7 @@ mod correlate;
 pub mod doctor;
 mod enrich;
 mod error;
+mod escalation;
 pub mod executor;
 mod permute;
 mod registry;
@@ -153,10 +154,13 @@ pub use access::{AccessPolicy, CountryCode, EgressKind, EgressSpec, Session, Ses
 pub use browser::{BrowserBackend, BrowserBudget, RenderedPage};
 pub use cache::Cache;
 pub use check::{CheckOutcome, MatchKind, UncertainReason};
-pub use client::{Client, ClientBuilder, DEFAULT_BROWSER_BUDGET, RawResponse};
+pub use client::{
+    Client, ClientBuilder, DEFAULT_BROWSER_BUDGET, DEFAULT_ESCALATION_BUDGET, RawResponse,
+};
 pub use correlate::{Cluster, CorrelationReport, LINK_THRESHOLD, correlate};
 pub use doctor::{DoctorReport, FixSuggestion};
 pub use error::{Error, Result};
+pub use escalation::{EscalationBudget, TransportTier};
 pub use executor::ExecutorOptions;
 pub use permute::{MAX_VARIANTS, PermuteLevel, permute};
 pub use registry::Registry;

@@ -283,6 +283,8 @@ mod tests {
             elapsed_ms: 5,
             enrichment: std::collections::BTreeMap::new(),
             evidence: Vec::new(),
+            transport: None,
+            escalations: 0,
         }
     }
 
