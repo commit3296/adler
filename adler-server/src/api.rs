@@ -40,6 +40,7 @@ pub fn router(state: AppState) -> Router {
     Router::new()
         .route("/api/health", get(health))
         .route("/api/sites", get(list_sites))
+        .route("/api/access", get(list_access))
         .route("/api/scans", get(list_scans))
         .route("/api/scan", post(start_scan))
         .route("/api/scan/{id}", get(get_scan))
@@ -93,6 +94,42 @@ impl From<&Site> for SiteSummary {
 
 async fn list_sites(State(state): State<AppState>) -> Json<Vec<SiteSummary>> {
     Json(state.sites.iter().map(SiteSummary::from).collect())
+}
+
+/// Read-only view of the access engine's runtime config — what's
+/// configured via `--proxy-pool` and `--sessions`, *without* leaking
+/// any secrets the operator supplied:
+///   - egress entries surface only `(country, kind)` — proxy URLs
+///     typically embed credentials (`socks5://user:pass@host:1080`),
+///     so we never put them in the response;
+///   - sessions surface only their *names* — session header values
+///     are cookies / auth tokens that have no business reaching a
+///     browser over this HTTP API.
+///
+/// Editing happens out-of-band: the operator updates the pool / session
+/// TOML files and restarts the server. The SPA exposes this view as a
+/// read-only panel so an operator can confirm what's loaded without
+/// shell access to the server.
+#[derive(Serialize)]
+struct AccessSummary {
+    egress: Vec<adler_core::EgressSummary>,
+    sessions: Vec<SessionName>,
+}
+
+#[derive(Serialize)]
+struct SessionName {
+    name: String,
+}
+
+async fn list_access(State(state): State<AppState>) -> Json<AccessSummary> {
+    let egress = state.client.egress_summary();
+    let sessions = state
+        .client
+        .session_names()
+        .into_iter()
+        .map(|name| SessionName { name })
+        .collect();
+    Json(AccessSummary { egress, sessions })
 }
 
 /// One row in `GET /api/scans`.
@@ -726,6 +763,102 @@ mod tests {
         assert_eq!(v.as_array().unwrap().len(), 2);
         assert_eq!(v[0]["name"], "A");
         assert!(v[0]["url"].as_str().unwrap().contains("{username}"));
+    }
+
+    #[tokio::test]
+    async fn list_access_empty_when_nothing_configured() {
+        let (app, _mock) = test_app().await;
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .uri("/api/access")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let body = to_bytes(resp.into_body(), 1024).await.unwrap();
+        let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(v["egress"].as_array().unwrap().len(), 0);
+        assert_eq!(v["sessions"].as_array().unwrap().len(), 0);
+    }
+
+    #[tokio::test]
+    async fn list_access_surfaces_pool_and_sessions_without_secrets() {
+        use adler_core::{EgressKind, EgressSpec, Session, SessionStore};
+        let mock = MockServer::start().await;
+        let sites = vec![site("A", &mock.uri(), "a")];
+
+        let pool = vec![
+            EgressSpec {
+                url: "http://corp-proxy.invalid:8080".into(),
+                country: adler_core::CountryCode::new("de"),
+                kind: EgressKind::Datacenter,
+            },
+            EgressSpec {
+                url: "socks5://user:hunter2@residential.invalid:1080".into(),
+                country: adler_core::CountryCode::new("us"),
+                kind: EgressKind::Residential,
+            },
+        ];
+        let mut sessions = SessionStore::new();
+        let mut hdr = std::collections::BTreeMap::new();
+        hdr.insert("Cookie".into(), "sessionid=secret-token-do-not-leak".into());
+        sessions.insert("instagram", Session::from_headers(hdr));
+
+        let client = Client::builder()
+            .timeout(Duration::from_secs(2))
+            .min_request_interval(Duration::ZERO)
+            .egress_pool(pool)
+            .sessions(sessions)
+            .build()
+            .unwrap();
+        let state = AppState::new(sites, client, 16);
+        let app = router(state);
+
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .uri("/api/access")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let body = to_bytes(resp.into_body(), 4096).await.unwrap();
+        let raw = String::from_utf8(body.to_vec()).unwrap();
+        // Negative assertions first — a regression here is the whole point
+        // of the API design (no URLs, no header values reach the browser).
+        assert!(
+            !raw.contains("corp-proxy.invalid"),
+            "proxy URLs must never leak into /api/access — got body: {raw}"
+        );
+        assert!(
+            !raw.contains("residential.invalid"),
+            "proxy URLs must never leak: {raw}"
+        );
+        assert!(
+            !raw.contains("hunter2"),
+            "proxy credentials must never leak: {raw}"
+        );
+        assert!(
+            !raw.contains("secret-token-do-not-leak"),
+            "session values must never leak: {raw}"
+        );
+
+        let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        let egress = v["egress"].as_array().unwrap();
+        assert_eq!(egress.len(), 2);
+        assert_eq!(egress[0]["country"], "de");
+        assert_eq!(egress[0]["kind"], "datacenter");
+        assert_eq!(egress[1]["country"], "us");
+        assert_eq!(egress[1]["kind"], "residential");
+
+        let sessions = v["sessions"].as_array().unwrap();
+        assert_eq!(sessions.len(), 1);
+        assert_eq!(sessions[0]["name"], "instagram");
     }
 
     #[tokio::test]

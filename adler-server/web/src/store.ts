@@ -148,6 +148,7 @@ export interface UiState {
     filtersOpen: boolean;
     shortcutsOpen: boolean;
     aboutOpen: boolean;
+    accessOpen: boolean;
     toast: { text: string; kind: "success" | "error" | "info" } | null;
     compareArmed: string | null;
     /// Set of site names currently being re-probed via the retry
@@ -221,6 +222,7 @@ const [store, set] = createStore<AppStore>({
         filtersOpen: false,
         shortcutsOpen: false,
         aboutOpen: false,
+        accessOpen: false,
         toast: null,
         compareArmed: null,
         retrying: {},
@@ -571,6 +573,7 @@ export const actions = {
             set("ui", "filtersOpen", false);
             set("ui", "shortcutsOpen", false);
             set("ui", "aboutOpen", false);
+            set("ui", "accessOpen", false);
         }
         set("ui", "drawerOpen", open);
     },
@@ -579,6 +582,7 @@ export const actions = {
             set("ui", "drawerOpen", false);
             set("ui", "shortcutsOpen", false);
             set("ui", "aboutOpen", false);
+            set("ui", "accessOpen", false);
         }
         set("ui", "filtersOpen", open);
     },
@@ -587,6 +591,7 @@ export const actions = {
             set("ui", "drawerOpen", false);
             set("ui", "filtersOpen", false);
             set("ui", "aboutOpen", false);
+            set("ui", "accessOpen", false);
         }
         set("ui", "shortcutsOpen", open);
     },
@@ -595,8 +600,18 @@ export const actions = {
             set("ui", "drawerOpen", false);
             set("ui", "filtersOpen", false);
             set("ui", "shortcutsOpen", false);
+            set("ui", "accessOpen", false);
         }
         set("ui", "aboutOpen", open);
+    },
+    setAccess(open: boolean) {
+        if (open) {
+            set("ui", "drawerOpen", false);
+            set("ui", "filtersOpen", false);
+            set("ui", "shortcutsOpen", false);
+            set("ui", "aboutOpen", false);
+        }
+        set("ui", "accessOpen", open);
     },
     toast(text: string, kind: "success" | "error" | "info" = "info") {
         set("ui", "toast", { text, kind });

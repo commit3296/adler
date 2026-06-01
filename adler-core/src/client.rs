@@ -94,6 +94,23 @@ impl Client {
         ClientBuilder::default()
     }
 
+    /// Read-only view of the configured egress pool — `(country, kind)`
+    /// for every registered proxy, in the order they were declared.
+    /// Proxy URLs are not surfaced (they typically carry credentials),
+    /// so this is safe to serialise to a JSON response.
+    #[must_use]
+    pub fn egress_summary(&self) -> Vec<crate::access::EgressSummary> {
+        self.egress.summary()
+    }
+
+    /// Names of the configured sessions (sorted lexicographically),
+    /// without any header values. Useful for a UI listing which session
+    /// keys an operator can reference via `access.session` on a site.
+    #[must_use]
+    pub fn session_names(&self) -> Vec<String> {
+        self.sessions.names()
+    }
+
     /// Probe a single site for `username`, retrying on transient bans.
     ///
     /// Network failures, timeouts, and unexpected response shapes all yield

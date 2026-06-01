@@ -1680,6 +1680,100 @@
         }
         .about-links a { color: var(--red); }
 
+        /* ────────── access modal body ────────── */
+        .access-body {
+            font-family: var(--sans);
+            color: var(--fg-dim);
+            font-size: 0.94rem;
+            line-height: 1.6;
+        }
+        .access-intro { margin: 0 0 1.2rem; }
+        .access-intro code,
+        .access-empty code,
+        .access-sessions code {
+            font-family: var(--mono);
+            font-size: 0.85rem;
+            background: var(--bg);
+            padding: 0.05rem 0.35rem;
+            border-radius: var(--r);
+            color: var(--fg);
+        }
+        .access-section { margin: 0 0 1.2rem; }
+        .access-section h3 {
+            font-family: var(--sans);
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--fg);
+            margin: 0 0 0.5rem;
+        }
+        .access-loading,
+        .access-empty { margin: 0; font-style: italic; }
+        .access-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+        .access-table th,
+        .access-table td {
+            text-align: left;
+            padding: 0.3rem 0.6rem;
+            border-bottom: 1px solid var(--border);
+        }
+        .access-table th {
+            color: var(--fg);
+            font-weight: 600;
+        }
+        .access-kind {
+            font-family: var(--mono);
+            font-size: 0.78rem;
+            padding: 0.05rem 0.45rem;
+            border-radius: var(--r);
+            background: var(--bg);
+            color: var(--fg-dim);
+        }
+        .access-kind.kind-residential { color: var(--green-text); }
+        .access-kind.kind-mobile { color: var(--amber-text); }
+        .access-kind.kind-tor { color: var(--red); }
+        .access-sessions {
+            margin: 0;
+            padding: 0;
+            list-style: none;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.4rem;
+        }
+        .access-sessions li {
+            background: var(--bg);
+            padding: 0.15rem 0.5rem;
+            border-radius: var(--r);
+        }
+        .access-foot { margin: 1rem 0 0; }
+        .access-refresh {
+            font-family: var(--sans);
+            font-size: 0.85rem;
+            color: var(--fg-dim);
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: var(--r);
+            padding: 0.25rem 0.65rem;
+            cursor: pointer;
+        }
+        .access-refresh:hover { color: var(--fg); }
+
+        /* ────────── transport telemetry chip on ResultRow ────────── */
+        .transport-chip {
+            font-family: var(--mono);
+            font-size: 0.7rem;
+            padding: 0.05rem 0.4rem;
+            border-radius: var(--r);
+            background: var(--bg);
+            color: var(--fg-dim);
+            margin-right: 0.4rem;
+            cursor: help;
+        }
+        .transport-chip.transport-impersonate { color: var(--amber-text); }
+        .transport-chip.transport-browser { color: var(--green-text); }
+
         /* ────────── reduced motion ──────────
            Honour the OS "reduce motion" setting globally: collapse all
            animations/transitions (view-in, shimmer, modalin, pulse, …)

@@ -48,6 +48,14 @@ export const TopBar: Component = () => {
                     <Icon name="help" />
                 </IconButton>
                 <IconButton
+                    title="Access engine"
+                    label="Access"
+                    active={store.ui.accessOpen}
+                    onClick={() => actions.setAccess(!store.ui.accessOpen)}
+                >
+                    <Icon name="shield" />
+                </IconButton>
+                <IconButton
                     title="About"
                     active={store.ui.aboutOpen}
                     onClick={() => actions.setAbout(!store.ui.aboutOpen)}

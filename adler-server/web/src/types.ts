@@ -18,12 +18,20 @@ export type UncertainReason =
     | "scheduler_closed"
     | "browser_budget"
     | "username_not_allowed"
+    | "geo_unavailable"
+    | "session_required"
     | { network: string }
     | { body_read: string }
     | { browser_failed: string }
     | { other: string };
 
 export type MatchKind = "found" | "not_found" | "uncertain";
+
+/// Which transport produced an outcome. Stamped by the router on every
+/// probe so the UI can show whether HTTP was enough, whether
+/// impersonation was needed, or whether the scan reached for the
+/// browser. Older persisted scans may omit it.
+export type TransportTier = "http" | "impersonate" | "browser";
 
 export interface CheckOutcome {
     site: string;
@@ -33,6 +41,13 @@ export interface CheckOutcome {
     elapsed_ms: number;
     enrichment?: Record<string, string>;
     evidence?: string[];
+    /// Which transport (HTTP / impersonate / browser) produced this
+    /// verdict. Missing on older persisted scans.
+    transport?: TransportTier;
+    /// Automatic escalations beyond the primary route — typically 0,
+    /// 1 when the cheap path's `Uncertain(cloudflare_challenge |
+    /// rate_limited)` was retried through the browser.
+    escalations?: number;
 }
 
 export interface Summary {
@@ -83,6 +98,24 @@ export interface StartScanResponse {
 export interface ApiError {
     error: string;
     message: string;
+}
+
+export type EgressKind = "datacenter" | "residential" | "mobile" | "tor";
+
+/// Read-only view of one configured egress proxy. Proxy URLs are
+/// deliberately absent — they typically embed credentials and have no
+/// business reaching the browser.
+export interface EgressSummary {
+    country?: string;
+    kind: EgressKind;
+}
+
+/// `GET /api/access` payload — what's configured via `--proxy-pool` and
+/// `--sessions`, *without* secrets. Editing happens out-of-band by
+/// updating the TOML files and restarting the server.
+export interface AccessResponse {
+    egress: EgressSummary[];
+    sessions: { name: string }[];
 }
 
 export interface StartScanBody {

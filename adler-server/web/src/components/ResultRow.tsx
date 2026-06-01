@@ -26,6 +26,28 @@ export const ResultRow: Component<Props> = (props) => {
         return parts.join(" · ");
     }
 
+    /// Show a small chip next to the verdict when the probe used
+    /// anything other than the default HTTP transport — the operator
+    /// can immediately see "this Found came from the browser, not
+    /// HTTP" without expanding the row. We deliberately don't show a
+    /// chip for the common Http+0 case to keep the row uncluttered.
+    function transportChip(): string | null {
+        const t = props.outcome.transport;
+        const esc = props.outcome.escalations ?? 0;
+        if (!t || (t === "http" && esc === 0)) return null;
+        if (esc > 0) return `${t}*`;
+        return t;
+    }
+    function transportTitle(): string | undefined {
+        const t = props.outcome.transport;
+        const esc = props.outcome.escalations ?? 0;
+        if (!t) return undefined;
+        if (esc > 0) {
+            return `Escalated to ${t} (the cheap transport's Uncertain reason was worth retrying).`;
+        }
+        return `Probe ran via ${t} transport.`;
+    }
+
     return (
         <div
             class={`result-row ${props.outcome.kind === "found" ? "found" : ""} ${
@@ -79,6 +101,14 @@ export const ResultRow: Component<Props> = (props) => {
                 </Show>
             </div>
             <div class="meta-cell">
+                <Show when={transportChip()}>
+                    <span
+                        class={`transport-chip transport-${props.outcome.transport}`}
+                        title={transportTitle()}
+                    >
+                        {transportChip()}
+                    </span>
+                </Show>
                 <span>{metaText()}</span>
                 <span
                     class="row-chevron"

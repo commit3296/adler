@@ -5,6 +5,7 @@
 // `ApiClientError` with both fields preserved.
 
 import type {
+    AccessResponse,
     CheckOutcome,
     FinishedScan,
     RetryResponse,
@@ -41,6 +42,7 @@ async function request<T>(input: string, init?: RequestInit): Promise<T> {
 export const api = {
     health: () => request<{ ok: boolean; version: string }>("/api/health"),
     sites: () => request<SiteSummary[]>("/api/sites"),
+    access: () => request<AccessResponse>("/api/access"),
     scans: () => request<ScanListEntry[]>("/api/scans"),
     scan: (id: string) => request<ScanSnapshot>(`/api/scan/${id}`),
     startScan: (body: StartScanBody) =>

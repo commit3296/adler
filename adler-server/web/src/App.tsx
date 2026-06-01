@@ -26,6 +26,7 @@ import { displayUrl } from "./lib/format";
 import type { CheckOutcome } from "./types";
 
 import { About } from "./components/About";
+import { AccessModal } from "./components/AccessModal";
 import { AdvancedFilters } from "./components/AdvancedFilters";
 import { BatchStrip } from "./components/BatchStrip";
 import { DatacenterHint } from "./components/DatacenterHint";
@@ -721,6 +722,7 @@ export const App: Component = () => {
             <AdvancedFilters />
             <ShortcutsOverlay />
             <About />
+            <AccessModal />
             <Toast />
         </>
     );

@@ -254,12 +254,22 @@ What you get in the browser:
   hidden NotFound rows. Preferences persist to localStorage.
 - **NSFW gate** — off by default; the toggle is hidden behind a
   confirmation, matching the CLI's `--nsfw` opt-in.
+- **Access engine view** — the shield icon in the top bar opens a
+  read-only panel showing what's loaded from `--proxy-pool` (country +
+  kind per egress, never proxy URLs) and `--sessions` (names only,
+  never header values). Sensitive material is kept off the HTTP API by
+  design; editing happens by updating the TOML files and restarting
+  the server. Outcomes also carry a small `transport` chip when a
+  probe ran via impersonate or the browser (with a `*` suffix when the
+  cheap path automatically escalated), so it's clear which transport
+  produced each verdict.
 
 The server exposes a small JSON API at `/api/*` (`/health`, `/sites`,
-`/scans`, `POST /scan`, `GET /scan/:id`, `GET /scan/:id/stream`,
-`POST /scan/:id/retry`) — useful if you want to drive Adler from a
-different frontend or a script. SSE consumers should subscribe to the
-`/stream` endpoint and treat each event as one outcome.
+`/access`, `/scans`, `POST /scan`, `GET /scan/:id`,
+`GET /scan/:id/stream`, `POST /scan/:id/retry`) — useful if you want
+to drive Adler from a different frontend or a script. SSE consumers
+should subscribe to the `/stream` endpoint and treat each event as one
+outcome.
 
 The bundled SPA is baked into the binary at compile time
 (`rust-embed`), so the deployed unit is just the `adler` executable

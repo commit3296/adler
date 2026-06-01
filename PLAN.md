@@ -156,7 +156,17 @@ hard sites, tying back to the accuracy thesis):**
   (`[name]` tables of headers). Header values redacted from `Debug`,
   never logged/serialised.
 - [ ] **6 — Web UI**: manage pools / sessions / per-scan egress in the
-  SPA.
+  SPA. *Phase 6a shipped:* `GET /api/access` surfaces a read-only view
+  (`{country, kind}` per egress; session *names* only — proxy URLs and
+  session header values never leave the process); SPA has an "Access
+  engine" modal in the TopBar showing both tables with edit-via-files
+  hint; `ResultRow` now renders a small `transport` chip when a probe
+  used impersonate or browser (and a `browser*` chip when the cheap
+  path escalated). *Phase 6b open:* per-scan egress subset — needs
+  `Client::with_egress_subset(&[name])` (cheap-clone with a filtered
+  `Arc<EgressPool>`), a `name: Option<String>` on `EgressSpec`, an
+  `egress_names: Vec<String>` field on `POST /api/scan`, and a
+  multi-select control in the scan-launch form.
 
 ## Next
 

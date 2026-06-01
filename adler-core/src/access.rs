@@ -206,6 +206,33 @@ impl SessionStore {
     pub(crate) fn get(&self, name: &str) -> Option<&Session> {
         self.sessions.get(name)
     }
+
+    /// Names of the configured sessions, sorted lexicographically for a
+    /// stable display order. Values stay private — by design the public
+    /// surface only ever leaks the keys an operator referenced via
+    /// `access.session`, never the cookie/token bytes themselves.
+    #[must_use]
+    pub fn names(&self) -> Vec<String> {
+        let mut names: Vec<String> = self.sessions.keys().cloned().collect();
+        names.sort();
+        names
+    }
+}
+
+/// Read-only metadata for one configured egress, surfaced via
+/// [`Client::egress_summary`](crate::Client::egress_summary).
+///
+/// Carries only the match-relevant facets (country + kind); the proxy
+/// URL is *deliberately omitted* — those typically embed credentials
+/// (`socks5://user:pass@host:1080`) that have no business landing in a
+/// JSON response served to a browser.
+#[derive(Debug, Clone, Serialize)]
+pub struct EgressSummary {
+    /// Country this egress exits from, if declared.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub country: Option<CountryCode>,
+    /// Network kind (`datacenter` / `residential` / `mobile` / `tor`).
+    pub kind: EgressKind,
 }
 
 /// One built egress: its match metadata plus the HTTP client that
@@ -245,6 +272,20 @@ impl EgressPool {
                 })
                 .collect(),
         }
+    }
+
+    /// Read-only view of the pool — `(country, kind)` for every
+    /// configured egress, in the order they were registered. Used by the
+    /// `GET /api/access` endpoint so the SPA can show what's configured
+    /// without ever touching proxy URLs.
+    pub(crate) fn summary(&self) -> Vec<EgressSummary> {
+        self.entries
+            .iter()
+            .map(|e| EgressSummary {
+                country: e.country.clone(),
+                kind: e.kind,
+            })
+            .collect()
     }
 
     /// Pick an egress for `policy`. Unconstrained → [`EgressChoice::Default`].

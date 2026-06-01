@@ -150,7 +150,9 @@ mod username;
 
 pub mod browser;
 
-pub use access::{AccessPolicy, CountryCode, EgressKind, EgressSpec, Session, SessionStore};
+pub use access::{
+    AccessPolicy, CountryCode, EgressKind, EgressSpec, EgressSummary, Session, SessionStore,
+};
 pub use browser::{BrowserBackend, BrowserBudget, RenderedPage};
 pub use cache::Cache;
 pub use check::{CheckOutcome, MatchKind, UncertainReason};
