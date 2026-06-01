@@ -20,7 +20,7 @@ login-walled.
 
 ## Documentation
 
-- 📖 [**adler-docs**](https://commit3296.github.io/adler-docs/) — the user
+- 📖 [**adler-docs**](https://adler-docs.pages.dev/) — the user
   manual: install, the access engine, the web UI, embedding, FAQ.
 - 🦀 [docs.rs/adler-core](https://docs.rs/adler-core) — Rust API reference.
 - 🗺️ [PLAN.md](PLAN.md) — roadmap and the design behind the
@@ -179,7 +179,7 @@ adler --watch alice                        # diff vs last run
 
 → Complete flag reference, grouped by intent (filtering / output /
 network & sessions / browser & cache / batch & enrichment), is on the
-[**Usage**](https://commit3296.github.io/adler-docs/usage/) page.
+[**Usage**](https://adler-docs.pages.dev/usage/) page.
 `adler --help` lists every flag with its short doc; the docs page adds
 the bigger picture.
 
@@ -201,7 +201,7 @@ adler --web --web-bind 0.0.0.0:9000  # listen on all interfaces, custom port
 > open internet; put auth in front of any non-loopback bind.
 
 → The
-[**Web UI**](https://commit3296.github.io/adler-docs/web-ui/) page
+[**Web UI**](https://adler-docs.pages.dev/web-ui/) page
 covers the full feature set, the `/api/*` surface, and the deployment
 notes (the SPA is `rust-embed`'d into the binary; rebuild from source
 with `npm ci && npm run build` in `adler-server/web/`).
@@ -234,7 +234,7 @@ hard subset of the registry:
   verdict.
 
 → Full guide with the TOML formats, guardrails, and trade-offs lives at
-[**Access engine**](https://commit3296.github.io/adler-docs/access-engine/).
+[**Access engine**](https://adler-docs.pages.dev/access-engine/).
 
 ## Library
 
@@ -252,7 +252,7 @@ tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 
 → Minimal worked example, the notable `ClientBuilder` knobs, and the
 per-version breaking-change log are on the
-[**Embedding**](https://commit3296.github.io/adler-docs/embedding/)
+[**Embedding**](https://adler-docs.pages.dev/embedding/)
 page. The complete API reference is on
 [docs.rs/adler-core](https://docs.rs/adler-core).
 
@@ -266,13 +266,13 @@ when redistributing scan output under MIT only). Detections are imported
 --fix` proposes corrected ones.
 
 → Detailed lineage, schema, signal model, and doctor workflow live in
-[**Site registry**](https://commit3296.github.io/adler-docs/site-registry/).
+[**Site registry**](https://adler-docs.pages.dev/site-registry/).
 
 ## Troubleshooting
 
 Common questions ("Why is everything Uncertain?", "Why does Adler find
 fewer accounts than Sherlock?", "How do I scan Instagram?", …) are
-covered in the [**FAQ**](https://commit3296.github.io/adler-docs/faq/) on
+covered in the [**FAQ**](https://adler-docs.pages.dev/faq/) on
 the docs site.
 
 For CI / contributor-facing commands (`cargo fmt`, `cargo clippy`,
