@@ -112,11 +112,27 @@ pub struct EgressSpec {
 
 /// What a site needs from its egress. The default (empty) means "no
 /// special routing" — the request uses the client's default egress.
+///
+/// Two flavours of geo constraint co-exist:
+///
+/// - [`geo`](Self::geo) — **hard**. A site that won't answer from
+///   anywhere else (e.g. a country-locked profile). No matching egress
+///   in the pool → `Uncertain(GeoUnavailable)`, never a false `NotFound`.
+/// - [`prefer_geo`](Self::prefer_geo) — **soft**. A site that *prefers*
+///   a local egress (better recall, less aggressive bot filtering) but
+///   still works from anywhere. No matching egress → fall back to the
+///   default egress and probe normally. Auto-populated at registry-load
+///   time from `region:XX` tags when the site doesn't already declare
+///   a hard `geo` constraint.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AccessPolicy {
     /// Require an egress in one of these countries.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub geo: Vec<CountryCode>,
+    /// Prefer an egress in one of these countries — fall back to the
+    /// default if the pool has no match. Soft counterpart to [`geo`].
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub prefer_geo: Vec<CountryCode>,
     /// Require an egress of this network kind.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ip_type: Option<EgressKind>,
@@ -135,7 +151,10 @@ impl AccessPolicy {
     /// entries serialise unchanged.
     #[must_use]
     pub fn is_default(&self) -> bool {
-        self.geo.is_empty() && self.ip_type.is_none() && self.session.is_none()
+        self.geo.is_empty()
+            && self.prefer_geo.is_empty()
+            && self.ip_type.is_none()
+            && self.session.is_none()
     }
 }
 
@@ -356,28 +375,67 @@ impl EgressPool {
         self.entries.iter().filter_map(|e| e.name.clone()).collect()
     }
 
-    /// Pick an egress for `policy`. Unconstrained → [`EgressChoice::Default`].
-    /// Constrained → a random matching egress, or [`EgressChoice::Unavailable`]
-    /// when none fit (geo and/or kind don't match any pool entry).
+    /// Pick an egress for `policy`. Three outcomes:
+    ///
+    /// - Unconstrained policy (no hard `geo`, no `prefer_geo`, no
+    ///   `ip_type`) → [`EgressChoice::Default`].
+    /// - Hard constraint with no match → [`EgressChoice::Unavailable`].
+    /// - Soft `prefer_geo` with no match → falls back to
+    ///   [`EgressChoice::Default`] (the probe still happens, just via
+    ///   the unproxied / default egress).
     pub(crate) fn select(&self, policy: &AccessPolicy) -> EgressChoice {
-        // Only geo / IP-type constrain the egress; a session-only policy
-        // (no geo, no ip_type) still uses the default egress.
-        if policy.geo.is_empty() && policy.ip_type.is_none() {
+        // Session-only policy (no geo / no ip_type / no prefer_geo) →
+        // default egress.
+        if policy.geo.is_empty() && policy.prefer_geo.is_empty() && policy.ip_type.is_none() {
             return EgressChoice::Default;
         }
+
+        // Hard path: explicit `geo` (and optional `ip_type`) — when
+        // present, this is authoritative and prefer_geo is ignored.
+        if !policy.geo.is_empty() {
+            return self
+                .pick_matching(&policy.geo, policy.ip_type)
+                .map_or(EgressChoice::Unavailable, EgressChoice::Use);
+        }
+
+        // Soft path: only `prefer_geo` (and optional `ip_type`). Match
+        // → route through it; no match → fall back to the default
+        // egress rather than emit Unavailable. The site is *expected*
+        // to be reachable from anywhere; the egress preference is a
+        // recall optimisation, not a correctness constraint.
+        if !policy.prefer_geo.is_empty() {
+            return self
+                .pick_matching(&policy.prefer_geo, policy.ip_type)
+                .map_or(EgressChoice::Default, EgressChoice::Use);
+        }
+
+        // Only `ip_type` constrained — keep the hard semantics: a site
+        // that asks for a residential IP and the pool has none is
+        // Unavailable, not silently downgraded to datacenter.
+        self.pick_matching(&[], policy.ip_type)
+            .map_or(EgressChoice::Unavailable, EgressChoice::Use)
+    }
+
+    /// Internal: pick a random matching entry for the given geo and
+    /// optional `ip_type`. `geo` empty means "any country". Returns
+    /// `None` when nothing fits.
+    fn pick_matching(
+        &self,
+        geo: &[CountryCode],
+        ip_type: Option<EgressKind>,
+    ) -> Option<Arc<HttpFetcher>> {
         let matches: Vec<&EgressEntry> = self
             .entries
             .iter()
             .filter(|e| {
-                let geo_ok = policy.geo.is_empty()
-                    || e.country.as_ref().is_some_and(|c| policy.geo.contains(c));
-                let kind_ok = policy.ip_type.is_none_or(|k| e.kind == k);
+                let geo_ok = geo.is_empty() || e.country.as_ref().is_some_and(|c| geo.contains(c));
+                let kind_ok = ip_type.is_none_or(|k| e.kind == k);
                 geo_ok && kind_ok
             })
             .collect();
         match matches.len() {
-            0 => EgressChoice::Unavailable,
-            n => EgressChoice::Use(Arc::clone(&matches[fastrand::usize(0..n)].fetcher)),
+            0 => None,
+            n => Some(Arc::clone(&matches[fastrand::usize(0..n)].fetcher)),
         }
     }
 }
@@ -430,8 +488,7 @@ mod tests {
     fn geo_match_picks_an_egress() {
         let policy = AccessPolicy {
             geo: vec![cc("pl")],
-            ip_type: None,
-            session: None,
+            ..AccessPolicy::default()
         };
         assert!(matches!(pool().select(&policy), EgressChoice::Use(_)));
     }
@@ -439,9 +496,8 @@ mod tests {
     #[test]
     fn ip_type_match_picks_an_egress() {
         let policy = AccessPolicy {
-            geo: Vec::new(),
             ip_type: Some(EgressKind::Datacenter),
-            session: None,
+            ..AccessPolicy::default()
         };
         assert!(matches!(pool().select(&policy), EgressChoice::Use(_)));
     }
@@ -453,7 +509,7 @@ mod tests {
         let policy = AccessPolicy {
             geo: vec![cc("pl")],
             ip_type: Some(EgressKind::Mobile),
-            session: None,
+            ..AccessPolicy::default()
         };
         assert!(matches!(pool().select(&policy), EgressChoice::Unavailable));
     }
@@ -462,8 +518,7 @@ mod tests {
     fn unknown_geo_is_unavailable() {
         let policy = AccessPolicy {
             geo: vec![cc("jp")],
-            ip_type: None,
-            session: None,
+            ..AccessPolicy::default()
         };
         assert!(matches!(pool().select(&policy), EgressChoice::Unavailable));
     }
@@ -473,10 +528,67 @@ mod tests {
         let empty = EgressPool::new(Vec::new());
         let policy = AccessPolicy {
             geo: vec![cc("pl")],
-            ip_type: None,
-            session: None,
+            ..AccessPolicy::default()
         };
         assert!(matches!(empty.select(&policy), EgressChoice::Unavailable));
+    }
+
+    #[test]
+    fn soft_prefer_match_routes_through_it() {
+        // prefer_geo = pl, pool has a PL residential → use it.
+        let policy = AccessPolicy {
+            prefer_geo: vec![cc("pl")],
+            ..AccessPolicy::default()
+        };
+        assert!(matches!(pool().select(&policy), EgressChoice::Use(_)));
+    }
+
+    #[test]
+    fn soft_prefer_no_match_falls_back_to_default() {
+        // prefer_geo = jp, pool has no JP egress → Default, NOT Unavailable.
+        // This is the whole point of soft routing: the probe still goes
+        // out, just via the unproxied default — the site is reachable
+        // from anywhere, the preference was a recall optimisation.
+        let policy = AccessPolicy {
+            prefer_geo: vec![cc("jp")],
+            ..AccessPolicy::default()
+        };
+        assert!(matches!(pool().select(&policy), EgressChoice::Default));
+    }
+
+    #[test]
+    fn hard_geo_wins_over_soft_prefer() {
+        // When both are set, hard `geo` is authoritative — prefer_geo
+        // is ignored. Asking for hard PL with no match in the JP-only
+        // prefer is still Unavailable.
+        let empty_pl = EgressPool::new(vec![(
+            None,
+            Some(cc("jp")),
+            EgressKind::Datacenter,
+            dummy_fetcher(),
+        )]);
+        let policy = AccessPolicy {
+            geo: vec![cc("pl")],
+            prefer_geo: vec![cc("jp")],
+            ..AccessPolicy::default()
+        };
+        assert!(matches!(
+            empty_pl.select(&policy),
+            EgressChoice::Unavailable
+        ));
+    }
+
+    #[test]
+    fn ip_type_only_is_still_hard() {
+        // Asking for residential when the pool has none must remain
+        // Unavailable. We only soften geo via prefer_geo — kind
+        // requirements are still load-bearing.
+        let dc_only = EgressPool::new(vec![(None, None, EgressKind::Datacenter, dummy_fetcher())]);
+        let policy = AccessPolicy {
+            ip_type: Some(EgressKind::Residential),
+            ..AccessPolicy::default()
+        };
+        assert!(matches!(dc_only.select(&policy), EgressChoice::Unavailable));
     }
 
     #[test]

@@ -128,9 +128,17 @@ hard sites, tying back to the accuracy thesis):**
   zero default behaviour change). CLI: `--proxy-pool <file.toml>`
   (`[[egress]]` with `url` / `country` / `kind`); `--proxy` stays the
   default egress. The browser transport keeps its own egress.
-  *Deferred:* a soft `region:*`→`access.geo` migration — making it a
-  hard requirement would stop direct-fetching region-tagged sites, so
-  it needs prefer-then-fall-back semantics, decided separately.
+  *Soft `region:*` → `access.prefer_geo` (done in v0.12):*
+  `AccessPolicy.prefer_geo: Vec<CountryCode>` is the recall-only
+  counterpart to hard `geo`. `Registry::apply_tag_derived_policy`
+  walks every site's `region:XX` tags after engine resolution and
+  fills `prefer_geo` from them — only when the site doesn't already
+  declare a hard `geo` (explicit policy wins). `EgressPool::select`
+  routes through a matching egress when one exists; with no match it
+  falls back to `EgressChoice::Default` rather than `Unavailable`,
+  so region-tagged sites stay direct-fetchable without a configured
+  pool. The preference is purely a recall optimisation when a
+  matching egress *is* available.
 - [x] **4 — Router + escalation + telemetry**.
   `adler-core/src/escalation.rs`: `TransportTier` (http / impersonate /
   browser) + `EscalationBudget` + `should_escalate(reason)`. The router

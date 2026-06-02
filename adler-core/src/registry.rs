@@ -81,6 +81,7 @@ impl Registry {
     pub fn from_json_str(json: &str) -> Result<Self> {
         let mut registry: Self = serde_json::from_str(json)?;
         registry.resolve_engines()?;
+        registry.apply_tag_derived_policy();
         registry.validate()?;
         Ok(registry)
     }
@@ -91,6 +92,43 @@ impl Registry {
     /// directly and don't need to consult this map.
     pub fn engines(&self) -> &BTreeMap<String, Engine> {
         &self.engines
+    }
+
+    /// Walk every site's tags for `region:XX` markers and fill
+    /// [`AccessPolicy::prefer_geo`](crate::AccessPolicy::prefer_geo)
+    /// with the matching country codes. **Soft** routing only — a
+    /// site declaring `region:ru` *prefers* a Russian egress when one
+    /// is configured but still works from anywhere else; the router
+    /// falls back to the default egress on no match rather than
+    /// reporting `Uncertain(GeoUnavailable)`.
+    ///
+    /// Skips sites that already declare a hard
+    /// [`AccessPolicy::geo`](crate::AccessPolicy::geo) — explicit
+    /// policy wins on conflict, same convention as engine inheritance.
+    /// Existing `prefer_geo` entries are also preserved: tag-derived
+    /// codes are *added*, not replaced, so a hand-tuned policy can
+    /// stack on top of the tag. Invalid country codes (`region:xx` is
+    /// not exactly two ASCII letters) are silently skipped — they
+    /// shouldn't exist in the registry, and a parse error here would
+    /// break the load for a tag the scanner already ignores in
+    /// every other context.
+    fn apply_tag_derived_policy(&mut self) {
+        for site in &mut self.sites {
+            if !site.access.geo.is_empty() {
+                continue;
+            }
+            for tag in &site.tags {
+                let Some(rest) = tag.strip_prefix("region:") else {
+                    continue;
+                };
+                let Some(cc) = crate::access::CountryCode::new(rest) else {
+                    continue;
+                };
+                if !site.access.prefer_geo.contains(&cc) {
+                    site.access.prefer_geo.push(cc);
+                }
+            }
+        }
     }
 
     /// Merge each engine's inheritable fields into the sites that
@@ -619,6 +657,84 @@ mod tests {
         }"#;
         let r = Registry::from_json_str(json).unwrap();
         assert_eq!(r.sites()[0].regex_check.as_deref(), Some("^[a-z]{3,16}$"));
+    }
+
+    #[test]
+    fn region_tag_auto_populates_prefer_geo() {
+        let json = r#"{
+            "sites": [
+                { "name": "vk.com", "url": "https://vk.com/{username}",
+                  "signals": [{ "kind": "status_found", "codes": [200] }],
+                  "tags": ["region:ru", "social"] }
+            ]
+        }"#;
+        let r = Registry::from_json_str(json).unwrap();
+        let prefer = &r.sites()[0].access.prefer_geo;
+        assert_eq!(prefer.len(), 1);
+        assert_eq!(prefer[0].as_str(), "ru");
+        // Hard geo stays empty — the tag is soft.
+        assert!(r.sites()[0].access.geo.is_empty());
+    }
+
+    #[test]
+    fn multiple_region_tags_stack() {
+        let json = r#"{
+            "sites": [
+                { "name": "Pan-Slavic", "url": "https://example.test/{username}",
+                  "signals": [{ "kind": "status_found", "codes": [200] }],
+                  "tags": ["region:ru", "region:by", "region:ua"] }
+            ]
+        }"#;
+        let r = Registry::from_json_str(json).unwrap();
+        let codes: Vec<&str> = r.sites()[0]
+            .access
+            .prefer_geo
+            .iter()
+            .map(super::super::access::CountryCode::as_str)
+            .collect();
+        assert_eq!(codes, vec!["ru", "by", "ua"]);
+    }
+
+    #[test]
+    fn explicit_hard_geo_suppresses_tag_derived_soft() {
+        // A site with hard `access.geo = ["pl"]` AND a `region:ru` tag:
+        // the explicit hard policy wins, prefer_geo stays empty.
+        // Otherwise tag-derived soft would silently re-route a probe
+        // that the maintainer deliberately pinned to PL.
+        let json = r#"{
+            "sites": [
+                { "name": "PL-only", "url": "https://example.test/{username}",
+                  "signals": [{ "kind": "status_found", "codes": [200] }],
+                  "tags": ["region:ru"],
+                  "access": { "geo": ["pl"] } }
+            ]
+        }"#;
+        let r = Registry::from_json_str(json).unwrap();
+        assert_eq!(r.sites()[0].access.geo[0].as_str(), "pl");
+        assert!(r.sites()[0].access.prefer_geo.is_empty());
+    }
+
+    #[test]
+    fn malformed_region_tag_is_ignored() {
+        // `region:` followed by something that isn't a 2-letter code:
+        // skip it silently rather than reject the whole load. The tag
+        // already had no routing semantics in older versions.
+        let json = r#"{
+            "sites": [
+                { "name": "Weird", "url": "https://example.test/{username}",
+                  "signals": [{ "kind": "status_found", "codes": [200] }],
+                  "tags": ["region:eurasia", "region:r", "region:RU"] }
+            ]
+        }"#;
+        let r = Registry::from_json_str(json).unwrap();
+        // Only the valid 2-letter "RU" survives (lowercased to "ru").
+        let codes: Vec<&str> = r.sites()[0]
+            .access
+            .prefer_geo
+            .iter()
+            .map(super::super::access::CountryCode::as_str)
+            .collect();
+        assert_eq!(codes, vec!["ru"]);
     }
 
     #[test]

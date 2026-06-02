@@ -1098,8 +1098,7 @@ mod tests {
         // so nothing can satisfy it.
         site.access = crate::access::AccessPolicy {
             geo: vec![crate::access::CountryCode::new("pl").unwrap()],
-            ip_type: None,
-            session: None,
+            ..crate::access::AccessPolicy::default()
         };
         let outcome = build_client().check(&site, &user()).await;
         assert_eq!(outcome.kind, MatchKind::Uncertain);
