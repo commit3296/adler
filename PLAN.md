@@ -232,10 +232,15 @@ contributor doesn't re-tread the same ground:
   comparing Adler against Sherlock on a fixed username set; the
   in-process `cargo bench` only measures executor overhead. See
   [issue #8](https://github.com/commit3296/adler/issues/8).
-- **`adler --doctor --fix --apply`** — currently `--fix` only
-  prints a suggested signature; an `--apply` flag could patch
-  `sites.json` directly (still gated on a contributor review of
-  the resulting PR).
+- [x] **`adler --doctor --fix --apply`** — closes the doctor → fix
+  → patch loop. Pure-helper `patch_sites_file` (adler-cli/src/main.rs)
+  walks the JSON, replaces `signals` on entries matched by name, and
+  writes through a sibling `*.tmp` so a crash mid-write leaves the
+  original intact. The user-facing flow prints a per-site signal diff
+  (old vs new), prompts once unless `--yes` is set, and skips both
+  sites with no suggestion and names absent from the file (warning,
+  never erased). Requires `--sites <writable>` because the embedded
+  registry isn't patchable in place.
 ### Web UI — shipped
 
 The `--tui` flag was retired in favour of a browser-based UI that

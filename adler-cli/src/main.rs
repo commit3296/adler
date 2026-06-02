@@ -5,7 +5,7 @@ mod report;
 use std::io::{self, IsTerminal as _, Write};
 use std::net::SocketAddr;
 use std::num::{NonZeroU32, NonZeroUsize};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -102,6 +102,20 @@ struct Cli {
     /// responses and print a suggested signature (does not modify anything).
     #[arg(long, requires = "doctor")]
     fix: bool,
+
+    /// With `--doctor --fix`: patch the file passed via `--sites` in
+    /// place with the suggested signals (atomic write). The embedded
+    /// registry is read-only — pass `--sites <path>` to a writable
+    /// JSON file. By default, prompts once after printing the diff;
+    /// pass `--yes` to skip the prompt for non-interactive use.
+    #[arg(long, requires_all = ["fix", "sites"])]
+    apply: bool,
+
+    /// With `--apply`: skip the confirmation prompt. Intended for
+    /// scripted use (CI doctor jobs, batch repair); interactive runs
+    /// should leave this off and review the diff.
+    #[arg(long, requires = "apply")]
+    yes: bool,
 
     /// With `--doctor`: for each failing site whose `known_present` is
     /// likely stale (no candidate yielded `Found`), probe a small pool
@@ -588,7 +602,15 @@ async fn run(cli: Cli) -> Result<ExitCode> {
 
     if cli.doctor {
         let color = cli.color.resolve(io::stdout().is_terminal());
-        return run_doctor(&client, &sites, cli.fix, cli.suggest_known_present, color).await;
+        let opts = DoctorOpts {
+            fix: cli.fix,
+            apply: cli.apply,
+            yes: cli.yes,
+            suggest_known_present: cli.suggest_known_present,
+            sites_path: cli.sites.as_deref(),
+            color,
+        };
+        return run_doctor(&client, &sites, opts).await;
     }
 
     run_scan(&cli, &client, &sites).await
@@ -1475,17 +1497,24 @@ async fn run_add_site(cli: &Cli, client: &Client, url: &str) -> Result<ExitCode>
     }
 }
 
-async fn run_doctor(
-    client: &Client,
-    sites: &[Site],
+// Internal CLI options struct — the variants are orthogonal independent
+// toggles, not a state machine. The pedantic lint doesn't apply.
+#[allow(clippy::struct_excessive_bools)]
+struct DoctorOpts<'a> {
     fix: bool,
+    apply: bool,
+    yes: bool,
     suggest_known_present: bool,
+    sites_path: Option<&'a Path>,
     color: bool,
-) -> Result<ExitCode> {
+}
+
+async fn run_doctor(client: &Client, sites: &[Site], opts: DoctorOpts<'_>) -> Result<ExitCode> {
     tracing::info!(
         count = sites.len(),
-        fix,
-        suggest_known_present,
+        fix = opts.fix,
+        apply = opts.apply,
+        suggest_known_present = opts.suggest_known_present,
         "starting doctor"
     );
     let mut failures = 0_usize;
@@ -1494,7 +1523,7 @@ async fn run_doctor(
         let report = doctor::check_site(client, site).await;
         match report {
             DoctorReport::Healthy { .. } => {
-                if color {
+                if opts.color {
                     println!("\x1b[32m[OK]\x1b[0m   {}", site.name);
                 } else {
                     println!("[OK]   {}", site.name);
@@ -1503,7 +1532,7 @@ async fn run_doctor(
             DoctorReport::Unhealthy { issues, .. } => {
                 failures += 1;
                 failed_sites.push(site);
-                if color {
+                if opts.color {
                     println!("\x1b[31m[FAIL]\x1b[0m {}", site.name);
                 } else {
                     println!("[FAIL] {}", site.name);
@@ -1517,11 +1546,20 @@ async fn run_doctor(
     println!();
     println!("{} site(s) checked, {failures} failed", sites.len());
 
-    if fix && !failed_sites.is_empty() {
-        print_fix_suggestions(client, &failed_sites).await?;
+    if opts.fix && !failed_sites.is_empty() {
+        if opts.apply {
+            // `--apply` requires `--sites` (enforced by clap), so this is
+            // always Some by construction; the `?` is just belt-and-braces.
+            let path = opts
+                .sites_path
+                .context("internal: --apply reached run_doctor without --sites")?;
+            apply_fix_suggestions(client, &failed_sites, path, opts.yes).await?;
+        } else {
+            print_fix_suggestions(client, &failed_sites).await?;
+        }
     }
 
-    if suggest_known_present && !failed_sites.is_empty() {
+    if opts.suggest_known_present && !failed_sites.is_empty() {
         print_known_present_suggestions(client, &failed_sites).await?;
     }
 
@@ -1564,6 +1602,163 @@ async fn print_fix_suggestions(client: &Client, failed: &[&Site]) -> Result<()> 
         failed.len()
     );
     Ok(())
+}
+
+/// `--apply` variant: collect suggestions, render a per-site signal diff,
+/// confirm once (unless `--yes`), then write the patched JSON back atomically.
+///
+/// Behaviour invariants:
+/// - Sites for which `suggest_fix` returns `None` are skipped, not patched
+///   with empty signals.
+/// - A site missing from the JSON file (e.g. registry merged from a tranche
+///   not on disk) is reported and skipped, not erased.
+/// - Atomic rename through a sibling `*.tmp` file means a crash mid-write
+///   leaves the original intact.
+async fn apply_fix_suggestions(
+    client: &Client,
+    failed: &[&Site],
+    sites_path: &Path,
+    skip_prompt: bool,
+) -> Result<()> {
+    let mut fixes: Vec<(String, Vec<adler_core::Signal>, String)> = Vec::new();
+    println!(
+        "\ngathering fix suggestions for {} failing site(s)…",
+        failed.len()
+    );
+    for site in failed {
+        if let Some(fix) = doctor::suggest_fix(client, site).await {
+            fixes.push((site.name.clone(), fix.signals, fix.rationale));
+        } else {
+            println!(
+                "  {}  — skipped (no suggestion; responses indistinguishable)",
+                site.name
+            );
+        }
+    }
+    if fixes.is_empty() {
+        println!("\nno applicable fixes — nothing to write.");
+        return Ok(());
+    }
+
+    let in_memory: std::collections::HashMap<&str, &Site> =
+        failed.iter().map(|s| (s.name.as_str(), *s)).collect();
+    println!("\nproposed changes:");
+    for (name, signals, rationale) in &fixes {
+        println!("\n  {name}  ({rationale})");
+        if let Some(site) = in_memory.get(name.as_str()) {
+            for old in &site.signals {
+                println!("    - {}", render_signal(old));
+            }
+        }
+        for new in signals {
+            println!("    + {}", render_signal(new));
+        }
+    }
+    println!(
+        "\n{} site(s) to patch in {}",
+        fixes.len(),
+        sites_path.display()
+    );
+
+    if !skip_prompt {
+        print!("Apply? [y/N] ");
+        io::stdout().flush().ok();
+        let mut answer = String::new();
+        io::stdin()
+            .read_line(&mut answer)
+            .context("reading confirmation prompt")?;
+        if !matches!(answer.trim(), "y" | "Y" | "yes" | "YES") {
+            println!("aborted; no changes written.");
+            return Ok(());
+        }
+    }
+
+    let patches: Vec<(String, Vec<adler_core::Signal>)> =
+        fixes.into_iter().map(|(n, s, _)| (n, s)).collect();
+    let report = patch_sites_file(sites_path, &patches)?;
+
+    if !report.missing.is_empty() {
+        println!(
+            "warning: {} site(s) had a suggestion but no matching entry in {}: {}",
+            report.missing.len(),
+            sites_path.display(),
+            report.missing.join(", ")
+        );
+    }
+
+    println!(
+        "patched {} site(s) in {}; re-run --doctor to verify.",
+        report.patched,
+        sites_path.display()
+    );
+    Ok(())
+}
+
+#[derive(Debug, Default, PartialEq, Eq)]
+struct PatchReport {
+    /// How many site entries were updated.
+    patched: usize,
+    /// Names that had a suggestion but no matching JSON entry — skipped,
+    /// not erased.
+    missing: Vec<String>,
+}
+
+/// Pure helper: read the JSON, replace `signals` on matching entries by
+/// name, write the result back atomically through a sibling `*.tmp` file.
+/// Split out from [`apply_fix_suggestions`] so it can be unit-tested
+/// without a [`Client`] or the network.
+fn patch_sites_file(
+    sites_path: &Path,
+    patches: &[(String, Vec<adler_core::Signal>)],
+) -> Result<PatchReport> {
+    let content = std::fs::read_to_string(sites_path)
+        .with_context(|| format!("reading {} for --apply", sites_path.display()))?;
+    let mut root: serde_json::Value = serde_json::from_str(&content)
+        .with_context(|| format!("parsing {} as JSON", sites_path.display()))?;
+    let arr = root
+        .get_mut("sites")
+        .and_then(serde_json::Value::as_array_mut)
+        .with_context(|| {
+            format!(
+                "{} has no top-level \"sites\" array — is it a valid registry file?",
+                sites_path.display()
+            )
+        })?;
+
+    let mut report = PatchReport::default();
+    for (name, signals) in patches {
+        let entry = arr.iter_mut().find_map(|v| {
+            let obj = v.as_object_mut()?;
+            (obj.get("name").and_then(serde_json::Value::as_str) == Some(name.as_str()))
+                .then_some(obj)
+        });
+        match entry {
+            Some(obj) => {
+                obj.insert("signals".into(), serde_json::to_value(signals)?);
+                report.patched += 1;
+            }
+            None => report.missing.push(name.clone()),
+        }
+    }
+
+    let mut serialised =
+        serde_json::to_string_pretty(&root).context("re-serialising patched registry")?;
+    serialised.push('\n');
+
+    let tmp = sites_path.with_extension("json.tmp");
+    std::fs::write(&tmp, serialised.as_bytes())
+        .with_context(|| format!("writing {}", tmp.display()))?;
+    std::fs::rename(&tmp, sites_path)
+        .with_context(|| format!("renaming {} → {}", tmp.display(), sites_path.display()))?;
+
+    Ok(report)
+}
+
+/// Render a [`Signal`] in compact JSON for the diff output. Falls back to
+/// the `Debug` impl on the (impossible) serialisation failure so the diff
+/// always has something to show.
+fn render_signal(s: &adler_core::Signal) -> String {
+    serde_json::to_string(s).unwrap_or_else(|_| format!("{s:?}"))
 }
 
 /// For each failing site, probe a small pool of well-known accounts and
@@ -2089,5 +2284,112 @@ mod tests {
         .unwrap();
         let text = String::from_utf8(buf).unwrap();
         assert!(text.contains("correlation:"), "{text}");
+    }
+
+    #[test]
+    fn patch_sites_file_replaces_signals_in_place_and_preserves_other_fields() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().join("sites.json");
+        std::fs::write(
+            &path,
+            r#"{
+  "_comment": "preserve me",
+  "engines": {
+    "Discourse": {"signals": [{"kind": "status_found", "codes": [200]}]}
+  },
+  "sites": [
+    {
+      "name": "github.example",
+      "url": "https://gh.example/{username}",
+      "tags": ["dev", "source:custom"],
+      "known_present": "torvalds",
+      "signals": [{"kind": "status_found", "codes": [200]}]
+    },
+    {
+      "name": "uses-engine.example",
+      "url": "https://ue.example/{username}",
+      "engine": "Discourse",
+      "tags": ["forum"]
+    }
+  ]
+}"#,
+        )
+        .unwrap();
+
+        let patches = vec![
+            (
+                "github.example".to_owned(),
+                vec![
+                    adler_core::Signal::StatusFound { codes: vec![200] },
+                    adler_core::Signal::StatusNotFound { codes: vec![404] },
+                ],
+            ),
+            (
+                "uses-engine.example".to_owned(),
+                vec![adler_core::Signal::BodyAbsent {
+                    text: "User not found".to_owned(),
+                }],
+            ),
+            (
+                "never-existed.example".to_owned(),
+                vec![adler_core::Signal::StatusFound { codes: vec![200] }],
+            ),
+        ];
+
+        let report = patch_sites_file(&path, &patches).expect("patch ok");
+        assert_eq!(report.patched, 2);
+        assert_eq!(report.missing, vec!["never-existed.example".to_owned()]);
+
+        let written = std::fs::read_to_string(&path).unwrap();
+        let v: serde_json::Value = serde_json::from_str(&written).unwrap();
+
+        // Top-level fields preserved.
+        assert_eq!(v["_comment"], "preserve me");
+        assert!(v["engines"]["Discourse"]["signals"].is_array());
+
+        let arr = v["sites"].as_array().unwrap();
+        assert_eq!(arr.len(), 2, "no entries added or removed");
+
+        let gh = arr.iter().find(|s| s["name"] == "github.example").unwrap();
+        assert_eq!(gh["url"], "https://gh.example/{username}");
+        assert_eq!(gh["known_present"], "torvalds");
+        assert_eq!(gh["tags"], serde_json::json!(["dev", "source:custom"]));
+        // signals replaced — now has two entries.
+        let signals = gh["signals"].as_array().unwrap();
+        assert_eq!(signals.len(), 2);
+        assert_eq!(signals[1]["kind"], "status_not_found");
+        assert_eq!(signals[1]["codes"], serde_json::json!([404]));
+
+        let ue = arr
+            .iter()
+            .find(|s| s["name"] == "uses-engine.example")
+            .unwrap();
+        // engine reference preserved alongside the new explicit signals.
+        assert_eq!(ue["engine"], "Discourse");
+        let ue_signals = ue["signals"].as_array().unwrap();
+        assert_eq!(ue_signals.len(), 1);
+        assert_eq!(ue_signals[0]["kind"], "body_absent");
+        assert_eq!(ue_signals[0]["text"], "User not found");
+
+        // Atomic rename means no stray *.tmp left behind.
+        let tmp_path = path.with_extension("json.tmp");
+        assert!(!tmp_path.exists());
+    }
+
+    #[test]
+    fn patch_sites_file_errors_on_missing_sites_array() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().join("sites.json");
+        std::fs::write(&path, r#"{"engines": {}}"#).unwrap();
+
+        let patches = vec![(
+            "any.example".to_owned(),
+            vec![adler_core::Signal::StatusFound { codes: vec![200] }],
+        )];
+        let err = patch_sites_file(&path, &patches).unwrap_err();
+        assert!(
+            err.to_string().contains("no top-level \"sites\" array"),
+            "unexpected error: {err}",
+        );
     }
 }
