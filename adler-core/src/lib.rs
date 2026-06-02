@@ -144,6 +144,7 @@ mod registry;
 mod retry;
 mod robots;
 mod site;
+pub mod telemetry;
 mod throttle;
 mod transport;
 mod username;

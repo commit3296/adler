@@ -150,10 +150,18 @@ hard sites, tying back to the accuracy thesis):**
   `BrowserBudget`); CLI exposes `--escalation-budget N` and
   `--no-escalation`. `CheckOutcome` gains `transport` + `escalations`
   fields (serde defaults so old persisted scans still parse).
-  *Deferred:* feeding telemetry back into `--doctor --fix` so it can
-  suggest auto-tagging sites that escalate consistently as
-  `protection: cloudflare` — needs accumulated cross-scan data, separate
-  iteration.
+  *Telemetry-fed auto-tagging (done in v0.13):*
+  `adler-core::telemetry::analyze_escalation_history` aggregates per-site
+  evidence over `&[CheckOutcome]` slices — counts scans, classifies
+  outcomes (`transport=Browser && escalations>=1` or HTTP-path
+  `Uncertain(CloudflareChallenge | RateLimited)`), and emits
+  `EscalationFinding`s for sites past a ratio + min-scans threshold.
+  Surfaced via `adler --doctor --suggest-protection` (with optional
+  `--scans-dir <path>`, defaulting to `$XDG_CACHE_HOME/adler/scans/`
+  which is where the web UI writes). Prints a paste-ready table plus
+  a `PROTECTION additions:` snippet for `sites.json`. Pure analysis
+  surface, no auto-modification — same convention as the existing
+  `--fix` and `--suggest-known-present` paths.
 - [x] **5 — Session injection**: defeat login walls via real sessions.
   `adler-core` — `Session` / `SessionStore`, `AccessPolicy.session`,
   `ClientBuilder::sessions`; the router folds session headers over the

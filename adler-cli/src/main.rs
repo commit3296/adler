@@ -126,6 +126,23 @@ struct Cli {
     #[arg(long, requires = "doctor")]
     suggest_known_present: bool,
 
+    /// With `--doctor`: read the persisted scan history (default
+    /// `$XDG_CACHE_HOME/adler/scans/`, override with `--scans-dir`)
+    /// and surface sites that consistently escalated through the
+    /// browser backend — candidates for adding `protection:
+    /// cloudflare` to `sites.json` so future scans skip the failing
+    /// HTTP probe. Prints a paste-ready table; does not modify
+    /// anything.
+    #[arg(long, requires = "doctor")]
+    suggest_protection: bool,
+
+    /// With `--suggest-protection`: directory holding persisted scan
+    /// JSON files. Defaults to `$XDG_CACHE_HOME/adler/scans/` (then
+    /// `$HOME/.cache/adler/scans/`), the same path the web UI writes
+    /// to.
+    #[arg(long, value_name = "PATH", requires = "suggest_protection")]
+    scans_dir: Option<PathBuf>,
+
     /// Scaffold a new site entry: probe this URL template (must contain
     /// `{username}`) with the given existing account and a nonsense one,
     /// derive a signature, and print a ready-to-paste JSON entry. Does not
@@ -607,7 +624,9 @@ async fn run(cli: Cli) -> Result<ExitCode> {
             apply: cli.apply,
             yes: cli.yes,
             suggest_known_present: cli.suggest_known_present,
+            suggest_protection: cli.suggest_protection,
             sites_path: cli.sites.as_deref(),
+            scans_dir: cli.scans_dir.as_deref(),
             color,
         };
         return run_doctor(&client, &sites, opts).await;
@@ -1505,7 +1524,9 @@ struct DoctorOpts<'a> {
     apply: bool,
     yes: bool,
     suggest_known_present: bool,
+    suggest_protection: bool,
     sites_path: Option<&'a Path>,
+    scans_dir: Option<&'a Path>,
     color: bool,
 }
 
@@ -1561,6 +1582,12 @@ async fn run_doctor(client: &Client, sites: &[Site], opts: DoctorOpts<'_>) -> Re
 
     if opts.suggest_known_present && !failed_sites.is_empty() {
         print_known_present_suggestions(client, &failed_sites).await?;
+    }
+
+    if opts.suggest_protection {
+        // Scope-independent of the site-health check above: this draws
+        // on persisted scan history, not on a live registry probe.
+        print_protection_suggestions(opts.scans_dir);
     }
 
     Ok(if failures == 0 {
@@ -1800,6 +1827,120 @@ async fn print_known_present_suggestions(client: &Client, failed: &[&Site]) -> R
         failed.len()
     );
     Ok(())
+}
+
+/// Default directory the web UI persists scans to (`$XDG_CACHE_HOME/adler/scans/`,
+/// fallback `$HOME/.cache/adler/scans/`). Mirrors `adler_server::persist::default_dir`
+/// — duplicated here so adler-cli doesn't take a dep on adler-server for one path.
+fn default_scans_dir() -> PathBuf {
+    if let Some(xdg) = std::env::var_os("XDG_CACHE_HOME") {
+        return PathBuf::from(xdg).join("adler").join("scans");
+    }
+    if let Some(home) = std::env::var_os("HOME") {
+        return PathBuf::from(home)
+            .join(".cache")
+            .join("adler")
+            .join("scans");
+    }
+    PathBuf::from("adler-scans")
+}
+
+/// `--suggest-protection`: walk the persisted scan history, group
+/// `CheckOutcome`s by site, and surface sites that consistently escalated
+/// through the browser backend. Each finding is a paste-ready candidate
+/// for adding `protection: cloudflare` to `sites.json`.
+///
+/// The on-disk scan format is owned by `adler-server`; we parse only the
+/// `outcomes` field here so the CLI doesn't take a dependency on
+/// adler-server's full `PersistedScan` shape.
+fn print_protection_suggestions(scans_dir: Option<&Path>) {
+    #[derive(serde::Deserialize)]
+    struct PersistedScanLite {
+        outcomes: Vec<CheckOutcome>,
+    }
+
+    let dir = scans_dir.map_or_else(default_scans_dir, Path::to_path_buf);
+    println!("\ntelemetry suggestions (reading {} ):", dir.display());
+
+    let read_dir = match std::fs::read_dir(&dir) {
+        Ok(it) => it,
+        Err(e) => {
+            println!(
+                "  cannot read {}: {e}. Either no scans persisted yet (run `adler --web` \
+                 and let it record some), or pass --scans-dir <path>.",
+                dir.display()
+            );
+            return;
+        }
+    };
+
+    let mut scans: Vec<Vec<CheckOutcome>> = Vec::new();
+    for entry in read_dir.flatten() {
+        let path = entry.path();
+        if path.extension().and_then(|s| s.to_str()) != Some("json") {
+            continue;
+        }
+        let Ok(bytes) = std::fs::read(&path) else {
+            continue;
+        };
+        let Ok(scan) = serde_json::from_slice::<PersistedScanLite>(&bytes) else {
+            continue;
+        };
+        scans.push(scan.outcomes);
+    }
+
+    if scans.is_empty() {
+        println!(
+            "  no parseable scans found in {}. Re-run after `adler --web` has recorded a few.",
+            dir.display()
+        );
+        return;
+    }
+
+    let slices: Vec<&[CheckOutcome]> = scans.iter().map(Vec::as_slice).collect();
+    let findings = adler_core::telemetry::analyze_escalation_history(
+        slices.iter().copied(),
+        adler_core::telemetry::DEFAULT_THRESHOLD_RATIO,
+        adler_core::telemetry::DEFAULT_MIN_SCANS,
+    );
+
+    println!(
+        "  scanned {} persisted scan(s); threshold ≥{:.0}% over ≥{} scans.\n",
+        scans.len(),
+        adler_core::telemetry::DEFAULT_THRESHOLD_RATIO * 100.0,
+        adler_core::telemetry::DEFAULT_MIN_SCANS,
+    );
+
+    if findings.is_empty() {
+        println!("  no sites met the suggest-protection threshold.");
+        return;
+    }
+
+    println!(
+        "  {:<32}  {:>6}  {:>10}  {:>7}  suggested",
+        "site", "scans", "escalated", "ratio"
+    );
+    for f in &findings {
+        println!(
+            "  {:<32}  {:>6}  {:>10}  {:>6.1}%  protection: {:?}",
+            f.site,
+            f.scans_seen,
+            f.escalation_evidence,
+            f.ratio() * 100.0,
+            f.suggested_protection,
+        );
+    }
+    println!(
+        "\n  {} site(s) suggested. Paste-ready snippet:",
+        findings.len()
+    );
+    println!("\nPROTECTION additions:");
+    for f in &findings {
+        // protection is serialized kebab-case (e.g. `cloudflare`, `cf-firewall`).
+        let kind = serde_json::to_string(&f.suggested_protection)
+            .unwrap_or_else(|_| format!("{:?}", f.suggested_protection));
+        println!("  {:?}: {{\"protection\": [{}]}},", f.site, kind);
+    }
 }
 
 fn make_progress_bar(total: u64) -> ProgressBar {
