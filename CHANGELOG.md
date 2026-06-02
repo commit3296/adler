@@ -9,6 +9,11 @@ pre-1.0 bump rules.
 
 ## [Unreleased]
 
+## [0.11.1](https://github.com/commit3296/adler/compare/v0.11.0...v0.11.1) - 2026-06-02
+
+### Added
+- *(cli)* doctor --fix --apply patches sites.json in place
+
 ## [0.11.0](https://github.com/commit3296/adler/compare/v0.10.0...v0.11.0) - 2026-06-01
 
 ### Added
