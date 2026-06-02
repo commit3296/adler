@@ -66,10 +66,53 @@ def install_tool(tool: str) -> int:
             )
             return r.returncode
         return 0
-    if tool in ("maigret", "blackbird", "snoop"):
+    if tool == "maigret":
+        venv = VENVS_DIR / "maigret"
+        if not (venv / "bin" / "maigret").exists():
+            VENVS_DIR.mkdir(parents=True, exist_ok=True)
+            subprocess.run(["python3", "-m", "venv", str(venv)], check=True)
+            pip = str(venv / "bin" / "pip")
+            r = subprocess.run(
+                [pip, "install", "--resume-retries", "5", "maigret"],
+                check=False,
+            )
+            return r.returncode
+        return 0
+    if tool == "blackbird":
+        venv = VENVS_DIR / "blackbird"
+        src = venv / "src"
+        if not (src / "blackbird.py").exists():
+            VENVS_DIR.mkdir(parents=True, exist_ok=True)
+            if not venv.exists():
+                subprocess.run(["python3", "-m", "venv", str(venv)], check=True)
+            # Blackbird is git-clone-only — its `blackbird-osint` /
+            # `blackbird-pw` PyPI candidates are either dead or unmaintained.
+            r = subprocess.run(
+                ["git", "clone", "--quiet", "--depth", "1",
+                 "https://github.com/p1ngul1n0/blackbird.git", str(src)],
+                check=False,
+            )
+            if r.returncode != 0:
+                return r.returncode
+        if not (venv / "bin" / "rich").exists():
+            pip = str(venv / "bin" / "pip")
+            # Upstream's requirements.txt pins versions that don't have
+            # prebuilt wheels for recent Python (3.14 fails to build the
+            # pinned aiohttp 3.12.13). Install the package names unpinned
+            # — most are stable utilities (aiohttp, rich, pillow,
+            # reportlab) that blackbird leans on at a coarse level.
+            r = subprocess.run(
+                [pip, "install", "--quiet", "--resume-retries", "5",
+                 "aiohttp", "pillow", "rich", "requests", "reportlab",
+                 "python-dotenv", "chardet"],
+                check=False,
+            )
+            return r.returncode
+        return 0
+    if tool == "snoop":
         print(
-            f"{tool}: adapter is a stub — see bench/adapters/{tool}.py for the "
-            f"install path. Skipping.",
+            "snoop: adapter is a stub — see bench/adapters/snoop.py for the "
+            "install path. Skipping.",
             file=sys.stderr,
         )
         return 0

@@ -236,9 +236,19 @@ contributor doesn't re-tread the same ground:
 
 ### Infra polish
 
-- **`scripts/bench-vs-sherlock.sh`** — real-network benchmark
-  comparing Adler against Sherlock on a fixed username set; the
-  in-process `cargo bench` only measures executor overhead. See
+- [x] **`bench/` — real-network harness** comparing Adler against
+  the field (Sherlock, Maigret, Blackbird; Snoop is a stub). Each
+  tool runs in its own venv via `bench/run.sh`, normalised through
+  per-tool adapters (`bench/adapters/*.py`), scored against a
+  `ground-truth.tsv` derived from Adler's `known_present` field plus
+  synthetic-nonsense usernames. `bench/analyze.py` writes a
+  per-tool `RESULTS.md` (TP/FN/FP/TN, recall, precision, mean wall;
+  Uncertain column for Adler's abstention model). The in-process
+  `cargo bench` still only measures executor overhead — this is the
+  real cross-tool benchmark. `RESULTS.md` is gitignored: a single
+  committed file gives a misleading "official" verdict and
+  per-operator results vary too much (residential vs datacenter IP,
+  country, time-of-day) for one number to mean much. See
   [issue #8](https://github.com/commit3296/adler/issues/8).
 - [x] **`adler --doctor --fix --apply`** — closes the doctor → fix
   → patch loop. Pure-helper `patch_sites_file` (adler-cli/src/main.rs)
