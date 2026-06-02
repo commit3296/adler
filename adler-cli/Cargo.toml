@@ -23,8 +23,8 @@ bin-dir = "adler{ binary-ext }"
 pkg-fmt = "tgz"
 
 [dependencies]
-adler-core = { path = "../adler-core", version = "0.11.0" }
-adler-server = { path = "../adler-server", version = "0.11.0" }
+adler-core = { path = "../adler-core", version = "0.11.1" }
+adler-server = { path = "../adler-server", version = "0.11.1" }
 anyhow.workspace = true
 clap.workspace = true
 secrecy.workspace = true
