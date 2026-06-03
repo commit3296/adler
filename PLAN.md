@@ -203,12 +203,17 @@ next chunk of work.
 
 ### Registry hygiene
 
-- **Refresh the ~80 stale `known_present` entries** still using
-  Sherlock's placeholder `"blue"` or other long-dead usernames.
-  [Issue #4](https://github.com/commit3296/adler/issues/4) tracks
-  the original 17-site batch; the latest doctor pass found 66 more
-  on `"blue"` alone. Pure contributor task: one site = one OVERRIDE
-  entry in `scripts/import_sherlock.py` + a `sites.json` edit.
+- **Refresh stale `known_present` entries** — bulk-refresh tooling
+  shipped (`--doctor --suggest-known-present --apply --sites <path>
+  --yes`, since v0.14, atomic JSON rewrite via sibling `*.tmp`). The
+  first batch ran from a datacenter IP and refreshed 10 of the 189
+  remaining `"blue"` placeholders — recall is limited by network
+  conditions (most failed entries are Cloudflare-walled and need a
+  clean residential IP for the candidate-discovery probes to come
+  back Found). Subsequent contributor passes from cleaner IPs can
+  chew through the rest one batch at a time. `serde_json`'s
+  `preserve_order` feature is enabled workspace-wide so apply paths
+  produce minimal diffs against the original `sites.json` formatting.
 - [x] **Periodic registry validation in CI**: the nightly `--doctor`
   workflow gained an `aggregate-and-pr` job (`doctor.yml`) that
   consumes both matrix-tranche reports, parses structural failures

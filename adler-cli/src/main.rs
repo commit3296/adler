@@ -361,12 +361,15 @@ struct Cli {
     #[arg(long, requires = "doctor", help_heading = "Doctor")]
     fix: bool,
 
-    /// With `--doctor --fix`: patch the file passed via `--sites` in
-    /// place with the suggested signals (atomic write). The embedded
-    /// registry is read-only — pass `--sites <path>` to a writable
-    /// JSON file. By default, prompts once after printing the diff;
-    /// pass `--yes` to skip the prompt for non-interactive use.
-    #[arg(long, requires_all = ["fix", "sites"], help_heading = "Doctor")]
+    /// With `--doctor`: patch the file passed via `--sites` in place
+    /// with whichever doctor suggestion mode is active (atomic write).
+    /// Pair with `--fix` to apply the per-site signal suggestions, or
+    /// with `--suggest-known-present` to apply discovered replacement
+    /// `known_present` users to stale entries. The embedded registry
+    /// is read-only — pass `--sites <path>` to a writable JSON file.
+    /// By default, prompts once after printing the diff; pass `--yes`
+    /// to skip the prompt for non-interactive use.
+    #[arg(long, requires = "sites", help_heading = "Doctor")]
     apply: bool,
 
     /// With `--apply`: skip the confirmation prompt. Intended for
@@ -1687,7 +1690,24 @@ async fn run_doctor(client: &Client, sites: &[Site], opts: DoctorOpts<'_>) -> Re
     }
 
     if opts.suggest_known_present && !failed_sites.is_empty() {
-        print_known_present_suggestions(client, &failed_sites).await?;
+        if opts.apply {
+            let path = opts.sites_path.context(
+                "internal: --apply --suggest-known-present reached run_doctor without --sites",
+            )?;
+            apply_known_present_suggestions(client, &failed_sites, path, opts.yes).await?;
+        } else {
+            print_known_present_suggestions(client, &failed_sites).await?;
+        }
+    }
+
+    // `--apply` is meaningless without something to apply: clap allows
+    // `--apply --sites <path>` on its own (since `--fix` /
+    // `--suggest-known-present` are siblings) but a bare combination
+    // is just a typo. Surface it rather than silently doing nothing.
+    if opts.apply && !opts.fix && !opts.suggest_known_present {
+        anyhow::bail!(
+            "--apply requires --fix and/or --suggest-known-present to know what to patch"
+        );
     }
 
     if opts.suggest_protection {
@@ -1933,6 +1953,153 @@ async fn print_known_present_suggestions(client: &Client, failed: &[&Site]) -> R
         failed.len()
     );
     Ok(())
+}
+
+/// `--suggest-known-present --apply` variant: probe candidate users
+/// for every failing site, collect the successful discoveries, render
+/// an old → new diff per site, confirm once unless `--yes`, then
+/// write the patched JSON back atomically via [`patch_known_present_in_sites_file`].
+///
+/// Sites where no candidate yielded `Found` are skipped (printed for
+/// awareness) — leaving them as-is keeps stale data visible to the
+/// next `--doctor` run rather than silently erasing it.
+async fn apply_known_present_suggestions(
+    client: &Client,
+    failed: &[&Site],
+    sites_path: &Path,
+    skip_prompt: bool,
+) -> Result<()> {
+    println!(
+        "\ndiscovering known_present candidates for {} failing site(s)…",
+        failed.len()
+    );
+    let mut patches: Vec<(String, String, Option<String>)> = Vec::new();
+    for site in failed {
+        let pool = doctor::default_candidate_pool(site);
+        let old = site
+            .known_present
+            .as_ref()
+            .and_then(adler_core::KnownPresent::primary)
+            .map(str::to_owned);
+        match doctor::discover_known_present(client, site, &pool).await {
+            Some(name) => {
+                patches.push((site.name.clone(), name, old));
+            }
+            None => {
+                println!(
+                    "  {}  — skipped (no candidate matched in pool of {})",
+                    site.name,
+                    pool.len()
+                );
+            }
+        }
+    }
+    if patches.is_empty() {
+        println!("\nno applicable patches — nothing to write.");
+        return Ok(());
+    }
+
+    println!("\nproposed known_present changes:");
+    for (name, new, old) in &patches {
+        let old_disp = old.as_deref().unwrap_or("<none>");
+        println!("  {name}");
+        println!("    - {old_disp:?}");
+        println!("    + {new:?}");
+    }
+    println!(
+        "\n{} site(s) to patch in {}",
+        patches.len(),
+        sites_path.display()
+    );
+
+    if !skip_prompt {
+        print!("Apply? [y/N] ");
+        io::stdout().flush().ok();
+        let mut answer = String::new();
+        io::stdin()
+            .read_line(&mut answer)
+            .context("reading confirmation prompt")?;
+        if !matches!(answer.trim(), "y" | "Y" | "yes" | "YES") {
+            println!("aborted; no changes written.");
+            return Ok(());
+        }
+    }
+
+    let pairs: Vec<(String, String)> = patches
+        .into_iter()
+        .map(|(name, new, _old)| (name, new))
+        .collect();
+    let report = patch_known_present_in_sites_file(sites_path, &pairs)?;
+
+    if !report.missing.is_empty() {
+        println!(
+            "warning: {} site(s) had a candidate but no matching entry in {}: {}",
+            report.missing.len(),
+            sites_path.display(),
+            report.missing.join(", ")
+        );
+    }
+
+    println!(
+        "patched {} site(s) in {}; re-run --doctor to verify.",
+        report.patched,
+        sites_path.display()
+    );
+    Ok(())
+}
+
+/// Pure helper for the `known_present` apply path. Mirrors [`patch_sites_file`]'s
+/// shape: load the JSON, walk the `sites` array, replace each named
+/// entry's `known_present` with the new value, atomic rename through
+/// a sibling `*.tmp`.
+fn patch_known_present_in_sites_file(
+    sites_path: &Path,
+    patches: &[(String, String)],
+) -> Result<PatchReport> {
+    let content = std::fs::read_to_string(sites_path)
+        .with_context(|| format!("reading {} for --apply", sites_path.display()))?;
+    let mut root: serde_json::Value = serde_json::from_str(&content)
+        .with_context(|| format!("parsing {} as JSON", sites_path.display()))?;
+    let arr = root
+        .get_mut("sites")
+        .and_then(serde_json::Value::as_array_mut)
+        .with_context(|| {
+            format!(
+                "{} has no top-level \"sites\" array — is it a valid registry file?",
+                sites_path.display()
+            )
+        })?;
+
+    let mut report = PatchReport::default();
+    for (name, new_known) in patches {
+        let entry = arr.iter_mut().find_map(|v| {
+            let obj = v.as_object_mut()?;
+            (obj.get("name").and_then(serde_json::Value::as_str) == Some(name.as_str()))
+                .then_some(obj)
+        });
+        match entry {
+            Some(obj) => {
+                obj.insert(
+                    "known_present".into(),
+                    serde_json::Value::String(new_known.clone()),
+                );
+                report.patched += 1;
+            }
+            None => report.missing.push(name.clone()),
+        }
+    }
+
+    let mut serialised =
+        serde_json::to_string_pretty(&root).context("re-serialising patched registry")?;
+    serialised.push('\n');
+
+    let tmp = sites_path.with_extension("json.tmp");
+    std::fs::write(&tmp, serialised.as_bytes())
+        .with_context(|| format!("writing {}", tmp.display()))?;
+    std::fs::rename(&tmp, sites_path)
+        .with_context(|| format!("renaming {} → {}", tmp.display(), sites_path.display()))?;
+
+    Ok(report)
 }
 
 /// Default directory the web UI persists scans to (`$XDG_CACHE_HOME/adler/scans/`,
@@ -2638,5 +2805,53 @@ mod tests {
             err.to_string().contains("no top-level \"sites\" array"),
             "unexpected error: {err}",
         );
+    }
+
+    #[test]
+    fn patch_known_present_replaces_and_preserves_other_fields() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().join("sites.json");
+        std::fs::write(
+            &path,
+            r#"{
+  "engines": {},
+  "sites": [
+    { "name": "Stale", "url": "https://stale.example/{username}",
+      "known_present": "blue",
+      "signals": [{"kind": "status_found", "codes": [200]}],
+      "tags": ["dev"] },
+    { "name": "Untouched", "url": "https://other.example/{username}",
+      "known_present": "torvalds",
+      "signals": [{"kind": "status_found", "codes": [200]}] }
+  ]
+}"#,
+        )
+        .unwrap();
+
+        let patches = vec![
+            ("Stale".to_owned(), "alice".to_owned()),
+            ("Untouched".to_owned(), "octocat".to_owned()),
+            ("Never-existed".to_owned(), "ghost".to_owned()),
+        ];
+        let report = patch_known_present_in_sites_file(&path, &patches).expect("ok");
+        assert_eq!(report.patched, 2);
+        assert_eq!(report.missing, vec!["Never-existed".to_owned()]);
+
+        let written = std::fs::read_to_string(&path).unwrap();
+        let v: serde_json::Value = serde_json::from_str(&written).unwrap();
+        let arr = v["sites"].as_array().unwrap();
+        let stale = arr.iter().find(|s| s["name"] == "Stale").unwrap();
+        assert_eq!(stale["known_present"], "alice");
+        // Other fields preserved untouched.
+        assert_eq!(stale["url"], "https://stale.example/{username}");
+        assert_eq!(stale["tags"], serde_json::json!(["dev"]));
+        assert!(stale["signals"].is_array());
+
+        let untouched = arr.iter().find(|s| s["name"] == "Untouched").unwrap();
+        assert_eq!(untouched["known_present"], "octocat");
+
+        // No leftover *.tmp.
+        let tmp_path = path.with_extension("json.tmp");
+        assert!(!tmp_path.exists());
     }
 }
