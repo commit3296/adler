@@ -9,6 +9,11 @@ pre-1.0 bump rules.
 
 ## [Unreleased]
 
+## [0.11.5](https://github.com/commit3296/adler/compare/v0.11.4...v0.11.5) - 2026-06-03
+
+### Added
+- *(web)* mid-scan refilter — cancel + restart with overlap
+
 ## [0.11.4](https://github.com/commit3296/adler/compare/v0.11.3...v0.11.4) - 2026-06-03
 
 ### Added
