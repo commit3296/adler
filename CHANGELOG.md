@@ -9,6 +9,11 @@ pre-1.0 bump rules.
 
 ## [Unreleased]
 
+## [0.11.4](https://github.com/commit3296/adler/compare/v0.11.3...v0.11.4) - 2026-06-03
+
+### Added
+- *(cli)* grouped --help, long --version, man page, cookbook
+
 ## [0.11.3](https://github.com/commit3296/adler/compare/v0.11.2...v0.11.3) - 2026-06-03
 
 ### Fixed
