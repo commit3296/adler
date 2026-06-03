@@ -53,7 +53,10 @@ jobs:
           persist-credentials: false
 
       - name: Run analysis
-        uses: ossf/scorecard-action@v2
+        # ossf/scorecard-action does not publish a `v2` major-version
+        # alias tag — pin to the latest concrete release. Dependabot
+        # bumps this on new versions.
+        uses: ossf/scorecard-action@v2.4.3
         with:
           results_file: results.sarif
           results_format: sarif

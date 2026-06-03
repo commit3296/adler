@@ -6,7 +6,7 @@
   <a href="https://github.com/commit3296/adler/actions/workflows/ci.yml"><img src="https://github.com/commit3296/adler/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://crates.io/crates/adler-cli"><img src="https://img.shields.io/crates/v/adler-cli.svg" alt="crates.io"></a>
   <a href="https://docs.rs/adler-core"><img src="https://docs.rs/adler-core/badge.svg" alt="docs.rs"></a>
-  <a href="https://adler-docs.pages.dev/"><img src="https://img.shields.io/github/deployments/commit3296/adler-docs/Production?label=docs&logo=cloudflarepages&logoColor=white" alt="Docs"></a>
+  <a href="https://adler-docs.pages.dev/"><img src="https://img.shields.io/badge/docs-adler--docs.pages.dev-orange?logo=cloudflarepages&logoColor=white" alt="Docs"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
 </p>
 
