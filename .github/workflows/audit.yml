@@ -37,17 +37,19 @@ on:
 
 permissions:
   contents: read
-  # The audit-check action opens / updates a tracking issue on
-  # scheduled-run failures so a stale main branch doesn't quietly
-  # rot vulnerable.
-  issues: write
-  # Posts a check run on PRs.
-  checks: write
 
 jobs:
   audit:
     name: cargo audit
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # The audit-check action opens / updates a tracking issue on
+      # scheduled-run failures so a stale main branch doesn't quietly
+      # rot vulnerable.
+      issues: write
+      # Posts a check run on PRs.
+      checks: write
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
