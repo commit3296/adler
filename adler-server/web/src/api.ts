@@ -8,6 +8,8 @@ import type {
     AccessResponse,
     CheckOutcome,
     FinishedScan,
+    RefilterBody,
+    RefilterResponse,
     RetryResponse,
     ScanListEntry,
     ScanSnapshot,
@@ -56,6 +58,12 @@ export const api = {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ site }),
+        }),
+    refilterScan: (id: string, body: RefilterBody) =>
+        request<RefilterResponse>(`/api/scan/${id}/refilter`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
         }),
 };
 

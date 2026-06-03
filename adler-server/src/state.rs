@@ -6,6 +6,7 @@ use std::sync::Arc;
 
 use adler_core::{Client, Registry, Site};
 use tokio::sync::RwLock;
+use tokio::task::JoinHandle;
 
 use crate::scan::{ScanHandle, ScanId};
 
@@ -23,6 +24,13 @@ pub struct AppState {
     pub client: Arc<Client>,
     /// In-flight + recently-finished scans, keyed by ID.
     pub scans: Arc<RwLock<HashMap<ScanId, ScanHandle>>>,
+    /// Running-scan task handles, keyed by [`ScanId`]. Lets the
+    /// refilter endpoint cancel an in-flight scan via
+    /// [`JoinHandle::abort`] before spawning a successor with the new
+    /// filter. Entries are removed when their scan finishes naturally
+    /// (the task's last act before returning) or when the eviction
+    /// policy reaps them alongside the [`ScanHandle`].
+    pub scan_tasks: Arc<RwLock<HashMap<ScanId, JoinHandle<()>>>>,
     /// Maximum number of scans retained in memory. Beyond this, the
     /// oldest finished scan is evicted on the next insertion (a tiny
     /// LRU — we never need more than ~dozens of recent scans in a
@@ -46,6 +54,7 @@ impl AppState {
             sites: Arc::from(sites.into_boxed_slice()),
             client: Arc::new(client),
             scans: Arc::new(RwLock::new(HashMap::new())),
+            scan_tasks: Arc::new(RwLock::new(HashMap::new())),
             scan_capacity: scan_capacity.max(1),
             scans_dir: None,
         }
@@ -74,6 +83,7 @@ impl AppState {
     /// (or the oldest entry overall, if none has finished) when we are
     /// at capacity.
     pub async fn insert_scan(&self, id: ScanId, handle: ScanHandle) {
+        let mut evicted: Option<ScanId> = None;
         let mut scans = self.scans.write().await;
         if scans.len() >= self.scan_capacity {
             let mut finished_candidate: Option<(ScanId, std::time::Duration)> = None;
@@ -93,9 +103,39 @@ impl AppState {
             }
             if let Some((victim, _)) = finished_candidate.or(any_candidate) {
                 scans.remove(&victim);
+                evicted = Some(victim);
             }
         }
         scans.insert(id, handle);
+        drop(scans);
+        if let Some(v) = evicted {
+            self.scan_tasks.write().await.remove(&v);
+        }
+    }
+
+    /// Register an in-flight scan task. The handle is stored so the
+    /// refilter endpoint can abort it before starting a successor.
+    pub async fn register_scan_task(&self, id: ScanId, task: JoinHandle<()>) {
+        self.scan_tasks.write().await.insert(id, task);
+    }
+
+    /// Remove an in-flight scan task entry. Used at the end of
+    /// `crate::scan::run` so the map doesn't accumulate completed tasks.
+    pub async fn forget_scan_task(&self, id: &ScanId) {
+        self.scan_tasks.write().await.remove(id);
+    }
+
+    /// Abort the running task for `id` (if any). Returns true when an
+    /// abort signal was actually sent; false when no live task was
+    /// recorded (already finished, or never started). Doesn't wait for
+    /// the task to observe the abort — `JoinHandle::abort` is
+    /// non-blocking and the caller continues immediately.
+    pub async fn abort_scan(&self, id: &ScanId) -> bool {
+        let task = self.scan_tasks.write().await.remove(id);
+        task.is_some_and(|t| {
+            t.abort();
+            true
+        })
     }
 
     /// Look up a scan by ID, cloning the handle (cheap — `Arc` inside).

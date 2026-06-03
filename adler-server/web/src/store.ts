@@ -58,9 +58,26 @@ export type GroupBy = "category" | "none";
 /// `finished`  — backend emitted `done`; the aggregate is final.
 export type ScanStatus = "running" | "stopped" | "finished";
 
+/// Effective server-side filter the scan was started with. Compared
+/// against the live `store.filter` to surface divergence — when the
+/// operator edits the filter mid-scan we offer a "re-scan with these
+/// filters" path via `POST /api/scan/:id/refilter` instead of forcing
+/// them to wait, stop, and start over.
+export interface ScanFilterSnapshot {
+    tag: string[];
+    excludeTag: string[];
+    top: number | null;
+    nsfw: boolean;
+    egressNames: string[];
+}
+
 export interface ScanState {
     id: string;
     username: string;
+    /// Filter the scan was launched with (or refiltered into). Stable
+    /// for the duration of the scan — refilter creates a fresh scan
+    /// with a new snapshot rather than mutating this in place.
+    filterAtStart: ScanFilterSnapshot;
     outcomes: CheckOutcome[];
     /// Set-as-record of site names already present in `outcomes`. Used
     /// for O(1) dedupe inside `appendOutcome` — without it the per-push
@@ -357,13 +374,19 @@ export const actions = {
     },
 
     // Scan lifecycle
-    beginScan(id: string, username: string, siteCount: number) {
+    beginScan(
+        id: string,
+        username: string,
+        siteCount: number,
+        filterAtStart: ScanFilterSnapshot,
+    ) {
         set("diff", null);
         set("notFound", null);
         set("loading", false);
         set("scan", {
             id,
             username,
+            filterAtStart,
             outcomes: [],
             outcomeSites: {},
             bucketsByCategory: emptyBuckets(),
@@ -373,6 +396,30 @@ export const actions = {
             startedAtMs: Date.now(),
             elapsedMs: 0,
         });
+    },
+
+    /// Atomic swap of a running scan's identity (and stored filter)
+    /// after a successful `POST /api/scan/:id/refilter`. Carried-over
+    /// outcomes from the previous run replay through the new SSE
+    /// stream; this just resets the buffers and adjusts metadata so
+    /// the SPA's view follows the new scan id without an intermediate
+    /// "no scan" flash.
+    rebindScanAfterRefilter(
+        id: string,
+        siteCount: number,
+        filterAtStart: ScanFilterSnapshot,
+    ) {
+        if (!store.scan) return;
+        set("scan", "id", id);
+        set("scan", "siteCount", siteCount);
+        set("scan", "outcomes", []);
+        set("scan", "outcomeSites", {});
+        set("scan", "bucketsByCategory", emptyBuckets());
+        set("scan", "summary", null);
+        set("scan", "status", "running");
+        set("scan", "startedAtMs", Date.now());
+        set("scan", "elapsedMs", 0);
+        set("scan", "filterAtStart", filterAtStart);
     },
     appendOutcome(o: CheckOutcome) {
         if (!store.scan) return;

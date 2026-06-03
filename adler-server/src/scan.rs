@@ -241,6 +241,29 @@ impl ScanHandle {
         let _ = self.inner.tx.send(idx);
     }
 
+    /// Bulk-append outcomes carried over from a previous scan run
+    /// (the overlap subset on a refilter). Used to pre-populate a
+    /// handle before [`spawn`] starts probing the rest, so the SSE
+    /// stream a subscriber attaches to surfaces the carried-over
+    /// outcomes immediately. Acquires one write-lock and emits one
+    /// broadcast per outcome so subscribers see them as ordinary
+    /// `index N appended` events.
+    // The write lock is held for the whole bulk-insert deliberately
+    // so subscribers never see a half-populated buffer; the
+    // "tighten the drop" nursery lint would defeat that.
+    #[allow(clippy::significant_drop_tightening)]
+    pub(crate) async fn extend_outcomes(&self, carried: Vec<CheckOutcome>) {
+        if carried.is_empty() {
+            return;
+        }
+        let mut buf = self.inner.outcomes.write().await;
+        for outcome in carried {
+            let idx = buf.len();
+            buf.push(outcome);
+            let _ = self.inner.tx.send(idx);
+        }
+    }
+
     pub(crate) async fn publish(&self, finished: FinishedScan) {
         *self.inner.finished.write().await = Some(finished);
         self.inner.done.notify_waiters();
@@ -291,10 +314,10 @@ pub(crate) fn spawn(
     username: Username,
     options: ExecutorOptions,
     persist_ctx: Option<PersistContext>,
-) {
+) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
         run(handle, &client, &sites, &username, options, persist_ctx).await;
-    });
+    })
 }
 
 async fn run(

@@ -309,9 +309,20 @@ and real-time streaming of results.
   historical scan. Each row shows the relative timestamp,
   found/total/elapsed metadata, and the absolute timestamp on the
   right.
-- [ ] Server-side filter changes during running scan (e.g. "narrow
-  scope to dev sites only"). Today the catalogue is frozen at scan
-  start; a cancel-and-restart-with-overlap would be friendlier.
+- [x] Server-side filter changes during running scan — the Advanced
+  filters modal now stays editable mid-scan, surfaces an **Apply
+  (re-scan)** button when the live filter diverges from the snapshot
+  the scan was launched with, and routes through a new
+  `POST /api/scan/:id/refilter` endpoint. The server cancels the
+  in-flight task via `JoinHandle::abort`, snapshots the predecessor's
+  outcomes, intersects them with the new filter's site list, and
+  spawns a successor that pre-populates the carried-over outcomes
+  and probes only the remainder. SPA closes the predecessor SSE
+  stream and opens one against the successor; carried-over outcomes
+  replay as `index N appended` events so the live view reflects them
+  immediately. `state::AppState` gained a `scan_tasks` map so
+  cancellation has a target; tests cover unknown-scan, finished-
+  scan-rejected, empty-filter, and the happy-path overlap.
 - [x] Multi-username batch (analogous to `--input file.txt` in the
   CLI). `Hero.tsx` gained a `single` / `batch` tab pair; the batch
   tab is a textarea that splits on newline or comma, dedups and

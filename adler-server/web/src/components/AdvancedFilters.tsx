@@ -3,15 +3,43 @@ import { PRESETS } from "../constants";
 import { actions, store } from "../store";
 import { Button, Chip, Input, Modal } from "../ui";
 
-export const AdvancedFilters: Component = () => {
+interface Props {
+    /// Cancel the running scan and replace it with a successor driven
+    /// by the current filter (via `POST /api/scan/:id/refilter`). Wired
+    /// by App.tsx; the button stays hidden when no scan is running or
+    /// the live filter matches the running scan's snapshot.
+    onRefilter: () => void;
+}
+
+/// Order-insensitive equality on string arrays. Filters store tags as
+/// `string[]` but the operator's order doesn't drive scan behaviour —
+/// compare by set membership.
+function sameStringSet(a: string[], b: string[]): boolean {
+    if (a.length !== b.length) return false;
+    const sa = new Set(a);
+    for (const v of b) if (!sa.has(v)) return false;
+    return true;
+}
+
+export const AdvancedFilters: Component<Props> = (p) => {
     const [tagSearch, setTagSearch] = createSignal("");
-    /// Mid-scan filter edits would never reach the running probe —
-    /// the backend was handed its site list at start. Disable all
-    /// inputs here while a scan is live and show a one-line banner
-    /// explaining the constraint. (Sorting / grouping / hide-not-found
-    /// in the results toolbar are not blocked — those are pure
-    /// view-state.)
     const isScanning = createMemo(() => store.scan?.status === "running");
+    /// Effective filter differs from the snapshot the running scan was
+    /// launched with — surfaces the refilter call-to-action. Compared
+    /// field-by-field rather than via JSON because the underlying
+    /// arrays are stable references the operator may have only
+    /// shuffled.
+    const isDivergent = createMemo<boolean>(() => {
+        const s = store.scan;
+        if (!s || s.status !== "running") return false;
+        const a = s.filterAtStart;
+        const b = store.filter;
+        if (a.top !== b.top || a.nsfw !== b.nsfw) return true;
+        if (!sameStringSet(a.tag, b.tag)) return true;
+        if (!sameStringSet(a.excludeTag, b.excludeTag)) return true;
+        if (!sameStringSet(a.egressNames, b.egressNames)) return true;
+        return false;
+    });
 
     const tags = createMemo(() => {
         const q = tagSearch().trim().toLowerCase();
@@ -70,34 +98,46 @@ export const AdvancedFilters: Component = () => {
                     <Button
                         variant="ghost"
                         size="sm"
-                        disabled={isScanning()}
                         onClick={() =>
                             actions.applyPreset(PRESETS.find((p) => p.id === "quick")!)
                         }
                     >
                         Reset
                     </Button>
-                    <Button
-                        variant="primary"
-                        size="sm"
-                        onClick={() => actions.setFilters(false)}
-                    >
-                        Done
-                    </Button>
+                    <Show when={isScanning() && isDivergent()}>
+                        <Button
+                            variant="primary"
+                            size="sm"
+                            onClick={() => {
+                                p.onRefilter();
+                                actions.setFilters(false);
+                            }}
+                        >
+                            Apply (re-scan)
+                        </Button>
+                    </Show>
+                    <Show when={!(isScanning() && isDivergent())}>
+                        <Button
+                            variant="primary"
+                            size="sm"
+                            onClick={() => actions.setFilters(false)}
+                        >
+                            Done
+                        </Button>
+                    </Show>
                 </>
             }
         >
-            <Show when={isScanning()}>
+            <Show when={isScanning() && isDivergent()}>
                 <div class="filters-locked-banner">
-                    <span>Scan in progress.</span>
-                    <span class="dim">Filters apply to your next scan — stop or wait.</span>
+                    <span>Scan in progress — filter differs from what it was launched with.</span>
+                    <span class="dim">
+                        Apply (re-scan) cancels the live scan and starts a successor;
+                        sites already done carry over without re-probing.
+                    </span>
                 </div>
             </Show>
-            <fieldset
-                class="filters-fieldset"
-                disabled={isScanning()}
-                aria-busy={isScanning()}
-            >
+            <fieldset class="filters-fieldset">
                 <Show when={activeChips().length > 0}>
                     <div class="active-filters">
                         <span class="summary-label">Active:</span>

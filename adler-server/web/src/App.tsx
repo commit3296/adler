@@ -94,6 +94,20 @@ export const App: Component = () => {
     }
 
     // ─────────── scan lifecycle ───────────
+    /// Snapshot of the *server-side* filter slice — the fields that get
+    /// shipped in `POST /api/scan` / `/refilter` bodies. Used both to
+    /// stamp a scan when it starts (so divergence detection later
+    /// works) and to construct the request body for both endpoints.
+    function currentFilterSnapshot() {
+        return {
+            tag: [...store.filter.tag],
+            excludeTag: [...store.filter.excludeTag],
+            top: store.filter.top,
+            nsfw: store.filter.nsfw,
+            egressNames: [...store.filter.egressNames],
+        };
+    }
+
     /// Start a scan and resolve with its id when it *finishes* (or
     /// `null` on stream/setup error). Resolving on completion lets a
     /// batch run advance to the next username sequentially; single-scan
@@ -116,8 +130,9 @@ export const App: Component = () => {
             body.egress_names = store.filter.egressNames;
 
         try {
+            const filterAtStart = currentFilterSnapshot();
             const r = await api.startScan(body);
-            actions.beginScan(r.scan_id, r.username, r.site_count);
+            actions.beginScan(r.scan_id, r.username, r.site_count, filterAtStart);
             history.replaceState(null, "", `#/scan/${r.scan_id}`);
             elapsedTimer = window.setInterval(() => actions.tickElapsed(), 100);
             return await new Promise<string | null>((resolve) => {
@@ -180,6 +195,57 @@ export const App: Component = () => {
         else if (lastUsername()) await startScan(lastUsername());
     }
 
+    /// Apply the current filter to a running scan: cancel the
+    /// in-flight scan server-side, spawn a successor that probes only
+    /// the newly-in-scope sites, and switch the SSE stream over. Sites
+    /// both scans share carry over without re-probing — the operator
+    /// pays only for newly-in-scope sites. No-op when no scan is
+    /// running.
+    async function refilterRunningScan() {
+        const cur = store.scan;
+        if (!cur || cur.status !== "running") return;
+        const body: any = {};
+        if (store.filter.tag.length) body.tag = store.filter.tag;
+        if (store.filter.excludeTag.length) body.exclude_tag = store.filter.excludeTag;
+        if (store.filter.top != null) body.top = store.filter.top;
+        if (store.filter.nsfw) body.nsfw = true;
+        if (store.filter.egressNames.length) body.egress_names = store.filter.egressNames;
+        try {
+            const filterAtStart = currentFilterSnapshot();
+            const r = await api.refilterScan(cur.id, body);
+            // Close the predecessor stream cleanly before opening the
+            // successor — overlapping EventSource lifetimes would
+            // double-process carried-over outcomes for a moment.
+            closeStream();
+            stopElapsedTimer();
+            actions.rebindScanAfterRefilter(r.scan_id, r.site_count, filterAtStart);
+            history.replaceState(null, "", `#/scan/${r.scan_id}`);
+            elapsedTimer = window.setInterval(() => actions.tickElapsed(), 100);
+            sseClose = streamScan(r.scan_id, {
+                onOutcome,
+                onDone: (f) => {
+                    stopElapsedTimer();
+                    actions.finishScan(f.summary, f.outcomes, f.elapsed_ms);
+                    refreshHistory();
+                },
+                onError: () => {
+                    actions.toast("Stream disconnected", "error");
+                    stopElapsedTimer();
+                },
+            });
+            actions.toast(
+                r.carried_outcomes > 0
+                    ? `Refiltered — ${r.carried_outcomes} carried over, ${r.site_count - r.carried_outcomes} to probe`
+                    : `Refiltered — ${r.site_count} sites to probe`,
+                "success",
+            );
+            refreshHistory();
+        } catch (err) {
+            const msg = err instanceof ApiClientError ? err.message : String(err);
+            actions.toast(`Refilter failed: ${msg}`, "error");
+        }
+    }
+
     function stopScan() {
         closeStream();
         stopElapsedTimer();
@@ -223,6 +289,10 @@ export const App: Component = () => {
                 actions.loadScan({
                     id,
                     username: data.username,
+                    // Historical scans don't carry the original filter
+                    // through GET /api/scan/:id; refilter only applies
+                    // to running scans, so a no-op snapshot is fine.
+                    filterAtStart: currentFilterSnapshot(),
                     outcomes: data.outcomes,
                     outcomeSites: {}, // backfilled inside loadScan
                     bucketsByCategory: {}, // backfilled inside loadScan
@@ -234,7 +304,17 @@ export const App: Component = () => {
                 });
                 setLastUsername(data.username);
             } else {
-                actions.beginScan(id, data.username, data.site_count);
+                // We're attaching to a scan whose original filter the
+                // server doesn't surface; treat current store filter as
+                // the implicit snapshot — divergence detection is
+                // only meaningful while the operator is actively
+                // editing, so a no-op divergence on attach is fine.
+                actions.beginScan(
+                    id,
+                    data.username,
+                    data.site_count,
+                    currentFilterSnapshot(),
+                );
                 setLastUsername(data.username);
                 elapsedTimer = window.setInterval(() => actions.tickElapsed(), 100);
                 sseClose = streamScan(id, {
@@ -720,7 +800,7 @@ export const App: Component = () => {
             <Footer onAbout={() => actions.setAbout(true)} />
 
             <HistoryDrawer onOpenScan={openHistoryScan} onStartDiff={startDiff} />
-            <AdvancedFilters />
+            <AdvancedFilters onRefilter={refilterRunningScan} />
             <ShortcutsOverlay />
             <About />
             <AccessModal />

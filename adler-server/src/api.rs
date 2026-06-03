@@ -46,6 +46,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/scan/{id}", get(get_scan))
         .route("/api/scan/{id}/stream", get(stream_scan))
         .route("/api/scan/{id}/retry", post(retry_site))
+        .route("/api/scan/{id}/refilter", post(refilter_scan))
         .layer(
             CorsLayer::new()
                 .allow_origin(Any)
@@ -369,7 +370,7 @@ async fn start_scan(
         Arc::new(state.client.with_egress_subset(&req.egress_names))
     };
 
-    crate::scan::spawn(
+    let task = crate::scan::spawn(
         handle,
         scan_client,
         Arc::from(sites.into_boxed_slice()),
@@ -377,10 +378,209 @@ async fn start_scan(
         options,
         persist_ctx,
     );
+    state.register_scan_task(id.clone(), task).await;
 
     Ok(Json(StartScanResponse {
         scan_id: id,
         username: req.username,
+        site_count,
+    }))
+}
+
+/// Body for `POST /api/scan/:id/refilter`.
+///
+/// Mirrors [`StartScanRequest`] minus the `username` (carried over from
+/// the existing scan). The active scan is cancelled and replaced with a
+/// fresh one driven by the new filter; outcomes for sites that appear
+/// in both the old and new site lists carry over unchanged, so the
+/// operator pays only for newly-in-scope sites.
+#[derive(Debug, Deserialize, Default)]
+struct RefilterRequest {
+    #[serde(default)]
+    only: Vec<String>,
+    #[serde(default)]
+    exclude: Vec<String>,
+    #[serde(default)]
+    tag: Vec<String>,
+    #[serde(default)]
+    exclude_tag: Vec<String>,
+    #[serde(default)]
+    top: Option<u32>,
+    #[serde(default)]
+    nsfw: bool,
+    #[serde(default)]
+    concurrency: Option<std::num::NonZeroUsize>,
+    #[serde(default)]
+    deadline_secs: Option<u64>,
+    #[serde(default)]
+    egress_names: Vec<String>,
+}
+
+impl From<&RefilterRequest> for StartScanRequest {
+    fn from(r: &RefilterRequest) -> Self {
+        Self {
+            username: String::new(), // filled in by caller; refilter reuses username from existing scan
+            only: r.only.clone(),
+            exclude: r.exclude.clone(),
+            tag: r.tag.clone(),
+            exclude_tag: r.exclude_tag.clone(),
+            top: r.top,
+            nsfw: r.nsfw,
+            concurrency: r.concurrency,
+            deadline_secs: r.deadline_secs,
+            egress_names: r.egress_names.clone(),
+        }
+    }
+}
+
+#[derive(Serialize)]
+struct RefilterResponse {
+    /// Fresh scan id. The SPA switches its SSE stream over to this id.
+    scan_id: ScanId,
+    /// Predecessor whose outcomes were carried into the new scan.
+    derived_from: ScanId,
+    /// Number of outcomes pre-populated from the predecessor (the
+    /// "overlap"). Zero when the new filter shares no completed sites
+    /// with the old.
+    carried_outcomes: usize,
+    /// Total site count for the new scan (`carried_outcomes` already
+    /// recorded + sites still to probe).
+    site_count: usize,
+}
+
+/// Cancel an in-flight scan and replace it with a successor driven by
+/// a new filter, carrying over outcomes for sites the two filters share.
+///
+/// Outcomes already on disk for the old scan stay there; nothing about
+/// the historic record is rewritten. The new scan is a fresh entry in
+/// `state.scans` with its own id. A finished scan can't be refiltered —
+/// just call `POST /api/scan` to start a fresh one instead.
+async fn refilter_scan(
+    State(state): State<AppState>,
+    AxumPath(id): AxumPath<String>,
+    Json(req): Json<RefilterRequest>,
+) -> Result<Json<RefilterResponse>, ApiError> {
+    let prev_id = ScanId::from(id);
+    let prev_handle = state
+        .get_scan(&prev_id)
+        .await
+        .ok_or_else(|| ApiError::not_found("scan_not_found", "no scan with that ID"))?;
+
+    if prev_handle.is_finished_now() {
+        return Err(ApiError::bad_request(
+            "scan_finished",
+            "scan has already finished; start a new one with POST /api/scan",
+        ));
+    }
+
+    // Pre-validate egress subset against the live pool. Same boundary
+    // check as `start_scan`; rejecting a typo before cancelling the
+    // running scan avoids "operator clicks Apply, scan dies, then sees
+    // the error" surprise.
+    if !req.egress_names.is_empty() {
+        let known: std::collections::HashSet<String> =
+            state.client.egress_names().into_iter().collect();
+        let bad: Vec<&String> = req
+            .egress_names
+            .iter()
+            .filter(|n| !known.contains(n.as_str()))
+            .collect();
+        if !bad.is_empty() {
+            let names: Vec<&str> = bad.iter().map(|s| s.as_str()).collect();
+            return Err(ApiError::bad_request(
+                "unknown_egress",
+                format!("egress not in pool: {}", names.join(", ")),
+            ));
+        }
+    }
+
+    // Resolve new filter against the catalog.
+    let start_shape = StartScanRequest::from(&req);
+    let new_sites = filter_catalog(&state.sites, &start_shape);
+    if new_sites.is_empty() {
+        return Err(ApiError::bad_request(
+            "empty_site_filter",
+            "no sites match the requested filter",
+        ));
+    }
+
+    // Snapshot the predecessor's outcomes; partition by whether the
+    // site is still in the new filter. Sites in both → carried over;
+    // sites in the new filter but not yet probed → spawn task probes
+    // them; sites only in the old filter → dropped (the operator
+    // narrowed scope deliberately).
+    let prev_outcomes = prev_handle.outcomes_snapshot().await;
+    let new_site_names: std::collections::HashSet<String> =
+        new_sites.iter().map(|s| s.name.clone()).collect();
+    let carried: Vec<adler_core::CheckOutcome> = prev_outcomes
+        .into_iter()
+        .filter(|o| new_site_names.contains(&o.site))
+        .collect();
+    let carried_names: std::collections::HashSet<String> =
+        carried.iter().map(|o| o.site.clone()).collect();
+    let sites_to_probe: Vec<Site> = new_sites
+        .iter()
+        .filter(|s| !carried_names.contains(&s.name))
+        .cloned()
+        .collect();
+
+    // Abort the predecessor *after* the snapshot so a probe that
+    // finishes between snapshot and abort can't sneak into the new
+    // scan as a duplicate.
+    state.abort_scan(&prev_id).await;
+
+    // Apply per-scan executor knobs.
+    let mut options = ExecutorOptions::default();
+    if let Some(c) = req.concurrency {
+        options = options.concurrency(c);
+    }
+    if let Some(d) = req.deadline_secs {
+        options = options.deadline(Duration::from_secs(d));
+    }
+
+    let username_str = prev_handle.username().to_owned();
+    let username = Username::new(username_str.clone())
+        .map_err(|e| ApiError::bad_request("invalid_username", e.to_string()))?;
+
+    let id = ScanId::new();
+    let site_count = new_sites.len();
+    let handle = ScanHandle::new(username_str.clone(), site_count, site_count.max(64));
+    state.insert_scan(id.clone(), handle.clone()).await;
+
+    // Pre-populate the new handle with the carried-over outcomes so a
+    // subscriber that connects after the refilter sees them
+    // immediately via the same `index N appended` events the
+    // executor produces.
+    handle.extend_outcomes(carried.clone()).await;
+
+    let persist_ctx = state
+        .scans_dir
+        .as_ref()
+        .map(|dir| crate::scan::PersistContext {
+            scan_id: id.clone(),
+            dir: dir.clone(),
+        });
+
+    let scan_client: Arc<adler_core::Client> = if req.egress_names.is_empty() {
+        state.client.clone()
+    } else {
+        Arc::new(state.client.with_egress_subset(&req.egress_names))
+    };
+
+    let task = crate::scan::spawn(
+        handle,
+        scan_client,
+        Arc::from(sites_to_probe.into_boxed_slice()),
+        username,
+        options,
+        persist_ctx,
+    );
+    state.register_scan_task(id.clone(), task).await;
+
+    Ok(Json(RefilterResponse {
+        scan_id: id,
+        derived_from: prev_id,
+        carried_outcomes: carried.len(),
         site_count,
     }))
 }
@@ -1430,5 +1630,196 @@ mod tests {
             arr[0]["started_at_ms"].as_u64() >= arr[1]["started_at_ms"].as_u64(),
             "scans must be newest-first",
         );
+    }
+
+    #[tokio::test]
+    async fn refilter_404s_unknown_scan() {
+        let (app, _mock) = test_app().await;
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/scan/does-not-exist/refilter")
+                    .header("content-type", "application/json")
+                    .body(Body::from(r"{}"))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
+    async fn refilter_rejects_finished_scan() {
+        // Start a scan, wait for it to finish naturally (both sites
+        // resolve from the mock instantly), then refilter — must
+        // return 400 scan_finished.
+        let (app, _mock) = test_app().await;
+        let id = start_and_wait(&app, "alice").await;
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri(format!("/api/scan/{id}/refilter"))
+                    .header("content-type", "application/json")
+                    .body(Body::from(r#"{"only":["A"]}"#))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+        let body = to_bytes(resp.into_body(), 1024).await.unwrap();
+        let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(v["error"], "scan_finished");
+    }
+
+    #[tokio::test]
+    async fn refilter_rejects_empty_filter() {
+        let (app, _mock) = test_app().await;
+        let id = start_and_wait(&app, "alice").await;
+        // Even with a finished predecessor, the empty-filter check
+        // would fire before scan_finished — but here we get
+        // scan_finished first. Use the live router with a custom
+        // handle to actually exercise empty_site_filter. We instead
+        // construct a fake running scan by inserting a never-ending
+        // handle directly into AppState.
+        let _ = id;
+        let mock = MockServer::start().await;
+        let sites = vec![site("A", &mock.uri(), "a"), site("B", &mock.uri(), "b")];
+        let client = Client::builder()
+            .timeout(Duration::from_secs(2))
+            .min_request_interval(Duration::ZERO)
+            .build()
+            .unwrap();
+        let state = AppState::new(sites, client, 16);
+        let prev_id = ScanId::new();
+        let handle = ScanHandle::new("bob", 2, 16);
+        state.insert_scan(prev_id.clone(), handle).await;
+        let app = router(state);
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri(format!("/api/scan/{prev_id}/refilter"))
+                    .header("content-type", "application/json")
+                    // `only=Z` matches no site in the catalog (`A`, `B`).
+                    .body(Body::from(r#"{"only":["Z"]}"#))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+        let body = to_bytes(resp.into_body(), 1024).await.unwrap();
+        let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(v["error"], "empty_site_filter");
+    }
+
+    #[tokio::test]
+    async fn refilter_carries_overlap_and_returns_fresh_id() {
+        // Synthesize a "running" predecessor whose handle already has
+        // an outcome recorded for site A. Refiltering to `only=A`
+        // means the new scan should carry A over (1 outcome) and have
+        // 0 sites left to probe.
+        let mock = MockServer::start().await;
+        let sites = vec![site("A", &mock.uri(), "a"), site("B", &mock.uri(), "b")];
+        let client = Client::builder()
+            .timeout(Duration::from_secs(2))
+            .min_request_interval(Duration::ZERO)
+            .build()
+            .unwrap();
+        let state = AppState::new(sites, client, 16);
+
+        let prev_id = ScanId::new();
+        let handle = ScanHandle::new("bob", 2, 16);
+        // Inject a Found outcome for site A so the refilter has
+        // something concrete to carry over.
+        handle
+            .extend_outcomes(vec![adler_core::CheckOutcome {
+                site: "A".to_owned(),
+                url: "https://a.test/bob".to_owned(),
+                kind: adler_core::MatchKind::Found,
+                reason: None,
+                elapsed_ms: 12,
+                evidence: Vec::new(),
+                enrichment: std::collections::BTreeMap::new(),
+                transport: None,
+                escalations: 0,
+            }])
+            .await;
+        state.insert_scan(prev_id.clone(), handle).await;
+        let app = router(state.clone());
+
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri(format!("/api/scan/{prev_id}/refilter"))
+                    .header("content-type", "application/json")
+                    .body(Body::from(r#"{"only":["A"]}"#))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let body = to_bytes(resp.into_body(), 1024).await.unwrap();
+        let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(v["carried_outcomes"], 1);
+        assert_eq!(v["site_count"], 1);
+        assert_eq!(v["derived_from"].as_str().unwrap(), prev_id.as_str());
+        let new_id = v["scan_id"].as_str().unwrap();
+        assert_ne!(new_id, prev_id.as_str(), "new scan must have a fresh id");
+
+        // The successor handle should hold the carried-over outcome
+        // already, even before the spawn task gets a chance to run.
+        let new_handle = state
+            .get_scan(&ScanId::from(new_id.to_owned()))
+            .await
+            .expect("new handle registered");
+        let snap = new_handle.outcomes_snapshot().await;
+        assert_eq!(snap.len(), 1);
+        assert_eq!(snap[0].site, "A");
+    }
+
+    /// Test helper: start a scan and wait for it to finish. Returns
+    /// the scan id as a string.
+    async fn start_and_wait(app: &Router, username: &str) -> String {
+        let resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/scan")
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        serde_json::json!({"username": username}).to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let body = to_bytes(resp.into_body(), 1024).await.unwrap();
+        let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        let id = v["scan_id"].as_str().unwrap().to_owned();
+        // Poll status until finished (test mocks resolve instantly).
+        for _ in 0..50 {
+            let r = app
+                .clone()
+                .oneshot(
+                    Request::builder()
+                        .uri(format!("/api/scan/{id}"))
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            let b = to_bytes(r.into_body(), 4096).await.unwrap();
+            let v: serde_json::Value = serde_json::from_slice(&b).unwrap();
+            if v["status"] == "finished" {
+                return id;
+            }
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+        panic!("scan {id} did not finish within ~1s");
     }
 }

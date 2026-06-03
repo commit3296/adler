@@ -138,6 +138,28 @@ export interface RetryResponse {
     outcome: CheckOutcome;
 }
 
+/// Body for `POST /api/scan/:id/refilter`. Same shape as
+/// `StartScanBody` minus `username` (carried over from the existing
+/// scan).
+export interface RefilterBody {
+    only?: string[];
+    exclude?: string[];
+    tag?: string[];
+    exclude_tag?: string[];
+    top?: number;
+    nsfw?: boolean;
+    concurrency?: number;
+    deadline_secs?: number;
+    egress_names?: string[];
+}
+
+export interface RefilterResponse {
+    scan_id: string;
+    derived_from: string;
+    carried_outcomes: number;
+    site_count: number;
+}
+
 /// Helper: extract the reason "tag" regardless of whether it arrived
 /// as a bare string (unit variant) or an externally-tagged object.
 export function reasonTag(r: UncertainReason | undefined): string | undefined {
