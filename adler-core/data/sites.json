@@ -711,7 +711,7 @@
           ]
         }
       ],
-      "known_present": "blue"
+      "known_present": "about"
     },
     {
       "name": "accounts.eclipse.org",
@@ -4154,7 +4154,7 @@
           ]
         }
       ],
-      "known_present": "blue"
+      "known_present": "chollometro"
     },
     {
       "name": "Chomikuj.pl",
@@ -8247,7 +8247,7 @@
         "photo",
         "source:maigret"
       ],
-      "known_present": "sunny2000"
+      "known_present": "flickr"
     },
     {
       "name": "Flightradar24",
@@ -9383,7 +9383,7 @@
           ]
         }
       ],
-      "known_present": "blue",
+      "known_present": "fosstodon",
       "regex_check": "^[a-zA-Z0-9_]{1,30}$"
     },
     {
@@ -16208,7 +16208,7 @@
           ]
         }
       ],
-      "known_present": "blue",
+      "known_present": "mydealz",
       "tags": [
         "region:de"
       ]
@@ -21100,7 +21100,7 @@
           ]
         }
       ],
-      "known_present": "blue"
+      "known_present": "promodescuentos"
     },
     {
       "name": "PromoDJ",
@@ -24398,7 +24398,7 @@
           "text": "user you requested does not exist"
         }
       ],
-      "known_present": "blue",
+      "known_present": "admin",
       "tags": [
         "bot-protected",
         "news"
@@ -25481,7 +25481,7 @@
         "ru",
         "source:maigret"
       ],
-      "known_present": "blue"
+      "known_present": "sports-tracker"
     },
     {
       "name": "Spotify",
@@ -26121,7 +26121,7 @@
         "source:maigret",
         "writing"
       ],
-      "known_present": "blue"
+      "known_present": "stihi"
     },
     {
       "name": "Stoimost",
@@ -32330,7 +32330,7 @@
           ]
         }
       ],
-      "known_present": "blue"
+      "known_present": "torvalds"
     },
     {
       "name": "write.as",
