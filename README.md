@@ -152,6 +152,37 @@ Requires Rust ≥ 1.85. The installed binary is `adler`. The library
 for embedding the engine in your own tools — see the
 [*Library*](#library) section below.
 
+### Verify release artifacts
+
+Every platform archive attached to a GitHub Release is signed with
+[Sigstore cosign](https://github.com/sigstore/cosign) using the GitHub
+Actions OIDC identity — no long-lived keys are kept, the signing
+certificate is short-lived and bound to the exact workflow that
+produced it (visible in the [Rekor](https://search.sigstore.dev/)
+transparency log). The signature (`.sig`) and certificate (`.pem`) are
+uploaded alongside each archive on the release page.
+
+```bash
+TAG=v0.11.3                                  # or whichever release
+ARCHIVE=adler-x86_64-unknown-linux-gnu.tar.gz
+
+# Pull the archive + its signature + certificate from the release.
+gh release download "$TAG" --repo commit3296/adler \
+  --pattern "$ARCHIVE" --pattern "$ARCHIVE.sig" --pattern "$ARCHIVE.pem"
+
+# Verify the signature is bound to this repo's release.yml workflow.
+cosign verify-blob \
+  --certificate "$ARCHIVE.pem" \
+  --signature   "$ARCHIVE.sig" \
+  --certificate-identity-regexp '^https://github\.com/commit3296/adler/\.github/workflows/release\.yml@refs/tags/v[0-9]+\.[0-9]+\.[0-9]+' \
+  --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
+  "$ARCHIVE"
+```
+
+A successful verification prints `Verified OK`. The identity-regex
+pins the signer to *this* repository's `release.yml` at a SemVer tag —
+a forged archive uploaded under a different workflow won't satisfy it.
+
 ## Build & run
 
 ```bash

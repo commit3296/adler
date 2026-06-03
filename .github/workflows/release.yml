@@ -123,3 +123,63 @@ jobs:
           zip: windows
           include: LICENSE,README.md
           token: ${{ secrets.GITHUB_TOKEN }}
+
+  sign:
+    name: Sign release artifacts
+    needs: upload
+    if: github.event_name == 'release' && startsWith(github.event.release.tag_name, 'v')
+    runs-on: ubuntu-latest
+    # cosign keyless signing exchanges the workflow's OIDC token for a
+    # short-lived Sigstore certificate. The certificate is bound to the
+    # workflow file path + ref, so a downstream verifier can pin the
+    # exact origin (`https://github.com/commit3296/adler/.github/workflows/release.yml@refs/tags/v0.X.Y`).
+    permissions:
+      contents: write
+      id-token: write
+
+    steps:
+      - name: Install cosign
+        uses: sigstore/cosign-installer@dc72c7d5c4d10cd6bcb8cf6e3fd625a9e5e537da # v3.7.0
+
+      - name: Download release archives
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          # taiki-e uploaded archives matching adler-*.tar.gz / .zip
+          # earlier in this workflow. Pull them down to sign locally.
+          gh release download "$TAG" \
+            --repo "${{ github.repository }}" \
+            --pattern 'adler-*.tar.gz' \
+            --pattern 'adler-*.zip'
+          ls -la adler-*
+
+      - name: Sign each archive (cosign keyless, OIDC)
+        run: |
+          for f in adler-*.tar.gz adler-*.zip; do
+            [ -f "$f" ] || continue
+            echo "::group::sign $f"
+            cosign sign-blob \
+              --yes \
+              --output-signature "${f}.sig" \
+              --output-certificate "${f}.pem" \
+              "$f"
+            # Verification sanity-check inside the same job — catches
+            # regressions in the OIDC + Fulcio pipeline before users do.
+            cosign verify-blob \
+              --certificate "${f}.pem" \
+              --signature "${f}.sig" \
+              --certificate-identity-regexp "^https://github\\.com/${{ github.repository }}/\\.github/workflows/release\\.yml@refs/tags/v[0-9]+\\.[0-9]+\\.[0-9]+" \
+              --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
+              "$f"
+            echo "::endgroup::"
+          done
+
+      - name: Upload signatures to the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          gh release upload "$TAG" adler-*.sig adler-*.pem \
+            --repo "${{ github.repository }}" \
+            --clobber
