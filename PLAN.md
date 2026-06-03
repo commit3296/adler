@@ -306,9 +306,18 @@ and real-time streaming of results.
 - [ ] Server-side filter changes during running scan (e.g. "narrow
   scope to dev sites only"). Today the catalogue is frozen at scan
   start; a cancel-and-restart-with-overlap would be friendlier.
-- [ ] Multi-username batch (analogous to `--input file.txt` in the
-  CLI). The store can already model multiple scans in history; the
-  UI just needs a textarea-input mode.
+- [x] Multi-username batch (analogous to `--input file.txt` in the
+  CLI). `Hero.tsx` gained a `single` / `batch` tab pair; the batch
+  tab is a textarea that splits on newline or comma, dedups and
+  trims, and feeds the list to `App.tsx::runBatch` which iterates
+  sequentially through `startScan` (parallel-scanning multiple
+  usernames would multiply per-host throttle pressure). `store.ts`
+  tracks the run via `BatchState { running, entries:
+  BatchEntry[] }`; each entry advances queued → running → done(+found)
+  or → error as its scan completes. `BatchStrip.tsx` shows one chip
+  per username with the live status, becoming clickable once the
+  whole run finishes (navigating mid-run would close the in-flight
+  SSE).
 
 ---
 
