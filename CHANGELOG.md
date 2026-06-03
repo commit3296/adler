@@ -9,6 +9,11 @@ pre-1.0 bump rules.
 
 ## [Unreleased]
 
+## [0.11.3](https://github.com/commit3296/adler/compare/v0.11.2...v0.11.3) - 2026-06-03
+
+### Fixed
+- *(ci)* pin scorecard-action; replace broken docs badge
+
 ## [0.11.2](https://github.com/commit3296/adler/compare/v0.11.0...v0.11.2) - 2026-06-02
 
 ### Added
