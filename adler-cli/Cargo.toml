@@ -27,8 +27,9 @@ adler-core = { path = "../adler-core", version = "0.11.3" }
 adler-server = { path = "../adler-server", version = "0.11.3" }
 anyhow.workspace = true
 clap.workspace = true
-secrecy.workspace = true
 clap_complete.workspace = true
+clap_mangen.workspace = true
+secrecy.workspace = true
 indicatif.workspace = true
 open.workspace = true
 serde.workspace = true
