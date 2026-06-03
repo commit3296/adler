@@ -155,6 +155,10 @@ export interface UiState {
     shortcutsOpen: boolean;
     aboutOpen: boolean;
     accessOpen: boolean;
+    /// Compare-with-previous picker modal — replaces the previous
+    /// auto-pick-newest behaviour with a chooser when the user has
+    /// more than one historical scan for the same username.
+    comparePickerOpen: boolean;
     toast: { text: string; kind: "success" | "error" | "info" } | null;
     compareArmed: string | null;
     /// Set of site names currently being re-probed via the retry
@@ -236,6 +240,7 @@ const [store, set] = createStore<AppStore>({
         shortcutsOpen: false,
         aboutOpen: false,
         accessOpen: false,
+        comparePickerOpen: false,
         toast: null,
         compareArmed: null,
         retrying: {},
@@ -621,6 +626,7 @@ export const actions = {
             set("ui", "shortcutsOpen", false);
             set("ui", "aboutOpen", false);
             set("ui", "accessOpen", false);
+            set("ui", "comparePickerOpen", false);
         }
         set("ui", "drawerOpen", open);
     },
@@ -630,6 +636,7 @@ export const actions = {
             set("ui", "shortcutsOpen", false);
             set("ui", "aboutOpen", false);
             set("ui", "accessOpen", false);
+            set("ui", "comparePickerOpen", false);
         }
         set("ui", "filtersOpen", open);
     },
@@ -639,6 +646,7 @@ export const actions = {
             set("ui", "filtersOpen", false);
             set("ui", "aboutOpen", false);
             set("ui", "accessOpen", false);
+            set("ui", "comparePickerOpen", false);
         }
         set("ui", "shortcutsOpen", open);
     },
@@ -648,6 +656,7 @@ export const actions = {
             set("ui", "filtersOpen", false);
             set("ui", "shortcutsOpen", false);
             set("ui", "accessOpen", false);
+            set("ui", "comparePickerOpen", false);
         }
         set("ui", "aboutOpen", open);
     },
@@ -657,8 +666,19 @@ export const actions = {
             set("ui", "filtersOpen", false);
             set("ui", "shortcutsOpen", false);
             set("ui", "aboutOpen", false);
+            set("ui", "comparePickerOpen", false);
         }
         set("ui", "accessOpen", open);
+    },
+    setComparePicker(open: boolean) {
+        if (open) {
+            set("ui", "drawerOpen", false);
+            set("ui", "filtersOpen", false);
+            set("ui", "shortcutsOpen", false);
+            set("ui", "aboutOpen", false);
+            set("ui", "accessOpen", false);
+        }
+        set("ui", "comparePickerOpen", open);
     },
     toast(text: string, kind: "success" | "error" | "info" = "info") {
         set("ui", "toast", { text, kind });

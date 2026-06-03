@@ -300,9 +300,15 @@ and real-time streaming of results.
 
 ### Web UI — next
 
-- [ ] Picker for "Compare with previous" — currently auto-picks the
-  most recent finished scan of the same username; a dropdown would
-  let the user choose which historical scan to diff against.
+- [x] Picker for "Compare with previous" — the ScanHeader's
+  "Compare with previous" button now opens a `ComparePicker` modal
+  listing every other finished scan of the same username, newest
+  first. The first row is labelled "Most recent" and autofocused,
+  so pressing Enter keeps the old auto-pick behaviour for the
+  common case; clicking any other row diffs against that specific
+  historical scan. Each row shows the relative timestamp,
+  found/total/elapsed metadata, and the absolute timestamp on the
+  right.
 - [ ] Server-side filter changes during running scan (e.g. "narrow
   scope to dev sites only"). Today the catalogue is frozen at scan
   start; a cancel-and-restart-with-overlap would be friendlier.

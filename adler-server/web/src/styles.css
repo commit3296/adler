@@ -1760,6 +1760,86 @@
         }
         .access-refresh:hover { color: var(--fg); }
 
+        /* ────────── compare-with-previous picker ────────── */
+        .compare-picker {
+            font-family: var(--sans);
+            color: var(--fg-dim);
+        }
+        .compare-picker__intro {
+            margin: 0 0 1rem;
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+        .compare-picker__intro code {
+            font-family: var(--mono);
+            font-size: 0.85rem;
+            background: var(--bg);
+            padding: 0.05rem 0.35rem;
+            border-radius: var(--r);
+            color: var(--fg);
+        }
+        .compare-picker__list {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+            max-height: 24rem;
+            overflow-y: auto;
+        }
+        .compare-picker__row {
+            width: 100%;
+            text-align: left;
+            background: var(--bg-elev);
+            border: 1px solid var(--hairline);
+            border-radius: var(--r);
+            padding: 0.6rem 0.85rem;
+            display: grid;
+            grid-template-columns: 1fr auto;
+            grid-template-rows: auto auto;
+            grid-column-gap: 0.8rem;
+            grid-row-gap: 0.15rem;
+            cursor: pointer;
+            font-family: var(--mono);
+            color: var(--fg-dim);
+            transition: background 0.08s, border-color 0.08s, color 0.08s;
+        }
+        .compare-picker__row:hover,
+        .compare-picker__row:focus-visible {
+            background: var(--bg-row-hover);
+            border-color: var(--red);
+            color: var(--fg);
+            outline: none;
+        }
+        .compare-picker__row--default {
+            border-color: var(--red);
+        }
+        .compare-picker__when {
+            grid-column: 1;
+            grid-row: 1;
+            font-size: 0.92rem;
+            font-weight: 600;
+            color: var(--fg);
+        }
+        .compare-picker__meta {
+            grid-column: 1;
+            grid-row: 2;
+            font-size: 0.78rem;
+        }
+        .compare-picker__ts {
+            grid-column: 2;
+            grid-row: 1 / span 2;
+            align-self: center;
+            font-size: 0.78rem;
+            white-space: nowrap;
+        }
+        .compare-picker__empty {
+            margin: 0;
+            color: var(--fg-faint);
+            font-size: 0.9rem;
+        }
+
         /* ────────── transport telemetry chip on ResultRow ────────── */
         .transport-chip {
             font-family: var(--mono);

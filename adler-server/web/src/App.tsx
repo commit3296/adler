@@ -29,6 +29,7 @@ import { About } from "./components/About";
 import { AccessModal } from "./components/AccessModal";
 import { AdvancedFilters } from "./components/AdvancedFilters";
 import { BatchStrip } from "./components/BatchStrip";
+import { ComparePicker } from "./components/ComparePicker";
 import { DatacenterHint } from "./components/DatacenterHint";
 import { Footer } from "./components/Footer";
 import { Hero } from "./components/Hero";
@@ -677,16 +678,9 @@ export const App: Component = () => {
                                     onRestart={rescan}
                                     onExitDiff={exitDiff}
                                     onCompareWithPrevious={() => {
-                                        const cur = store.scan;
-                                        if (!cur) return;
-                                        const prev = store.history.find(
-                                            (h) =>
-                                                h.username === cur.username &&
-                                                h.scan_id !== cur.id &&
-                                                h.status === "finished",
-                                        );
-                                        if (!prev) return;
-                                        startDiff(prev.scan_id, cur.id);
+                                        // Hand off to ComparePicker; it
+                                        // calls back through onPick below.
+                                        actions.setComparePicker(true);
                                     }}
                                 />
                                 <Show
@@ -730,6 +724,12 @@ export const App: Component = () => {
             <ShortcutsOverlay />
             <About />
             <AccessModal />
+            <ComparePicker
+                onPick={(prevId) => {
+                    const cur = store.scan;
+                    if (cur) startDiff(prevId, cur.id);
+                }}
+            />
             <Toast />
         </>
     );
