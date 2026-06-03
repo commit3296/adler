@@ -234,7 +234,20 @@ next chunk of work.
 
 - **More enrichment extractors** (CSS-selector rules under
   `extract:`) for the long tail of sites where `--enrich` currently
-  returns an empty profile.
+  returns an empty profile — the registry ships with rules on a
+  single site (GitHub), so essentially the whole tail is open.
+  Auto-derivation tooling shipped (`--doctor --suggest-extract`,
+  since v0.14): probes each healthy site's `known_present` profile
+  page, mines OpenGraph (`og:title` / `og:description` / `og:image`)
+  and Twitter Card meta tags, and emits a paste-ready `extract`
+  block per site. Pairs with `--apply --sites <path>` for the same
+  atomic rewrite path `--suggest-known-present` uses. Sites that
+  already declare `extract` rules are skipped so hand-authored
+  selectors aren't clobbered. Contributor passes from clean IPs can
+  fan out across the registry — the per-site recall ceiling is
+  whatever fraction of sites expose profile-shaped OG metadata
+  (mainstream / fediverse profile pages mostly do; bespoke JS-only
+  SPAs and blank-shell legacy pages won't).
 - **Site-specific signal authoring** for the ~30 sites that fail
   doctor with non-`"blue"` known_present — typically a real account
   whose detection rule needs tweaking, not a missing user.

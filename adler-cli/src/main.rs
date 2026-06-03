@@ -363,12 +363,14 @@ struct Cli {
 
     /// With `--doctor`: patch the file passed via `--sites` in place
     /// with whichever doctor suggestion mode is active (atomic write).
-    /// Pair with `--fix` to apply the per-site signal suggestions, or
+    /// Pair with `--fix` to apply the per-site signal suggestions,
     /// with `--suggest-known-present` to apply discovered replacement
-    /// `known_present` users to stale entries. The embedded registry
-    /// is read-only — pass `--sites <path>` to a writable JSON file.
-    /// By default, prompts once after printing the diff; pass `--yes`
-    /// to skip the prompt for non-interactive use.
+    /// `known_present` users to stale entries, or with
+    /// `--suggest-extract` to write derived `extract` blocks for sites
+    /// that currently expose none. The embedded registry is read-only —
+    /// pass `--sites <path>` to a writable JSON file. By default,
+    /// prompts once after printing the diff; pass `--yes` to skip the
+    /// prompt for non-interactive use.
     #[arg(long, requires = "sites", help_heading = "Doctor")]
     apply: bool,
 
@@ -386,6 +388,16 @@ struct Cli {
     /// `scripts/import_sherlock.py`. Does not modify anything.
     #[arg(long, requires = "doctor", help_heading = "Doctor")]
     suggest_known_present: bool,
+
+    /// With `--doctor`: for each *healthy* site that doesn't yet declare
+    /// any `extract` rules, fetch the `known_present` profile page and
+    /// derive candidate selectors from its `OpenGraph` (`og:title` /
+    /// `og:description` / `og:image`) and Twitter Card meta tags. Prints
+    /// a paste-ready `extract` block per discovered site. Pair with
+    /// `--apply --sites <path>` to write the discovered blocks back to
+    /// the registry file. Does not modify anything on its own.
+    #[arg(long, requires = "doctor", help_heading = "Doctor")]
+    suggest_extract: bool,
 
     /// With `--doctor`: read the persisted scan history (default
     /// `$XDG_CACHE_HOME/adler/scans/`, override with `--scans-dir`)
@@ -733,6 +745,7 @@ async fn run(cli: Cli) -> Result<ExitCode> {
             apply: cli.apply,
             yes: cli.yes,
             suggest_known_present: cli.suggest_known_present,
+            suggest_extract: cli.suggest_extract,
             suggest_protection: cli.suggest_protection,
             sites_path: cli.sites.as_deref(),
             scans_dir: cli.scans_dir.as_deref(),
@@ -1633,6 +1646,7 @@ struct DoctorOpts<'a> {
     apply: bool,
     yes: bool,
     suggest_known_present: bool,
+    suggest_extract: bool,
     suggest_protection: bool,
     sites_path: Option<&'a Path>,
     scans_dir: Option<&'a Path>,
@@ -1645,14 +1659,17 @@ async fn run_doctor(client: &Client, sites: &[Site], opts: DoctorOpts<'_>) -> Re
         fix = opts.fix,
         apply = opts.apply,
         suggest_known_present = opts.suggest_known_present,
+        suggest_extract = opts.suggest_extract,
         "starting doctor"
     );
     let mut failures = 0_usize;
     let mut failed_sites: Vec<&Site> = Vec::new();
+    let mut healthy_sites: Vec<&Site> = Vec::new();
     for site in sites {
         let report = doctor::check_site(client, site).await;
         match report {
             DoctorReport::Healthy { .. } => {
+                healthy_sites.push(site);
                 if opts.color {
                     println!("\x1b[32m[OK]\x1b[0m   {}", site.name);
                 } else {
@@ -1700,13 +1717,38 @@ async fn run_doctor(client: &Client, sites: &[Site], opts: DoctorOpts<'_>) -> Re
         }
     }
 
+    if opts.suggest_extract {
+        // Extractor derivation only makes sense on sites whose
+        // known_present user actually resolves — that's exactly the
+        // `Healthy` population the walk above identified. Sites that
+        // already declare `extract` rules are skipped so hand-authored
+        // selectors aren't clobbered.
+        let candidates: Vec<&Site> = healthy_sites
+            .iter()
+            .copied()
+            .filter(|s| s.extract.is_empty())
+            .collect();
+        if !candidates.is_empty() {
+            if opts.apply {
+                let path = opts.sites_path.context(
+                    "internal: --apply --suggest-extract reached run_doctor without --sites",
+                )?;
+                apply_extract_suggestions(client, &candidates, path, opts.yes).await?;
+            } else {
+                print_extract_suggestions(client, &candidates).await?;
+            }
+        }
+    }
+
     // `--apply` is meaningless without something to apply: clap allows
     // `--apply --sites <path>` on its own (since `--fix` /
-    // `--suggest-known-present` are siblings) but a bare combination
-    // is just a typo. Surface it rather than silently doing nothing.
-    if opts.apply && !opts.fix && !opts.suggest_known_present {
+    // `--suggest-known-present` / `--suggest-extract` are siblings) but
+    // a bare combination is just a typo. Surface it rather than
+    // silently doing nothing.
+    if opts.apply && !opts.fix && !opts.suggest_known_present && !opts.suggest_extract {
         anyhow::bail!(
-            "--apply requires --fix and/or --suggest-known-present to know what to patch"
+            "--apply requires --fix, --suggest-known-present, and/or --suggest-extract \
+             to know what to patch"
         );
     }
 
@@ -2083,6 +2125,185 @@ fn patch_known_present_in_sites_file(
                     "known_present".into(),
                     serde_json::Value::String(new_known.clone()),
                 );
+                report.patched += 1;
+            }
+            None => report.missing.push(name.clone()),
+        }
+    }
+
+    let mut serialised =
+        serde_json::to_string_pretty(&root).context("re-serialising patched registry")?;
+    serialised.push('\n');
+
+    let tmp = sites_path.with_extension("json.tmp");
+    std::fs::write(&tmp, serialised.as_bytes())
+        .with_context(|| format!("writing {}", tmp.display()))?;
+    std::fs::rename(&tmp, sites_path)
+        .with_context(|| format!("renaming {} → {}", tmp.display(), sites_path.display()))?;
+
+    Ok(report)
+}
+
+/// `--suggest-extract` dry-run path: for each healthy candidate site,
+/// fetch the `known_present` profile page, derive an `extract` block
+/// from its `OpenGraph` / Twitter Card metadata, and print a paste-ready
+/// JSON snippet. Nothing is modified.
+async fn print_extract_suggestions(client: &Client, candidates: &[&Site]) -> Result<()> {
+    println!("\nsuggested extract blocks (review before applying — paste into a --sites file):\n");
+    let mut suggested = 0_usize;
+    for site in candidates {
+        match doctor::suggest_extract(client, site).await {
+            Some(suggestion) => {
+                suggested += 1;
+                let extractors = serde_json::to_string(&suggestion.extractors)
+                    .unwrap_or_else(|_| "[]".to_owned());
+                println!("  {}  ({})", suggestion.site, suggestion.rationale);
+                println!(
+                    "    {{\"name\": {:?}, \"extract\": {}}}",
+                    site.name, extractors,
+                );
+            }
+            None => {
+                println!(
+                    "  {}  — no suggestion (page exposed no OpenGraph or Twitter Card metadata)",
+                    site.name
+                );
+            }
+        }
+    }
+    println!(
+        "\n{suggested} of {} candidate site(s) produced a suggestion",
+        candidates.len(),
+    );
+    Ok(())
+}
+
+/// `--suggest-extract --apply` variant: discover an `extract` block for
+/// every candidate site, render an old → new diff (old is always empty
+/// here, since this path skips sites that already declare `extract`),
+/// confirm once unless `--yes`, then write the patched JSON back
+/// atomically via [`patch_extract_in_sites_file`].
+async fn apply_extract_suggestions(
+    client: &Client,
+    candidates: &[&Site],
+    sites_path: &Path,
+    skip_prompt: bool,
+) -> Result<()> {
+    println!(
+        "\nderiving extract blocks for {} candidate site(s)…",
+        candidates.len()
+    );
+    let mut patches: Vec<(String, Vec<adler_core::Extractor>, String)> = Vec::new();
+    for site in candidates {
+        match doctor::suggest_extract(client, site).await {
+            Some(suggestion) => {
+                patches.push((
+                    site.name.clone(),
+                    suggestion.extractors,
+                    suggestion.rationale,
+                ));
+            }
+            None => {
+                println!(
+                    "  {}  — skipped (page exposed no OpenGraph or Twitter Card metadata)",
+                    site.name
+                );
+            }
+        }
+    }
+    if patches.is_empty() {
+        println!("\nno applicable patches — nothing to write.");
+        return Ok(());
+    }
+
+    println!("\nproposed extract blocks:");
+    for (name, extractors, rationale) in &patches {
+        println!("  {name}  ({rationale})");
+        for e in extractors {
+            let attr = e.attr.as_deref().unwrap_or("<text>");
+            println!(
+                "    + {field}: {selector} [{attr}]",
+                field = e.field,
+                selector = e.selector
+            );
+        }
+    }
+    println!(
+        "\n{} site(s) to patch in {}",
+        patches.len(),
+        sites_path.display()
+    );
+
+    if !skip_prompt {
+        print!("Apply? [y/N] ");
+        io::stdout().flush().ok();
+        let mut answer = String::new();
+        io::stdin()
+            .read_line(&mut answer)
+            .context("reading confirmation prompt")?;
+        if !matches!(answer.trim(), "y" | "Y" | "yes" | "YES") {
+            println!("aborted; no changes written.");
+            return Ok(());
+        }
+    }
+
+    let pairs: Vec<(String, Vec<adler_core::Extractor>)> = patches
+        .into_iter()
+        .map(|(name, extractors, _rationale)| (name, extractors))
+        .collect();
+    let report = patch_extract_in_sites_file(sites_path, &pairs)?;
+
+    if !report.missing.is_empty() {
+        println!(
+            "warning: {} site(s) had a suggestion but no matching entry in {}: {}",
+            report.missing.len(),
+            sites_path.display(),
+            report.missing.join(", ")
+        );
+    }
+
+    println!(
+        "patched {} site(s) in {}; re-run --doctor to verify.",
+        report.patched,
+        sites_path.display()
+    );
+    Ok(())
+}
+
+/// Pure helper for the `extract` apply path. Mirrors
+/// [`patch_known_present_in_sites_file`]'s shape: load the JSON, walk
+/// the `sites` array, replace each named entry's `extract` array with
+/// the new block, atomic rename through a sibling `*.tmp`.
+fn patch_extract_in_sites_file(
+    sites_path: &Path,
+    patches: &[(String, Vec<adler_core::Extractor>)],
+) -> Result<PatchReport> {
+    let content = std::fs::read_to_string(sites_path)
+        .with_context(|| format!("reading {} for --apply", sites_path.display()))?;
+    let mut root: serde_json::Value = serde_json::from_str(&content)
+        .with_context(|| format!("parsing {} as JSON", sites_path.display()))?;
+    let arr = root
+        .get_mut("sites")
+        .and_then(serde_json::Value::as_array_mut)
+        .with_context(|| {
+            format!(
+                "{} has no top-level \"sites\" array — is it a valid registry file?",
+                sites_path.display()
+            )
+        })?;
+
+    let mut report = PatchReport::default();
+    for (name, extractors) in patches {
+        let entry = arr.iter_mut().find_map(|v| {
+            let obj = v.as_object_mut()?;
+            (obj.get("name").and_then(serde_json::Value::as_str) == Some(name.as_str()))
+                .then_some(obj)
+        });
+        match entry {
+            Some(obj) => {
+                let value = serde_json::to_value(extractors)
+                    .context("serialising derived extract block")?;
+                obj.insert("extract".into(), value);
                 report.patched += 1;
             }
             None => report.missing.push(name.clone()),
@@ -2849,6 +3070,71 @@ mod tests {
 
         let untouched = arr.iter().find(|s| s["name"] == "Untouched").unwrap();
         assert_eq!(untouched["known_present"], "octocat");
+
+        // No leftover *.tmp.
+        let tmp_path = path.with_extension("json.tmp");
+        assert!(!tmp_path.exists());
+    }
+
+    #[test]
+    fn patch_extract_writes_block_and_preserves_other_fields() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().join("sites.json");
+        std::fs::write(
+            &path,
+            r#"{
+  "engines": {},
+  "sites": [
+    { "name": "Bare", "url": "https://bare.example/{username}",
+      "known_present": "alice",
+      "signals": [{"kind": "status_found", "codes": [200]}],
+      "tags": ["dev"] },
+    { "name": "Untouched", "url": "https://other.example/{username}",
+      "known_present": "torvalds",
+      "signals": [{"kind": "status_found", "codes": [200]}] }
+  ]
+}"#,
+        )
+        .unwrap();
+
+        let block = vec![
+            adler_core::Extractor {
+                field: "name".into(),
+                selector: r#"meta[property="og:title"]"#.into(),
+                attr: Some("content".into()),
+            },
+            adler_core::Extractor {
+                field: "avatar".into(),
+                selector: r#"meta[property="og:image"]"#.into(),
+                attr: Some("content".into()),
+            },
+        ];
+        let patches = vec![
+            ("Bare".to_owned(), block.clone()),
+            ("Never-existed".to_owned(), block),
+        ];
+        let report = patch_extract_in_sites_file(&path, &patches).expect("ok");
+        assert_eq!(report.patched, 1);
+        assert_eq!(report.missing, vec!["Never-existed".to_owned()]);
+
+        let written = std::fs::read_to_string(&path).unwrap();
+        let v: serde_json::Value = serde_json::from_str(&written).unwrap();
+        let arr = v["sites"].as_array().unwrap();
+        let bare = arr.iter().find(|s| s["name"] == "Bare").unwrap();
+        let extract = bare["extract"].as_array().unwrap();
+        assert_eq!(extract.len(), 2);
+        assert_eq!(extract[0]["field"], "name");
+        assert_eq!(extract[0]["selector"], r#"meta[property="og:title"]"#);
+        assert_eq!(extract[0]["attr"], "content");
+        assert_eq!(extract[1]["field"], "avatar");
+        // Other fields preserved untouched.
+        assert_eq!(bare["url"], "https://bare.example/{username}");
+        assert_eq!(bare["known_present"], "alice");
+        assert_eq!(bare["tags"], serde_json::json!(["dev"]));
+        // Sibling entry without a patch must come through unchanged.
+        let untouched = arr.iter().find(|s| s["name"] == "Untouched").unwrap();
+        assert!(untouched.get("extract").is_none());
+        assert_eq!(untouched["known_present"], "torvalds");
 
         // No leftover *.tmp.
         let tmp_path = path.with_extension("json.tmp");

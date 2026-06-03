@@ -29,7 +29,7 @@
 use crate::check::{CheckOutcome, MatchKind};
 use crate::client::Client;
 use crate::error::Result;
-use crate::site::{KnownPresent, Signal, Site, UrlTemplate};
+use crate::site::{Extractor, KnownPresent, Signal, Site, UrlTemplate};
 use crate::username::Username;
 
 const NONSENSE_LEN: usize = 24;
@@ -412,6 +412,138 @@ fn dummy_outcome(site: &str, note: &str) -> CheckOutcome {
         transport: None,
         escalations: 0,
     }
+}
+
+/// A proposed `extract` block for a site that currently has none.
+///
+/// Produced by [`suggest_extract`]: the doctor fetches the site's
+/// `known_present` user, scans the returned HTML for self-describing
+/// metadata (`OpenGraph` and Twitter Card meta tags), and emits a paste-
+/// ready set of [`Extractor`] rules so the operator can drop them into
+/// `sites.json`. Like [`FixSuggestion`] and the `known_present`
+/// discovery, this never auto-modifies the registry — the CLI's
+/// `--apply` path does that on explicit opt-in.
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub struct ExtractSuggestion {
+    /// Site the suggestion applies to.
+    pub site: String,
+    /// Proposed `extract` block.
+    pub extractors: Vec<Extractor>,
+    /// Comma-separated list of the sources that contributed each field —
+    /// `og title`, `twitter description`, etc.
+    pub rationale: String,
+}
+
+/// Discover an `extract` block for `site` by inspecting its known-present
+/// profile page.
+///
+/// Strategy: probe the site's primary `known_present` user (the same one
+/// `--doctor` uses for health checks), then mine the response HTML for
+/// metadata that mainstream sites expose on profile pages — `OpenGraph`
+/// `og:title` / `og:description` / `og:image` first, Twitter Card
+/// `twitter:title` / `twitter:description` / `twitter:image` as a
+/// per-field fallback. Each surfaced selector reads the relevant
+/// `content` attribute.
+///
+/// Returns `None` when the site has no `known_present`, when the probe
+/// fails, or when the page exposes none of the recognised metadata.
+/// Does **not** check whether the site already declares `extract` rules
+/// — that's the caller's call (the CLI skips sites whose `extract` is
+/// non-empty so existing hand-authored selectors aren't clobbered).
+pub async fn suggest_extract(client: &Client, site: &Site) -> Option<ExtractSuggestion> {
+    let primary = site.known_present.as_ref()?.primary()?;
+    let user = Username::new(primary.to_owned()).ok()?;
+    let resp = client.fetch_for_doctor(site, &site.url_for(&user)).await?;
+    derive_extractors_from_html(&resp.body).map(|(extractors, rationale)| ExtractSuggestion {
+        site: site.name.clone(),
+        extractors,
+        rationale,
+    })
+}
+
+/// Inspect `html` for self-describing profile metadata and emit
+/// [`Extractor`] rules pointing at it.
+///
+/// Looks for `OpenGraph` `og:*` meta tags first (the dominant standard for
+/// shareable profile pages), then fills any gaps with Twitter Card
+/// `twitter:*` meta tags. Each emitted rule selects the meta element by
+/// `property=` / `name=` and reads its `content` attribute, so the
+/// generated rules survive site CSS churn as long as the meta block
+/// itself doesn't move.
+///
+/// Returns `None` when no field could be derived. The rationale string
+/// names the surface each rule came from (`og title`, `twitter image`,
+/// …) so the operator can sanity-check before applying.
+fn derive_extractors_from_html(html: &str) -> Option<(Vec<Extractor>, String)> {
+    use scraper::{Html, Selector};
+
+    /// `(field-name, meta source label)`. Order is `name → bio → avatar`
+    /// so the rationale reads the same way the rendered profile does.
+    const FIELDS: &[(&str, &str)] = &[
+        ("name", "title"),
+        ("bio", "description"),
+        ("avatar", "image"),
+    ];
+
+    let doc = Html::parse_document(html);
+    let mut extractors: Vec<Extractor> = Vec::with_capacity(FIELDS.len());
+    let mut sources: Vec<String> = Vec::with_capacity(FIELDS.len());
+
+    let probe = |field: &str,
+                 selector_str: String,
+                 source_label: String,
+                 extractors: &mut Vec<Extractor>,
+                 sources: &mut Vec<String>| {
+        if extractors.iter().any(|e| e.field == field) {
+            return;
+        }
+        let Ok(selector) = Selector::parse(&selector_str) else {
+            return;
+        };
+        let Some(element) = doc.select(&selector).next() else {
+            return;
+        };
+        let Some(content) = element.value().attr("content") else {
+            return;
+        };
+        if content.trim().is_empty() {
+            return;
+        }
+        extractors.push(Extractor {
+            field: field.to_owned(),
+            selector: selector_str,
+            attr: Some("content".to_owned()),
+        });
+        sources.push(source_label);
+    };
+
+    // First pass: `OpenGraph`. Most reliable on profile-shaped pages.
+    for (field, og_suffix) in FIELDS {
+        probe(
+            field,
+            format!(r#"meta[property="og:{og_suffix}"]"#),
+            format!("og {og_suffix}"),
+            &mut extractors,
+            &mut sources,
+        );
+    }
+    // Second pass: Twitter Card. Fills only the gaps OG didn't cover.
+    for (field, tw_suffix) in FIELDS {
+        probe(
+            field,
+            format!(r#"meta[name="twitter:{tw_suffix}"]"#),
+            format!("twitter {tw_suffix}"),
+            &mut extractors,
+            &mut sources,
+        );
+    }
+
+    if extractors.is_empty() {
+        return None;
+    }
+    let rationale = format!("derived from {}", sources.join(", "));
+    Some((extractors, rationale))
 }
 
 #[cfg(test)]
@@ -1006,5 +1138,110 @@ mod tests {
         let pool = default_candidate_pool(&site);
         assert!(pool.contains(&"torvalds".to_owned()));
         assert!(pool.contains(&"admin".to_owned()));
+    }
+
+    #[test]
+    fn derive_extractors_picks_up_full_opengraph_block() {
+        let html = r#"
+            <html><head>
+              <meta property="og:title" content="Alice Liddell">
+              <meta property="og:description" content="curiouser and curiouser">
+              <meta property="og:image" content="https://cdn.example.com/a.png">
+            </head><body></body></html>
+        "#;
+        let (extractors, rationale) =
+            derive_extractors_from_html(html).expect("should derive from full OG block");
+        assert_eq!(extractors.len(), 3);
+        assert_eq!(extractors[0].field, "name");
+        assert_eq!(extractors[0].selector, r#"meta[property="og:title"]"#);
+        assert_eq!(extractors[0].attr.as_deref(), Some("content"));
+        assert_eq!(extractors[1].field, "bio");
+        assert_eq!(extractors[2].field, "avatar");
+        assert!(rationale.contains("og title"));
+        assert!(rationale.contains("og image"));
+    }
+
+    #[test]
+    fn derive_extractors_falls_back_to_twitter_card_for_missing_fields() {
+        // Only og:title; rest must come from Twitter Card.
+        let html = r#"
+            <html><head>
+              <meta property="og:title" content="Bob">
+              <meta name="twitter:description" content="hello">
+              <meta name="twitter:image" content="https://cdn/b.png">
+            </head><body></body></html>
+        "#;
+        let (extractors, rationale) =
+            derive_extractors_from_html(html).expect("should derive mixed block");
+        let fields: Vec<&str> = extractors.iter().map(|e| e.field.as_str()).collect();
+        assert_eq!(fields, ["name", "bio", "avatar"]);
+        assert_eq!(extractors[0].selector, r#"meta[property="og:title"]"#);
+        assert_eq!(
+            extractors[1].selector,
+            r#"meta[name="twitter:description"]"#
+        );
+        assert_eq!(extractors[2].selector, r#"meta[name="twitter:image"]"#);
+        assert!(rationale.contains("og title"));
+        assert!(rationale.contains("twitter description"));
+    }
+
+    #[test]
+    fn derive_extractors_ignores_blank_content() {
+        let html = r#"
+            <html><head>
+              <meta property="og:title" content="">
+              <meta property="og:description" content="   ">
+              <meta name="twitter:title" content="Carol">
+            </head></html>
+        "#;
+        let (extractors, _) =
+            derive_extractors_from_html(html).expect("should fall through to twitter title");
+        assert_eq!(extractors.len(), 1);
+        assert_eq!(extractors[0].field, "name");
+        assert_eq!(extractors[0].selector, r#"meta[name="twitter:title"]"#);
+    }
+
+    #[test]
+    fn derive_extractors_returns_none_for_unrelated_html() {
+        let html = "<html><head><title>plain page</title></head><body>nothing here</body></html>";
+        assert!(derive_extractors_from_html(html).is_none());
+    }
+
+    #[test]
+    fn derive_extractors_returns_none_for_empty_html() {
+        assert!(derive_extractors_from_html("").is_none());
+    }
+
+    #[tokio::test]
+    async fn suggest_extract_returns_block_when_profile_exposes_og() {
+        let server = MockServer::start().await;
+        Mock::given(any())
+            .and(path_regex("^/alice$"))
+            .respond_with(ResponseTemplate::new(200).set_body_string(
+                r#"<html><head>
+                    <meta property="og:title" content="Alice Liddell">
+                    <meta property="og:image" content="https://cdn/a.png">
+                   </head></html>"#,
+            ))
+            .mount(&server)
+            .await;
+        let site = site(&server, "Mock", Some("alice"));
+        let suggestion = suggest_extract(&build_client(), &site)
+            .await
+            .expect("OG meta present → suggestion");
+        assert_eq!(suggestion.site, "Mock");
+        let fields: Vec<&str> = suggestion
+            .extractors
+            .iter()
+            .map(|e| e.field.as_str())
+            .collect();
+        assert_eq!(fields, ["name", "avatar"]);
+    }
+
+    #[tokio::test]
+    async fn suggest_extract_returns_none_without_known_present() {
+        let server = MockServer::start().await;
+        let site = site(&server, "Mock", None);
+        assert!(suggest_extract(&build_client(), &site).await.is_none());
     }
 }

@@ -161,7 +161,7 @@ pub use client::{
     Client, ClientBuilder, DEFAULT_BROWSER_BUDGET, DEFAULT_ESCALATION_BUDGET, RawResponse,
 };
 pub use correlate::{Cluster, CorrelationReport, LINK_THRESHOLD, correlate};
-pub use doctor::{DoctorReport, FixSuggestion};
+pub use doctor::{DoctorReport, ExtractSuggestion, FixSuggestion};
 pub use error::{Error, Result};
 pub use escalation::{EscalationBudget, TransportTier};
 pub use executor::ExecutorOptions;
