@@ -14,6 +14,7 @@
   <a href="https://github.com/commit3296/adler/actions/workflows/audit.yml"><img src="https://github.com/commit3296/adler/actions/workflows/audit.yml/badge.svg" alt="cargo-audit"></a>
   <a href="https://github.com/commit3296/adler/actions/workflows/codeql.yml"><img src="https://github.com/commit3296/adler/actions/workflows/codeql.yml/badge.svg" alt="CodeQL"></a>
   <a href="https://scorecard.dev/viewer/?uri=github.com/commit3296/adler"><img src="https://api.scorecard.dev/projects/github.com/commit3296/adler/badge" alt="OpenSSF Scorecard"></a>
+  <a href="https://www.bestpractices.dev/projects/13082"><img src="https://www.bestpractices.dev/projects/13082/badge" alt="OpenSSF Best Practices"></a>
 </p>
 
 # Adler

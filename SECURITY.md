@@ -1,5 +1,8 @@
 # Security policy
 
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/13082/badge)](https://www.bestpractices.dev/projects/13082)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/commit3296/adler/badge)](https://scorecard.dev/viewer/?uri=github.com/commit3296/adler)
+
 ## Reporting a vulnerability
 
 Please report security issues privately rather than opening a public issue.
