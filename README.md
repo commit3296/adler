@@ -226,9 +226,11 @@ the bigger picture.
 
 `adler --web` boots a small in-process HTTP server and serves a SolidJS
 SPA from the same binary — live SSE-streamed scans, persisted history,
-side-by-side diff against an earlier run, a read-only access-engine
-panel, and per-scan egress subset selection when a `--proxy-pool` is
-loaded.
+side-by-side diff against an earlier run with a picker for *which*
+historical scan to diff against, a read-only access-engine panel,
+per-scan egress subset selection when a `--proxy-pool` is loaded, and
+a single/batch tab pair so you can paste a list of usernames into the
+hero and watch them queue through one at a time.
 
 ```bash
 adler --web                          # http://127.0.0.1:8080
@@ -261,7 +263,11 @@ hard subset of the registry:
   browser.
 - **Egress pool** (`--proxy-pool <file>`) — per-site geo / IP-type
   routing. Sites with an `access` policy pick a matching proxy; sites
-  without stay on the default egress.
+  without stay on the default egress. `region:XX` tags
+  auto-populate a *soft* `prefer_geo` (since v0.12) so 685 region-
+  tagged sites get a recall lift when a matching egress is configured,
+  and fall back to the default when one isn't — no hard
+  `Uncertain(GeoUnavailable)`.
 - **Sessions** (`--sessions <file>`) — operator-supplied cookies /
   tokens for login-walled sites. Per-site `[name]` tables; values
   redacted from logs.
@@ -270,7 +276,9 @@ hard subset of the registry:
   rate_limited)`, the router automatically retries through the browser
   backend. Bounded by its own budget. Outcomes carry `transport` and
   `escalations` telemetry so it's clear which path produced each
-  verdict.
+  verdict. `adler --doctor --suggest-protection` (since v0.13) reads
+  that telemetry across runs and flags sites that consistently
+  escalate as candidates for adding `protection: cloudflare` up front.
 
 → Full guide with the TOML formats, guardrails, and trade-offs lives at
 [**Access engine**](https://adler-docs.pages.dev/access-engine/).
@@ -302,7 +310,9 @@ generated from MIT-licensed upstream data — Sherlock + Maigret + an
 opt-in WhatsMyName tranche (CC BY-SA 4.0; pass `--no-wmn` to drop it
 when redistributing scan output under MIT only). Detections are imported
 **unverified** — `adler --doctor` validates every signal, `--doctor
---fix` proposes corrected ones.
+--fix` proposes corrected ones, and `--doctor --fix --apply --sites
+<path>` (since v0.12) patches them straight into the JSON file with
+an atomic sibling-`*.tmp` rewrite.
 
 → Detailed lineage, schema, signal model, and doctor workflow live in
 [**Site registry**](https://adler-docs.pages.dev/site-registry/).

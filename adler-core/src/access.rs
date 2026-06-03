@@ -130,7 +130,8 @@ pub struct AccessPolicy {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub geo: Vec<CountryCode>,
     /// Prefer an egress in one of these countries — fall back to the
-    /// default if the pool has no match. Soft counterpart to [`geo`].
+    /// default if the pool has no match. Soft counterpart to
+    /// [`AccessPolicy::geo`].
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub prefer_geo: Vec<CountryCode>,
     /// Require an egress of this network kind.

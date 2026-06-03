@@ -64,7 +64,7 @@ impl core::fmt::Display for TransportTier {
 ///
 /// Mirrors [`BrowserBudget`](crate::BrowserBudget) in shape but is a
 /// distinct type so the two caps are independent: a `bot-protected` site
-/// that goes straight to the browser consumes [`BrowserBudget`]; a site
+/// that goes straight to the browser consumes [`crate::BrowserBudget`]; a site
 /// that tries HTTP first and falls back to the browser consumes one of
 /// each. Cheap to share across tasks.
 #[derive(Debug)]

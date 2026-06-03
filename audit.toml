@@ -1,0 +1,16 @@
+# cargo-audit configuration. See https://github.com/RustSec/cargo-audit
+# for the full schema.
+
+[advisories]
+# Don't fail (or warn) on this specific advisory. Re-evaluate when
+# wreq publishes a version that bumps lru past 0.13.x.
+ignore = [
+    # RUSTSEC-2026-0002 — `lru` 0.13.0 `IterMut` violates Stacked
+    # Borrows. Pulled in transitively by `wreq` (which we use for the
+    # optional `impersonate` Cargo feature). The unsoundness is in an
+    # iterator implementation Adler does not call; the bound exists
+    # only because the feature pulls in `wreq-util` and through that
+    # `wreq`'s `lru` 0.13. Re-check on every cargo-audit run; remove
+    # once `wreq` bumps `lru` to a version with the IterMut fix.
+    "RUSTSEC-2026-0002",
+]

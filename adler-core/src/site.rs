@@ -98,9 +98,9 @@ pub struct Site {
     /// keeps the registry small and the cost of a platform-wide
     /// HTML change one fix instead of hundreds.
     ///
-    /// At [`crate::Registry::validate`] time, engine fields are
-    /// merged *under* the site's own — anything the site declares
-    /// explicitly (`signals`, `request_headers`, `regex_check`) wins on
+    /// At registry-load time the engine fields are merged *under* the
+    /// site's own — anything the site declares explicitly (`signals`,
+    /// `request_headers`, `regex_check`) wins on
     /// conflict; anything left empty / unset is filled from the
     /// engine. An `engine: "X"` referring to a non-existent X is a
     /// load-time error.

@@ -70,7 +70,7 @@ impl PersistedScan {
 ///
 /// Mirrors [`adler_core::Cache::default_path`]'s discovery rules:
 /// `$XDG_CACHE_HOME/adler/scans/` → `$HOME/.cache/adler/scans/` →
-/// a relative fallback. The directory is created lazily by [`save`].
+/// a relative fallback. The directory is created lazily on first save.
 #[must_use]
 pub fn default_dir() -> PathBuf {
     if let Some(xdg) = std::env::var_os("XDG_CACHE_HOME") {

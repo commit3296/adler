@@ -1887,9 +1887,9 @@ fn patch_sites_file(
     Ok(report)
 }
 
-/// Render a [`Signal`] in compact JSON for the diff output. Falls back to
-/// the `Debug` impl on the (impossible) serialisation failure so the diff
-/// always has something to show.
+/// Render an [`adler_core::Signal`] in compact JSON for the diff output.
+/// Falls back to the `Debug` impl on the (impossible) serialisation
+/// failure so the diff always has something to show.
 fn render_signal(s: &adler_core::Signal) -> String {
     serde_json::to_string(s).unwrap_or_else(|_| format!("{s:?}"))
 }

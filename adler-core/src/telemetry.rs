@@ -1,7 +1,7 @@
 //! Cross-scan telemetry analysis — close the doctor loop on sites
 //! that consistently need the browser backend.
 //!
-//! The router stamps every [`CheckOutcome`](crate::CheckOutcome) with the
+//! The router stamps every [`CheckOutcome`] with the
 //! transport that produced its verdict (HTTP / impersonate / browser) and
 //! an escalation count. A site that *consistently* requires escalation
 //! across many scans is one the registry hasn't yet tagged with the right
