@@ -9,6 +9,12 @@ pre-1.0 bump rules.
 
 ## [Unreleased]
 
+## [0.11.6](https://github.com/commit3296/adler/compare/v0.11.5...v0.11.6) - 2026-06-03
+
+### Added
+- *(cli)* --doctor --suggest-extract for OG-derived extract blocks
+- *(cli)* extend --apply to known_present suggestions
+
 ## [0.11.5](https://github.com/commit3296/adler/compare/v0.11.4...v0.11.5) - 2026-06-03
 
 ### Added
