@@ -15,19 +15,25 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# Least-privilege: CI only needs to read the source. No token writes,
+# no SARIF / issues / packages. Scorecard's Token-Permissions check
+# fails the workflow if any token has more than the minimum needed.
+permissions:
+  contents: read
+
 jobs:
   check:
     name: fmt + clippy + test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@stable # rolling tag — intentionally tracks latest stable Rust
         with:
           components: rustfmt, clippy
 
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
 
       # adler-server embeds `web/dist/` via rust-embed at compile time.
       # dist/ is gitignored, so cargo would otherwise build a binary
@@ -35,7 +41,7 @@ jobs:
       # bundle first; `rust-embed` then snapshots the produced files
       # into the resulting object code.
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: "24"
           cache: npm

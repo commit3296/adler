@@ -31,6 +31,13 @@ on:
   push:
     branches: [main]
 
+# Least-privilege at workflow level — jobs grant themselves more
+# specific scopes (contents: write + pull-requests: write for the PR
+# job, contents: write + pull-requests: read for the publish job)
+# right where they need them.
+permissions:
+  contents: read
+
 jobs:
   release-plz-pr:
     name: Release PR
@@ -40,13 +47,13 @@ jobs:
       pull-requests: write
     steps:
       - name: Generate GitHub App token
-        uses: actions/create-github-app-token@v3
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
         id: app-token
         with:
           client-id: ${{ secrets.RELEASE_PLZ_APP_CLIENT_ID }}
           private-key: ${{ secrets.RELEASE_PLZ_APP_PRIVATE_KEY }}
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           # release-plz needs the full history to read the previous
           # tag and the commit range since.
@@ -57,12 +64,12 @@ jobs:
           token: ${{ steps.app-token.outputs.token }}
           persist-credentials: true
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@stable # rolling tag — intentionally tracks latest stable Rust
       # release-plz's semver-checks builds each crate, which means
       # adler-server needs a populated web/dist/ for rust-embed. The
       # build is fast (~1s); the npm install is the only heavy step.
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: "24"
           cache: npm
@@ -73,7 +80,7 @@ jobs:
           npm ci
           npm run build
       - name: Run release-plz
-        uses: release-plz/action@v0.5
+        uses: release-plz/action@064f4d1e36c843611ddf013be726beaa4ad804db # v0.5
         with:
           command: release-pr
         env:
@@ -96,25 +103,25 @@ jobs:
       cancel-in-progress: false
     steps:
       - name: Generate GitHub App token
-        uses: actions/create-github-app-token@v3
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
         id: app-token
         with:
           client-id: ${{ secrets.RELEASE_PLZ_APP_CLIENT_ID }}
           private-key: ${{ secrets.RELEASE_PLZ_APP_PRIVATE_KEY }}
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           fetch-depth: 0
           token: ${{ steps.app-token.outputs.token }}
           persist-credentials: true
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@stable # rolling tag — intentionally tracks latest stable Rust
       # `cargo publish` packages adler-server from its own directory
       # and verifies it in a sandbox build, so web/dist/ must exist
       # (rust-embed reads it, and `include` ships it in the tarball)
       # before release-plz invokes cargo publish.
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: "24"
           cache: npm
@@ -125,7 +132,7 @@ jobs:
           npm ci
           npm run build
       - name: Run release-plz
-        uses: release-plz/action@v0.5
+        uses: release-plz/action@064f4d1e36c843611ddf013be726beaa4ad804db # v0.5
         with:
           command: release
         env:

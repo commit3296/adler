@@ -44,7 +44,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           # Scorecard reads commit metadata via the GitHub API, not
           # via the local clone — keeping the credential off the
@@ -56,7 +56,7 @@ jobs:
         # ossf/scorecard-action does not publish a `v2` major-version
         # alias tag — pin to the latest concrete release. Dependabot
         # bumps this on new versions.
-        uses: ossf/scorecard-action@v2.4.3
+        uses: ossf/scorecard-action@4eaacf0543bb3f2c246792bd56e8cdeffafb205a # v2.4.3
         with:
           results_file: results.sarif
           results_format: sarif
@@ -65,6 +65,6 @@ jobs:
           publish_results: true
 
       - name: Upload SARIF
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@d77b13a0df3134d64a457ea9003f600b09fa1c8a # v3
         with:
           sarif_file: results.sarif

@@ -58,10 +58,10 @@ jobs:
             os: windows-latest
             features: impersonate
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@stable # rolling tag — intentionally tracks latest stable Rust
         with:
           targets: ${{ matrix.target }}
 
@@ -95,7 +95,7 @@ jobs:
       # must produce it on every release-job machine before
       # `taiki-e/upload-rust-binary-action` invokes `cargo build`.
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: "24"
           cache: npm
@@ -108,7 +108,7 @@ jobs:
           npm run build
 
       - name: Build and upload
-        uses: taiki-e/upload-rust-binary-action@v1
+        uses: taiki-e/upload-rust-binary-action@f0d45ae91ee7b8ee928de7a9d04d893a08bcbec6 # v1
         with:
           bin: adler
           # Matches the binstall pkg-url: adler-<target>.tar.gz / .zip
