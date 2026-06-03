@@ -93,13 +93,6 @@ struct Cli {
     #[arg(required_unless_present_any = ["doctor", "cache_clear", "list_sites", "list_tags", "completions", "man_page", "add_site", "input", "web"])]
     username: Option<String>,
 
-    /// Scan every username in this file (one per line; blank lines and lines
-    /// starting with `#` are skipped, duplicates removed). A positional
-    /// username, if given, is scanned too. Output is grouped per username;
-    /// not compatible with `--correlate` / `--format html`.
-    #[arg(long, value_name = "PATH", help_heading = "Batch & enrichment")]
-    input: Option<PathBuf>,
-
     /// List registry site names (honoring `--only`/`--exclude`/`--tag`) and
     /// exit. Handy for discovering filter terms among the bundled sites.
     #[arg(long, help_heading = "Filtering")]
@@ -137,14 +130,224 @@ struct Cli {
     #[arg(long, help_heading = "Filtering")]
     nsfw: bool,
 
-    /// Print a shell completion script to stdout and exit.
-    #[arg(long, value_enum, value_name = "SHELL", help_heading = "Misc")]
-    completions: Option<Shell>,
+    /// Only scan the top N most-popular sites, ordered by curated
+    /// rank (lower number = more popular). Compatible with `--tag`
+    /// etc. for further narrowing. Sites without a `popularity`
+    /// rank are dropped — useful for fast checks of high-signal
+    /// targets without scanning every long-tail forum.
+    #[arg(long, value_name = "N", help_heading = "Filtering")]
+    top: Option<u32>,
 
-    /// Print a roff(1) man page to stdout and exit. Intended for distro
-    /// packagers: `adler --man-page > /usr/share/man/man1/adler.1`.
-    #[arg(long, help_heading = "Misc")]
-    man_page: bool,
+    /// Only check sites whose name contains this substring (case-insensitive).
+    /// Repeatable; comma-separated values also accepted.
+    #[arg(
+        long,
+        value_delimiter = ',',
+        value_name = "NAME",
+        help_heading = "Filtering"
+    )]
+    only: Vec<String>,
+
+    /// Exclude sites whose name contains this substring (case-insensitive).
+    /// Repeatable; comma-separated values also accepted.
+    #[arg(
+        long,
+        value_delimiter = ',',
+        value_name = "NAME",
+        help_heading = "Filtering"
+    )]
+    exclude: Vec<String>,
+
+    /// Scaffold a new site entry: probe this URL template (must contain
+    /// `{username}`) with the given existing account and a nonsense one,
+    /// derive a signature, and print a ready-to-paste JSON entry. Does not
+    /// modify the registry. Combine with `--proxy` to probe from a clean IP.
+    #[arg(long, value_name = "URL", help_heading = "Registry")]
+    add_site: Option<String>,
+
+    /// Site name for `--add-site` (defaults to the URL host).
+    #[arg(
+        long,
+        value_name = "NAME",
+        requires = "add_site",
+        help_heading = "Registry"
+    )]
+    name: Option<String>,
+
+    /// Override the embedded site list with a JSON file at this path.
+    #[arg(long, value_name = "PATH", help_heading = "Registry")]
+    sites: Option<PathBuf>,
+
+    /// Exclude the WhatsMyName-derived supplementary registry from
+    /// the scan. By default the WMN tranche is included for maximum
+    /// coverage; pass `--no-wmn` when you specifically need an
+    /// MIT-only data lineage (the WMN file is CC BY-SA 4.0, see
+    /// `LICENSE-CC-BY-SA-4.0`). Conflicts with `--sites`.
+    #[arg(long, conflicts_with = "sites", help_heading = "Registry")]
+    no_wmn: bool,
+
+    /// Output format.
+    #[arg(long, value_enum, default_value_t = OutputFormat::Text, help_heading = "Output")]
+    format: OutputFormat,
+
+    /// Show every site, including the (usually many) `NotFound` ones.
+    /// By default the text output shows only Found and Uncertain results.
+    #[arg(long, help_heading = "Output")]
+    all: bool,
+
+    /// Under each result, print which signal(s) produced the verdict
+    /// (e.g. `HTTP 404 (status_not_found)`). JSON always includes this.
+    #[arg(long, help_heading = "Output")]
+    explain: bool,
+
+    /// Print only found account URLs, one per line; suppress the progress
+    /// bar, summary, and hints. Ideal for scripting.
+    #[arg(short, long, help_heading = "Output")]
+    quiet: bool,
+
+    /// When to colorize text output. `auto` (default) colors only an
+    /// interactive terminal and honors the `NO_COLOR` environment variable.
+    #[arg(long, value_enum, default_value_t = ColorChoice::Auto, value_name = "WHEN", help_heading = "Output")]
+    color: ColorChoice,
+
+    /// Disable the progress bar even on an interactive terminal.
+    #[arg(long, help_heading = "Output")]
+    no_progress: bool,
+
+    /// Append an NDJSON record per result (ts, username, site, url, kind)
+    /// to this file, for an accountable trail of what was queried.
+    #[arg(long, value_name = "PATH", help_heading = "Output")]
+    audit_log: Option<PathBuf>,
+
+    /// Per-request timeout in seconds.
+    #[arg(
+        long,
+        default_value_t = 10,
+        value_name = "SECS",
+        help_heading = "Network"
+    )]
+    timeout: u64,
+
+    /// Max in-flight site checks.
+    #[arg(long, default_value_t = DEFAULT_CONCURRENCY, value_name = "N", help_heading = "Network")]
+    concurrency: NonZeroUsize,
+
+    /// Cap total requests/second across all hosts. Uncapped by default.
+    #[arg(long, value_name = "RPS", help_heading = "Network")]
+    max_rps: Option<NonZeroU32>,
+
+    /// Retry attempts after a transient ban (429 / Cloudflare). Default 2.
+    /// Set 0 to disable — useful for `--doctor`, where a ban should surface
+    /// immediately rather than being retried.
+    #[arg(long, default_value_t = 2, value_name = "N", help_heading = "Network")]
+    max_retries: u32,
+
+    /// Total scan deadline in seconds. Sites still in flight produce Uncertain outcomes.
+    #[arg(long, value_name = "SECS", help_heading = "Network")]
+    deadline: Option<u64>,
+
+    /// Route all requests through a proxy (http://, https://, or socks5://).
+    #[arg(
+        long,
+        value_name = "URL",
+        conflicts_with = "tor",
+        help_heading = "Network"
+    )]
+    proxy: Option<String>,
+
+    /// Route through a local Tor SOCKS proxy (`socks5://127.0.0.1:9050`).
+    #[arg(long, help_heading = "Network")]
+    tor: bool,
+
+    /// Rotate the User-Agent header per request from a built-in browser pool.
+    #[arg(long, help_heading = "Network")]
+    rotate_ua: bool,
+
+    /// Honor each site's robots.txt: skip probes to disallowed paths
+    /// (reported Uncertain). Adds one cached robots.txt fetch per host.
+    #[arg(long, help_heading = "Network")]
+    respect_robots: bool,
+
+    /// Route geo / IP-type-specific sites through a pool of proxies
+    /// defined in a TOML file (`[[egress]]` entries with `url`,
+    /// optional `country` and `kind`). Only sites whose `access` policy
+    /// requires a matching egress use the pool; everything else uses the
+    /// default egress (`--proxy` or direct). See README → Egress pool.
+    #[arg(long, value_name = "FILE", help_heading = "Access engine")]
+    proxy_pool: Option<PathBuf>,
+
+    /// Supply authenticated sessions from a TOML file. Each `[name]`
+    /// table is a set of HTTP headers (e.g. `Cookie`, `Authorization`)
+    /// applied to sites whose `access.session` names it — your own
+    /// (sock-puppet) login, used to reach pages behind a login wall.
+    /// Header values are secret: never logged. See README → Sessions.
+    #[arg(long, value_name = "FILE", help_heading = "Access engine")]
+    sessions: Option<PathBuf>,
+
+    /// Browser backend used for sites tagged `bot-protected` (Instagram,
+    /// X/Twitter, `TikTok`, Facebook, Threads, Snapchat, Weibo). `local`
+    /// needs Chrome installed; `browserbase` reads
+    /// `ADLER_BROWSERBASE_API_KEY` / `ADLER_BROWSERBASE_PROJECT_ID` and
+    /// charges per session-minute. Default `none` leaves those sites on
+    /// raw HTTP (typically Uncertain).
+    #[arg(long, value_enum, default_value_t = BrowserBackendChoice::None, value_name = "BACKEND", help_heading = "Access engine")]
+    browser_backend: BrowserBackendChoice,
+
+    /// Per-scan cap on browser-routed probes. Once exceeded, remaining
+    /// bot-protected sites return `Uncertain(browser_budget_exceeded)`.
+    /// Guardrail against a misconfigured flag burning a whole quota.
+    #[arg(long, default_value_t = adler_core::DEFAULT_BROWSER_BUDGET, value_name = "N", help_heading = "Access engine")]
+    browser_budget: usize,
+
+    /// Base URL of a self-hosted `FlareSolverr` instance (e.g.
+    /// `http://localhost:8191`). Implies `--browser-backend
+    /// flaresolverr` when set. Free alternative to Browserbase
+    /// for Cloudflare-WAF sites; see the project README for
+    /// `docker run` setup.
+    #[arg(long, value_name = "URL", help_heading = "Access engine")]
+    flaresolverr: Option<String>,
+
+    /// Disable the browser backend for this run, even if `--browser-backend`
+    /// or its env vars are set. Convenient for one-off raw-HTTP scans.
+    #[arg(long, help_heading = "Access engine")]
+    no_browser: bool,
+
+    /// Per-scan cap on automatic escalations from the cheap transport
+    /// (HTTP / impersonate) to the browser when the cheap path returns
+    /// `Uncertain(cloudflare_challenge | rate_limited)`. Independent of
+    /// `--browser-budget` so the pre-tagged `bot-protected` subset and the
+    /// long-tail escalation subset don't fight over the same number.
+    /// Defaults to `adler_core::DEFAULT_ESCALATION_BUDGET`.
+    #[arg(long, default_value_t = adler_core::DEFAULT_ESCALATION_BUDGET, value_name = "N", help_heading = "Access engine")]
+    escalation_budget: usize,
+
+    /// Disable automatic escalation entirely — the cheap transport's
+    /// outcome stands even when its `Uncertain` reason is one a browser
+    /// fetch would resolve. Useful when benchmarking the raw HTTP signals
+    /// or when you want strict cheap-path semantics.
+    #[arg(long, help_heading = "Access engine")]
+    no_escalation: bool,
+
+    /// Skip the result cache for this run (no read, no write).
+    #[arg(long, help_heading = "Cache")]
+    no_cache: bool,
+
+    /// Cache time-to-live in seconds. Entries older than this are ignored.
+    #[arg(
+        long,
+        default_value_t = 3600,
+        value_name = "SECS",
+        help_heading = "Cache"
+    )]
+    cache_ttl: u64,
+
+    /// Override the cache file location.
+    #[arg(long, value_name = "PATH", help_heading = "Cache")]
+    cache_path: Option<PathBuf>,
+
+    /// Delete the cache file and exit.
+    #[arg(long, help_heading = "Cache")]
+    cache_clear: bool,
 
     /// Run a signature health check on the registry instead of searching.
     /// For each site, probes the `known_present` user (if any) and a
@@ -203,21 +406,12 @@ struct Cli {
     )]
     scans_dir: Option<PathBuf>,
 
-    /// Scaffold a new site entry: probe this URL template (must contain
-    /// `{username}`) with the given existing account and a nonsense one,
-    /// derive a signature, and print a ready-to-paste JSON entry. Does not
-    /// modify the registry. Combine with `--proxy` to probe from a clean IP.
-    #[arg(long, value_name = "URL", help_heading = "Registry")]
-    add_site: Option<String>,
-
-    /// Site name for `--add-site` (defaults to the URL host).
-    #[arg(
-        long,
-        value_name = "NAME",
-        requires = "add_site",
-        help_heading = "Registry"
-    )]
-    name: Option<String>,
+    /// Scan every username in this file (one per line; blank lines and lines
+    /// starting with `#` are skipped, duplicates removed). A positional
+    /// username, if given, is scanned too. Output is grouped per username;
+    /// not compatible with `--correlate` / `--format html`.
+    #[arg(long, value_name = "PATH", help_heading = "Batch & enrichment")]
+    input: Option<PathBuf>,
 
     /// Monitor mode: scan fresh, diff the found accounts against the last
     /// run's snapshot, report new/removed ones, and save a fresh snapshot
@@ -235,183 +429,6 @@ struct Cli {
     )]
     interval: Option<u64>,
 
-    /// Output format.
-    #[arg(long, value_enum, default_value_t = OutputFormat::Text, help_heading = "Output")]
-    format: OutputFormat,
-
-    /// Override the embedded site list with a JSON file at this path.
-    #[arg(long, value_name = "PATH", help_heading = "Registry")]
-    sites: Option<PathBuf>,
-
-    /// Exclude the WhatsMyName-derived supplementary registry from
-    /// the scan. By default the WMN tranche is included for maximum
-    /// coverage; pass `--no-wmn` when you specifically need an
-    /// MIT-only data lineage (the WMN file is CC BY-SA 4.0, see
-    /// `LICENSE-CC-BY-SA-4.0`). Conflicts with `--sites`.
-    #[arg(long, conflicts_with = "sites", help_heading = "Registry")]
-    no_wmn: bool,
-
-    /// Only scan the top N most-popular sites, ordered by curated
-    /// rank (lower number = more popular). Compatible with `--tag`
-    /// etc. for further narrowing. Sites without a `popularity`
-    /// rank are dropped — useful for fast checks of high-signal
-    /// targets without scanning every long-tail forum.
-    #[arg(long, value_name = "N", help_heading = "Filtering")]
-    top: Option<u32>,
-
-    /// Only check sites whose name contains this substring (case-insensitive).
-    /// Repeatable; comma-separated values also accepted.
-    #[arg(
-        long,
-        value_delimiter = ',',
-        value_name = "NAME",
-        help_heading = "Filtering"
-    )]
-    only: Vec<String>,
-
-    /// Exclude sites whose name contains this substring (case-insensitive).
-    /// Repeatable; comma-separated values also accepted.
-    #[arg(
-        long,
-        value_delimiter = ',',
-        value_name = "NAME",
-        help_heading = "Filtering"
-    )]
-    exclude: Vec<String>,
-
-    /// Per-request timeout in seconds.
-    #[arg(
-        long,
-        default_value_t = 10,
-        value_name = "SECS",
-        help_heading = "Network"
-    )]
-    timeout: u64,
-
-    /// Max in-flight site checks.
-    #[arg(long, default_value_t = DEFAULT_CONCURRENCY, value_name = "N", help_heading = "Network")]
-    concurrency: NonZeroUsize,
-
-    /// Cap total requests/second across all hosts. Uncapped by default.
-    #[arg(long, value_name = "RPS", help_heading = "Network")]
-    max_rps: Option<NonZeroU32>,
-
-    /// Retry attempts after a transient ban (429 / Cloudflare). Default 2.
-    /// Set 0 to disable — useful for `--doctor`, where a ban should surface
-    /// immediately rather than being retried.
-    #[arg(long, default_value_t = 2, value_name = "N", help_heading = "Network")]
-    max_retries: u32,
-
-    /// Total scan deadline in seconds. Sites still in flight produce Uncertain outcomes.
-    #[arg(long, value_name = "SECS", help_heading = "Network")]
-    deadline: Option<u64>,
-
-    /// Show every site, including the (usually many) `NotFound` ones.
-    /// By default the text output shows only Found and Uncertain results.
-    #[arg(long, help_heading = "Output")]
-    all: bool,
-
-    /// Under each result, print which signal(s) produced the verdict
-    /// (e.g. `HTTP 404 (status_not_found)`). JSON always includes this.
-    #[arg(long, help_heading = "Output")]
-    explain: bool,
-
-    /// Print only found account URLs, one per line; suppress the progress
-    /// bar, summary, and hints. Ideal for scripting.
-    #[arg(short, long, help_heading = "Output")]
-    quiet: bool,
-
-    /// When to colorize text output. `auto` (default) colors only an
-    /// interactive terminal and honors the `NO_COLOR` environment variable.
-    #[arg(long, value_enum, default_value_t = ColorChoice::Auto, value_name = "WHEN", help_heading = "Output")]
-    color: ColorChoice,
-
-    /// Disable the progress bar even on an interactive terminal.
-    #[arg(long, help_heading = "Output")]
-    no_progress: bool,
-
-    /// Route all requests through a proxy (http://, https://, or socks5://).
-    #[arg(
-        long,
-        value_name = "URL",
-        conflicts_with = "tor",
-        help_heading = "Network"
-    )]
-    proxy: Option<String>,
-
-    /// Route geo / IP-type-specific sites through a pool of proxies
-    /// defined in a TOML file (`[[egress]]` entries with `url`,
-    /// optional `country` and `kind`). Only sites whose `access` policy
-    /// requires a matching egress use the pool; everything else uses the
-    /// default egress (`--proxy` or direct). See README → Egress pool.
-    #[arg(long, value_name = "FILE", help_heading = "Access engine")]
-    proxy_pool: Option<PathBuf>,
-
-    /// Supply authenticated sessions from a TOML file. Each `[name]`
-    /// table is a set of HTTP headers (e.g. `Cookie`, `Authorization`)
-    /// applied to sites whose `access.session` names it — your own
-    /// (sock-puppet) login, used to reach pages behind a login wall.
-    /// Header values are secret: never logged. See README → Sessions.
-    #[arg(long, value_name = "FILE", help_heading = "Access engine")]
-    sessions: Option<PathBuf>,
-
-    /// Route through a local Tor SOCKS proxy (`socks5://127.0.0.1:9050`).
-    #[arg(long, help_heading = "Network")]
-    tor: bool,
-
-    /// Rotate the User-Agent header per request from a built-in browser pool.
-    #[arg(long, help_heading = "Network")]
-    rotate_ua: bool,
-
-    /// Honor each site's robots.txt: skip probes to disallowed paths
-    /// (reported Uncertain). Adds one cached robots.txt fetch per host.
-    #[arg(long, help_heading = "Network")]
-    respect_robots: bool,
-
-    /// Browser backend used for sites tagged `bot-protected` (Instagram,
-    /// X/Twitter, `TikTok`, Facebook, Threads, Snapchat, Weibo). `local`
-    /// needs Chrome installed; `browserbase` reads
-    /// `ADLER_BROWSERBASE_API_KEY` / `ADLER_BROWSERBASE_PROJECT_ID` and
-    /// charges per session-minute. Default `none` leaves those sites on
-    /// raw HTTP (typically Uncertain).
-    #[arg(long, value_enum, default_value_t = BrowserBackendChoice::None, value_name = "BACKEND", help_heading = "Access engine")]
-    browser_backend: BrowserBackendChoice,
-
-    /// Per-scan cap on browser-routed probes. Once exceeded, remaining
-    /// bot-protected sites return `Uncertain(browser_budget_exceeded)`.
-    /// Guardrail against a misconfigured flag burning a whole quota.
-    #[arg(long, default_value_t = adler_core::DEFAULT_BROWSER_BUDGET, value_name = "N", help_heading = "Access engine")]
-    browser_budget: usize,
-
-    /// Base URL of a self-hosted `FlareSolverr` instance (e.g.
-    /// `http://localhost:8191`). Implies `--browser-backend
-    /// flaresolverr` when set. Free alternative to Browserbase
-    /// for Cloudflare-WAF sites; see the project README for
-    /// `docker run` setup.
-    #[arg(long, value_name = "URL", help_heading = "Access engine")]
-    flaresolverr: Option<String>,
-
-    /// Disable the browser backend for this run, even if `--browser-backend`
-    /// or its env vars are set. Convenient for one-off raw-HTTP scans.
-    #[arg(long, help_heading = "Access engine")]
-    no_browser: bool,
-
-    /// Per-scan cap on automatic escalations from the cheap transport
-    /// (HTTP / impersonate) to the browser when the cheap path returns
-    /// `Uncertain(cloudflare_challenge | rate_limited)`. Independent of
-    /// `--browser-budget` so the pre-tagged `bot-protected` subset and the
-    /// long-tail escalation subset don't fight over the same number.
-    /// Defaults to `adler_core::DEFAULT_ESCALATION_BUDGET`.
-    #[arg(long, default_value_t = adler_core::DEFAULT_ESCALATION_BUDGET, value_name = "N", help_heading = "Access engine")]
-    escalation_budget: usize,
-
-    /// Disable automatic escalation entirely — the cheap transport's
-    /// outcome stands even when its `Uncertain` reason is one a browser
-    /// fetch would resolve. Useful when benchmarking the raw HTTP signals
-    /// or when you want strict cheap-path semantics.
-    #[arg(long, help_heading = "Access engine")]
-    no_escalation: bool,
-
     /// Extract profile fields (name, bio, avatar, …) from found accounts on
     /// sites that declare extractor rules. Implies a fresh scan (skips the
     /// cache) so enrichment data is current.
@@ -427,32 +444,6 @@ struct Cli {
     /// similarity) and print the clusters. Implies `--enrich`.
     #[arg(long, help_heading = "Batch & enrichment")]
     correlate: bool,
-
-    /// Skip the result cache for this run (no read, no write).
-    #[arg(long, help_heading = "Cache")]
-    no_cache: bool,
-
-    /// Cache time-to-live in seconds. Entries older than this are ignored.
-    #[arg(
-        long,
-        default_value_t = 3600,
-        value_name = "SECS",
-        help_heading = "Cache"
-    )]
-    cache_ttl: u64,
-
-    /// Override the cache file location.
-    #[arg(long, value_name = "PATH", help_heading = "Cache")]
-    cache_path: Option<PathBuf>,
-
-    /// Delete the cache file and exit.
-    #[arg(long, help_heading = "Cache")]
-    cache_clear: bool,
-
-    /// Append an NDJSON record per result (ts, username, site, url, kind)
-    /// to this file, for an accountable trail of what was queried.
-    #[arg(long, value_name = "PATH", help_heading = "Output")]
-    audit_log: Option<PathBuf>,
 
     /// Start the web UI server instead of running a scan. Binds to
     /// `127.0.0.1:8765` by default — override with `--web-bind`.
@@ -473,6 +464,15 @@ struct Cli {
     /// this on a trusted network.
     #[arg(long, value_name = "ADDR", requires = "web", help_heading = "Web UI")]
     web_bind: Option<SocketAddr>,
+
+    /// Print a shell completion script to stdout and exit.
+    #[arg(long, value_enum, value_name = "SHELL", help_heading = "Misc")]
+    completions: Option<Shell>,
+
+    /// Print a roff(1) man page to stdout and exit. Intended for distro
+    /// packagers: `adler --man-page > /usr/share/man/man1/adler.1`.
+    #[arg(long, help_heading = "Misc")]
+    man_page: bool,
 }
 
 /// Built-in User-Agent pool used by `--rotate-ua`. Realistic recent
