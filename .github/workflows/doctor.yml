@@ -108,6 +108,147 @@ jobs:
         run: |
           if [ "${STRUCTURAL:-0}" -gt 0 ]; then
             echo "::error::${STRUCTURAL} site(s) have structural detection failures in the ${{ matrix.tranche }} tranche — see the run summary"
-            exit 1
+            # Don't exit non-zero — the aggregate-and-pr job consumes
+            # the reports next, and a failed matrix job skips that
+            # downstream step. The PR is the human-review surface;
+            # the workflow run only flags transient infra problems.
+            true
           fi
           echo "no structural failures in the ${{ matrix.tranche }} tranche; transient bans (if any) ignored"
+
+  # ────────────────────────────────────────────────────────────────
+  # Aggregate the matrix reports against a cross-run state branch and
+  # open a PR if any site has structurally failed for ≥3 consecutive
+  # nights. State (`_doctor-state` branch, single `doctor-state.json`
+  # file) is updated on every run regardless of whether a PR opens.
+  # ────────────────────────────────────────────────────────────────
+  aggregate-and-pr:
+    name: aggregate + propose PR
+    needs: doctor
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    # The job pushes to two refs: `_doctor-state` (state file) and a
+    # `doctor/auto-disable-*` feature branch (sites.json patch). The
+    # App token does the actual writing, but the workflow-level
+    # permission has to grant contents: write or the token would be
+    # silently downgraded.
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Generate GitHub App token
+        # Same App release-plz uses — its tokens cascade to downstream
+        # workflows so the PR's CI checks (ci.yml, audit.yml,
+        # validate-sites.yml) run automatically.
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        id: app-token
+        with:
+          client-id: ${{ secrets.RELEASE_PLZ_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASE_PLZ_APP_PRIVATE_KEY }}
+
+      - name: Checkout main
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          persist-credentials: true
+          fetch-depth: 0
+
+      - name: Download base-tranche report
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+        with:
+          name: doctor-report-base
+          path: artifacts/base
+
+      - name: Download wmn-tranche report
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+        with:
+          name: doctor-report-wmn
+          path: artifacts/wmn
+
+      - name: Restore prior state from _doctor-state branch
+        run: |
+          # The state branch is a single-file container; if it doesn't
+          # exist yet, this is the first nightly run and we start with
+          # an empty state map (the script handles that case).
+          mkdir -p state
+          if git fetch origin _doctor-state 2>/dev/null; then
+            git show origin/_doctor-state:doctor-state.json > state/doctor-state.json
+            echo "loaded prior state ($(wc -c < state/doctor-state.json) bytes)"
+          else
+            echo '{"sites": {}, "version": 1}' > state/doctor-state.json
+            echo "no _doctor-state branch yet — starting fresh"
+          fi
+
+      - name: Aggregate reports + patch sites.json
+        id: aggregate
+        env:
+          GH_OUTPUT: ${{ github.workspace }}/agg-out.txt
+        run: |
+          python3 scripts/doctor_aggregate.py \
+            --report artifacts/base/report.txt \
+            --report artifacts/wmn/report.txt \
+            --state state/doctor-state.json \
+            --out-state state/doctor-state.json \
+            --sites-json adler-core/data/sites.json \
+            --pr-body pr-body.md \
+            --threshold 3 \
+            --gh-output "$GITHUB_OUTPUT"
+
+      - name: Update _doctor-state branch
+        env:
+          GIT_AUTHOR_NAME: adler-doctor[bot]
+          GIT_AUTHOR_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+          GIT_COMMITTER_NAME: adler-doctor[bot]
+          GIT_COMMITTER_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+        run: |
+          # The state branch is detached from main intentionally: it's
+          # a single-file container nobody should rebase or merge from.
+          # We hard-reset it to a single root-style commit holding only
+          # `doctor-state.json` so the branch history stays tiny.
+          mkdir -p _state-tmp
+          cp state/doctor-state.json _state-tmp/doctor-state.json
+          cd _state-tmp
+          git init -q -b _doctor-state
+          git add doctor-state.json
+          git commit -q -m "doctor: update state @ $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          git remote add origin "https://x-access-token:${TOKEN}@github.com/${REPO}.git"
+          git push -q --force origin _doctor-state
+        env:
+          TOKEN: ${{ steps.app-token.outputs.token }}
+          REPO: ${{ github.repository }}
+
+      - name: Open / refresh PR for flagged sites
+        if: steps.aggregate.outputs.candidates != '0'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          BRANCH="doctor/auto-disable-$(date -u +%Y%m%d)"
+          # If the branch already exists from an earlier run, rebase
+          # our patched sites.json on top of fresh main and force-push
+          # so the PR keeps a single commit pointing at today's
+          # candidates.
+          git config user.name "adler-doctor[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B "$BRANCH"
+          git add adler-core/data/sites.json
+          git commit -m "chore(registry): disable ${{ steps.aggregate.outputs.candidates }} sites flagged by nightly doctor
+
+          See PR body for the per-site breakdown. Counters live on the
+          _doctor-state branch."
+          git push --force --set-upstream origin "$BRANCH"
+          # Open or refresh the PR.
+          # Make sure the labels we attach exist; both creates are
+          # idempotent so re-running is safe. Failures are non-fatal —
+          # the labels are convenience, not load-bearing.
+          gh label create automated --color BFD4F2 --description "Opened by a workflow" 2>/dev/null || true
+          gh label create registry-hygiene --color F9D0C4 --description "Site registry maintenance" 2>/dev/null || true
+          if gh pr view "$BRANCH" --json number >/dev/null 2>&1; then
+            gh pr edit "$BRANCH" --body-file pr-body.md \
+              --title "chore(registry): auto-disable ${{ steps.aggregate.outputs.candidates }} chronically failing sites"
+          else
+            gh pr create \
+              --base main --head "$BRANCH" \
+              --title "chore(registry): auto-disable ${{ steps.aggregate.outputs.candidates }} chronically failing sites" \
+              --body-file pr-body.md \
+              --label "automated,registry-hygiene"
+          fi

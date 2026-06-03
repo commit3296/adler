@@ -209,9 +209,21 @@ next chunk of work.
   the original 17-site batch; the latest doctor pass found 66 more
   on `"blue"` alone. Pure contributor task: one site = one OVERRIDE
   entry in `scripts/import_sherlock.py` + a `sites.json` edit.
-- **Periodic registry validation in CI**: nightly `--doctor`
-  workflow already exists; we should make it produce a PR with
-  a `KNOWN_BROKEN` suggestion for sites that fail repeatedly.
+- [x] **Periodic registry validation in CI**: the nightly `--doctor`
+  workflow gained an `aggregate-and-pr` job (`doctor.yml`) that
+  consumes both matrix-tranche reports, parses structural failures
+  (`known_present reported NotFound` / `signal too permissive`),
+  and maintains a per-site consecutive-failure counter on a
+  detached `_doctor-state` branch (single `doctor-state.json` file,
+  force-pushed each night so history stays tiny). Any site that
+  crosses the threshold (default 3 consecutive nights) gets
+  `disabled: true` + a `disabled_reason` field in `sites.json` via
+  `scripts/doctor_aggregate.py`, and `gh pr create` opens (or
+  refreshes) a PR against `main` with a tabular per-site breakdown.
+  Counters reset to zero when a site has a clean run; the recovered
+  list also surfaces in the PR body so the maintainer sees what
+  recently cleared. Authenticated through the existing `adler-release`
+  GitHub App token so the PR's CI checks cascade automatically.
 
 ### Detection coverage
 
