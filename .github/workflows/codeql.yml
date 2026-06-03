@@ -1,0 +1,65 @@
+name: CodeQL
+
+# GitHub-native semantic SAST for Rust. CodeQL added Rust support in
+# 2024 (out of preview as of v2.18). It catches taint-flow patterns
+# (e.g. user input → SQL / command injection / SSRF) that clippy
+# and tests don't.
+#
+# - PRs to main: differential analysis, fast feedback.
+# - Push to main: full re-analysis so the security overview stays
+#   accurate even when a PR ships from a fork.
+# - Weekly cron: catches new query packs and re-runs against the
+#   stable codebase.
+#
+# Findings land in the Security → Code scanning tab. Severity ≥ high
+# fails the check by default; mediums and lows surface as alerts but
+# don't block.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Tuesday 04:00 UTC — staggered from audit (Mon) and Scorecard
+    # (Sun) so the security workflows don't pile up on the same
+    # cron tick.
+    - cron: "0 4 * * 2"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  # Required to upload analysis results to the Security tab.
+  security-events: write
+  # CodeQL reads workflow run metadata to attribute findings to the
+  # right ref.
+  actions: read
+
+jobs:
+  analyze:
+    name: Analyze (rust)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: rust
+          # `security-extended` adds the medium-severity query suite
+          # on top of the default-security pack. Trades some
+          # additional CPU time for broader coverage.
+          queries: security-extended
+
+      # Rust is a compiled language → CodeQL needs a real build.
+      # `autobuild` runs `cargo build` in workspace root, which is
+      # exactly what we want.
+      - name: Build
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Analyze
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:rust"

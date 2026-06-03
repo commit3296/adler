@@ -1,0 +1,67 @@
+name: Scorecard
+
+# OpenSSF Scorecard: composite trust score over branch protection,
+# signed releases, code review, vulnerable deps, MFA, dangerous
+# workflows, fuzzing, and ~15 more checks. One number that means a
+# lot to a security-conscious adopter.
+#
+# Runs weekly via cron (per OSSF recommendation — daily runs are
+# noise) and publishes results to api.scorecard.dev. The badge on
+# README.md reads from that endpoint; until the first run completes
+# the badge will show "no data" rather than red, so adding it
+# before the workflow exists wouldn't have hurt — but we land the
+# workflow first and the badge in a follow-up to keep the README
+# state monotonically truthful.
+#
+# SARIF is uploaded to GitHub's Security tab so individual findings
+# (e.g. "no signed releases", "missing branch protection") are
+# triageable per-check.
+
+on:
+  branch_protection_rule:
+  schedule:
+    # Sunday 04:00 UTC — same window as the docs link-checker.
+    - cron: "0 4 * * 0"
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Top-level least-privilege; jobs request more granular grants.
+permissions: read-all
+
+jobs:
+  analysis:
+    name: Scorecard analysis
+    runs-on: ubuntu-latest
+    permissions:
+      # Required for SARIF upload to the Security tab.
+      security-events: write
+      # Required for publish_results: posts a signed attestation to
+      # api.scorecard.dev so the badge can read the score.
+      id-token: write
+      contents: read
+      actions: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Scorecard reads commit metadata via the GitHub API, not
+          # via the local clone — keeping the credential off the
+          # checkout reduces the blast radius if anything in the
+          # workflow ever gets compromised.
+          persist-credentials: false
+
+      - name: Run analysis
+        uses: ossf/scorecard-action@v2
+        with:
+          results_file: results.sarif
+          results_format: sarif
+          # `publish_results: true` is what enables the badge on
+          # api.scorecard.dev. Required: the repo is public.
+          publish_results: true
+
+      - name: Upload SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: results.sarif

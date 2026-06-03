@@ -10,6 +10,12 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
 </p>
 
+<p align="center">
+  <a href="https://github.com/commit3296/adler/actions/workflows/audit.yml"><img src="https://github.com/commit3296/adler/actions/workflows/audit.yml/badge.svg" alt="cargo-audit"></a>
+  <a href="https://github.com/commit3296/adler/actions/workflows/codeql.yml"><img src="https://github.com/commit3296/adler/actions/workflows/codeql.yml/badge.svg" alt="CodeQL"></a>
+  <a href="https://scorecard.dev/viewer/?uri=github.com/commit3296/adler"><img src="https://api.scorecard.dev/projects/github.com/commit3296/adler/badge" alt="OpenSSF Scorecard"></a>
+</p>
+
 # Adler
 
 > *Named for Irene Adler — "the Woman", the one who outwitted Sherlock Holmes.

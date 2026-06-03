@@ -1,0 +1,58 @@
+name: Audit
+
+# Run cargo-audit against the workspace's resolved dependencies.
+#
+# - PRs touching Cargo manifests or this workflow file: fast-feedback.
+# - Weekly cron on main: catch new CVEs in already-merged deps without
+#   waiting for a PR. RustSec publishes advisories continuously; a
+#   dep we shipped last week can pick up a CVE tomorrow.
+# - workflow_dispatch lets the maintainer re-run on demand after
+#   merging a vulnerable-dep bump.
+#
+# Exit semantics: cargo-audit exits non-zero on `vulnerability`
+# advisories (real CVEs) and on yanked crates; it exits zero on
+# `unsoundness` / `notice` warnings (those surface in the log but
+# don't fail CI). That's the right default for a green badge — vulns
+# block, soundness reports inform.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "**/Cargo.toml"
+      - "**/Cargo.lock"
+      - ".github/workflows/audit.yml"
+      - "audit.toml"
+  pull_request:
+    paths:
+      - "**/Cargo.toml"
+      - "**/Cargo.lock"
+      - ".github/workflows/audit.yml"
+      - "audit.toml"
+  schedule:
+    # Monday 04:00 UTC — early-week so a finding lands at the start
+    # of the working week instead of accumulating over the weekend.
+    - cron: "0 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  # The audit-check action opens / updates a tracking issue on
+  # scheduled-run failures so a stale main branch doesn't quietly
+  # rot vulnerable.
+  issues: write
+  # Posts a check run on PRs.
+  checks: write
+
+jobs:
+  audit:
+    name: cargo audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: rustsec/audit-check@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
