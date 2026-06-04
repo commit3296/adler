@@ -394,9 +394,14 @@ mod tests {
         let registry = Registry::default_embedded().unwrap();
         // Include NSFW to keep the test focused on the name-exclude
         // path; the NSFW auto-exclusion is exercised separately.
+        let baseline = registry.filter(&[], &[], &[], &[], true);
         let without_github = registry.filter(&[], &["github".into()], &[], &[], true);
         assert!(without_github.iter().all(|s| s.name != "GitHub"));
-        assert_eq!(without_github.len(), registry.len() - 1);
+        // Asserting against the baseline (filtered) count rather than
+        // `registry.len()` so this test is robust to changes in the
+        // disabled-site count — `len()` includes disabled entries,
+        // `filter()` does not.
+        assert_eq!(without_github.len(), baseline.len() - 1);
     }
 
     #[test]
