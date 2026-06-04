@@ -248,9 +248,42 @@ next chunk of work.
   whatever fraction of sites expose profile-shaped OG metadata
   (mainstream / fediverse profile pages mostly do; bespoke JS-only
   SPAs and blank-shell legacy pages won't).
-- **Site-specific signal authoring** for the ~30 sites that fail
-  doctor with non-`"blue"` known_present — typically a real account
-  whose detection rule needs tweaking, not a missing user.
+- **Site-specific signal authoring** — a full-registry doctor pass
+  from a datacenter IP turns up **91 sites** that fail with
+  `"detection rule too permissive"` while carrying a real-looking
+  `known_present`. The shape varies by category and there is no
+  single fix:
+  - **~32 engine-inherited entries** (uCoz, vBulletin, phpBB/Search,
+    XenForo, Discourse) with empty per-site `signals` and
+    auto-imported usernames (`admin`, `alex`, `red`, etc.). The
+    engine's shared signal block matches too generously; tightening
+    one engine block fixes many sites at once. Best done from a
+    clean IP that can actually reach the forums.
+  - **Importer duplicates** — Hot UKdeals / HotUKdeals, Pepper NL /
+    PepperNL, Pepper PL / PepperPL, Peppereals US / PepperealsUS and
+    similar pairs probably want de-duping rather than per-entry
+    signal work.
+  - **Confirmed structurally-unscrapable** (Facebook, Threads,
+    Spotify, Steam-by-id) belong in *Honest limits* with
+    `disabled: true`, not in the signal-authoring queue.
+  - **Custom-page sites with broken body markers** (Voice123,
+    Viddler, Treehouse, Wego.social, …) need a hand-authored marker
+    pointing at user-specific content; `--doctor --fix` can often
+    derive one when the present/absent pages actually differ from
+    the operator's IP. Datacenter-IP runs frequently see identical
+    Cloudflare shells for both, so this work is also clean-IP-
+    constrained.
+
+  Also surfaced by this pass: the `--suggest-known-present`
+  discovery from the v0.14 batch had a bug — `discover_known_present`
+  accepted the first candidate that resolved to `Found` without
+  sanity-checking against a nonsense user, so sites whose signals
+  return `Found` for everything yielded false-positive
+  brand-name "discoveries". Fixed in this round: the discovery now
+  probes a random nonsense user first and aborts with `None` if
+  *that* already returns `Found`. Five entries from the v0.14 batch
+  (Chollometro, Mydealz, Promodescuentos, SportsTracker, Stihi.ru)
+  reverted to `known_present: "blue"` accordingly.
 
 ### Honest limits (investigated, deferred)
 

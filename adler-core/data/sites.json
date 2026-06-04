@@ -4154,7 +4154,7 @@
           ]
         }
       ],
-      "known_present": "chollometro"
+      "known_present": "blue"
     },
     {
       "name": "Chomikuj.pl",
@@ -16208,7 +16208,7 @@
           ]
         }
       ],
-      "known_present": "mydealz",
+      "known_present": "blue",
       "tags": [
         "region:de"
       ]
@@ -21100,7 +21100,7 @@
           ]
         }
       ],
-      "known_present": "promodescuentos"
+      "known_present": "blue"
     },
     {
       "name": "PromoDJ",
@@ -25481,7 +25481,7 @@
         "ru",
         "source:maigret"
       ],
-      "known_present": "sports-tracker"
+      "known_present": "blue"
     },
     {
       "name": "Spotify",
@@ -26121,7 +26121,7 @@
         "source:maigret",
         "writing"
       ],
-      "known_present": "stihi"
+      "known_present": "blue"
     },
     {
       "name": "Stoimost",
