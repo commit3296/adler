@@ -820,7 +820,9 @@
           ]
         }
       ],
-      "known_present": "blue"
+      "known_present": "blue",
+      "disabled": true,
+      "disabled_reason": "duplicate of Addons.wago"
     },
     {
       "name": "admin-soft.ucoz.ru",
@@ -870,7 +872,9 @@
       "known_present": "DemiDevil",
       "tags": [
         "nsfw"
-      ]
+      ],
+      "disabled": true,
+      "disabled_reason": "duplicate of Admire Me"
     },
     {
       "name": "AdvancedCustomFields",
@@ -1553,7 +1557,9 @@
           "text": "Dieses Profil ist nicht verfügbar"
         }
       ],
-      "known_present": "blue"
+      "known_present": "blue",
+      "disabled": true,
+      "disabled_reason": "duplicate of Ani World"
     },
     {
       "name": "ankord.ucoz.ru",
@@ -1762,7 +1768,9 @@
           ]
         }
       ],
-      "known_present": "lio24d"
+      "known_present": "lio24d",
+      "disabled": true,
+      "disabled_reason": "duplicate of AppleDeveloper"
     },
     {
       "name": "AppleDeveloper",
@@ -2920,7 +2928,9 @@
           ]
         }
       ],
-      "known_present": "blue"
+      "known_present": "blue",
+      "disabled": true,
+      "disabled_reason": "duplicate of Dangerousthings.com"
     },
     {
       "name": "Bit.ly",
@@ -3958,7 +3968,9 @@
           ]
         }
       ],
-      "known_present": "rixx"
+      "known_present": "rixx",
+      "disabled": true,
+      "disabled_reason": "duplicate of Chaos"
     },
     {
       "name": "chastysc.ucoz.ru",
@@ -4429,7 +4441,9 @@
           ]
         }
       ],
-      "known_present": "blue"
+      "known_present": "blue",
+      "disabled": true,
+      "disabled_reason": "duplicate of codeberg.org"
     },
     {
       "name": "codeberg.org",
@@ -5269,7 +5283,9 @@
           ]
         }
       ],
-      "known_present": "michael"
+      "known_present": "michael",
+      "disabled": true,
+      "disabled_reason": "duplicate of CryptomatorForum"
     },
     {
       "name": "CryptomatorForum",
@@ -5436,7 +5452,9 @@
           ]
         }
       ],
-      "known_present": "blue"
+      "known_present": "blue",
+      "disabled": true,
+      "disabled_reason": "duplicate of Curse Forge"
     },
     {
       "name": "Cyber Defenders",
@@ -5501,7 +5519,9 @@
         }
       ],
       "known_present": "mlohn",
-      "regex_check": "^[^\\/:*?\"<>|@]{3,50}$"
+      "regex_check": "^[^\\/:*?\"<>|@]{3,50}$",
+      "disabled": true,
+      "disabled_reason": "duplicate of Cyber Defenders"
     },
     {
       "name": "cybers.clan.su",
@@ -5583,7 +5603,9 @@
         "region:ru",
         "source:maigret"
       ],
-      "known_present": "blue"
+      "known_present": "blue",
+      "disabled": true,
+      "disabled_reason": "duplicate of d3"
     },
     {
       "name": "d3RU",
@@ -5605,7 +5627,9 @@
       "known_present": "blue",
       "tags": [
         "region:ru"
-      ]
+      ],
+      "disabled": true,
+      "disabled_reason": "duplicate of d3"
     },
     {
       "name": "DailyKos",
@@ -5745,7 +5769,9 @@
       "known_present": "blue",
       "tags": [
         "region:ru"
-      ]
+      ],
+      "disabled": true,
+      "disabled_reason": "duplicate of Dating.Ru"
     },
     {
       "name": "day-lapku.ucoz.ru",
@@ -7194,7 +7220,9 @@
       "tags": [
         "region:de"
       ],
-      "regex_check": "^[^.]*?$"
+      "regex_check": "^[^.]*?$",
+      "disabled": true,
+      "disabled_reason": "duplicate of Eintracht Frankfurt Forum"
     },
     {
       "name": "Eintracht Frankfurt Forum",
@@ -8153,7 +8181,9 @@
         "ru",
         "source:maigret"
       ],
-      "known_present": "blue"
+      "known_present": "blue",
+      "disabled": true,
+      "disabled_reason": "duplicate of fl"
     },
     {
       "name": "flarum.es",
@@ -9075,7 +9105,9 @@
         "porn",
         "source:maigret"
       ],
-      "known_present": "adam"
+      "known_present": "adam",
+      "disabled": true,
+      "disabled_reason": "duplicate of Forum Ophilia"
     },
     {
       "name": "Forums-bluemoon-mcfc",
@@ -9548,7 +9580,9 @@
           "text": "\"users\":{}"
         }
       ],
-      "known_present": "red0xff"
+      "known_present": "red0xff",
+      "disabled": true,
+      "disabled_reason": "duplicate of Freelancer.com"
     },
     {
       "name": "Freelancer.com",
@@ -10449,7 +10483,9 @@
           "text": "the requested URL was not found on this server"
         }
       ],
-      "known_present": "GitHub"
+      "known_present": "GitHub",
+      "disabled": true,
+      "disabled_reason": "duplicate of GooglePlayStore"
     },
     {
       "name": "GooglePlayStore",
@@ -10930,7 +10966,9 @@
           ]
         }
       ],
-      "known_present": "hackersploit"
+      "known_present": "hackersploit",
+      "disabled": true,
+      "disabled_reason": "duplicate of Hacker Sploit"
     },
     {
       "name": "hackings.ru",
@@ -10981,7 +11019,9 @@
           ]
         }
       ],
-      "known_present": "blue"
+      "known_present": "blue",
+      "disabled": true,
+      "disabled_reason": "duplicate of Hack MD"
     },
     {
       "name": "hackster",
@@ -11168,7 +11208,9 @@
       "known_present": "kilroy222",
       "tags": [
         "nsfw"
-      ]
+      ],
+      "disabled": true,
+      "disabled_reason": "duplicate of Heavy R"
     },
     {
       "name": "Hey",
@@ -11514,7 +11556,9 @@
           ]
         }
       ],
-      "known_present": "Blue"
+      "known_present": "Blue",
+      "disabled": true,
+      "disabled_reason": "duplicate of Hot UKdeals"
     },
     {
       "name": "House-Mixes.com",
@@ -11671,7 +11715,9 @@
           "text": "This username is not associated"
         }
       ],
-      "known_present": "testadmin"
+      "known_present": "testadmin",
+      "disabled": true,
+      "disabled_reason": "duplicate of Hudson Rock"
     },
     {
       "name": "Hugging Face",
@@ -11715,7 +11761,9 @@
         "source:maigret",
         "tech"
       ],
-      "known_present": "blue"
+      "known_present": "blue",
+      "disabled": true,
+      "disabled_reason": "duplicate of Hugging Face"
     },
     {
       "name": "hulyaganka.ucoz.ru",
@@ -12331,7 +12379,9 @@
           ]
         }
       ],
-      "known_present": "theblue222"
+      "known_present": "theblue222",
+      "disabled": true,
+      "disabled_reason": "duplicate of IonicFramework"
     },
     {
       "name": "IonicFramework",
@@ -12430,7 +12480,9 @@
       "known_present": "blue",
       "tags": [
         "region:ru"
-      ]
+      ],
+      "disabled": true,
+      "disabled_reason": "duplicate of iRecommend.RU"
     },
     {
       "name": "iRecommend.RU",
@@ -12739,7 +12791,9 @@
       "known_present": "blue",
       "tags": [
         "region:pl"
-      ]
+      ],
+      "disabled": true,
+      "disabled_reason": "duplicate of Jbzd"
     },
     {
       "name": "jeepgarage.org",
@@ -12944,7 +12998,9 @@
           ]
         }
       ],
-      "known_present": "laurent"
+      "known_present": "laurent",
+      "disabled": true,
+      "disabled_reason": "duplicate of JoplinApp"
     },
     {
       "name": "JoplinApp",
@@ -13909,7 +13965,9 @@
         "links",
         "source:maigret"
       ],
-      "known_present": "Blisscartoos"
+      "known_present": "Blisscartoos",
+      "disabled": true,
+      "disabled_reason": "duplicate of Linktree"
     },
     {
       "name": "Linktree",
@@ -13993,7 +14051,9 @@
           ]
         }
       ],
-      "known_present": "pylapp"
+      "known_present": "pylapp",
+      "disabled": true,
+      "disabled_reason": "duplicate of Linuxfr"
     },
     {
       "name": "Listed",
@@ -14010,7 +14070,9 @@
           "fragment": "/@{}"
         }
       ],
-      "known_present": "listed"
+      "known_present": "listed",
+      "disabled": true,
+      "disabled_reason": "duplicate of Listed.to"
     },
     {
       "name": "Listed.to",
@@ -16025,7 +16087,9 @@
       "known_present": "arrangeme",
       "tags": [
         "bot-protected"
-      ]
+      ],
+      "disabled": true,
+      "disabled_reason": "duplicate of Muse Score"
     },
     {
       "name": "music-one.my1.ru",
@@ -16673,7 +16737,9 @@
           ]
         }
       ],
-      "known_present": "red"
+      "known_present": "red",
+      "disabled": true,
+      "disabled_reason": "duplicate of Nairaland Forum"
     },
     {
       "name": "NameMC",
@@ -17286,7 +17352,9 @@
           ]
         }
       ],
-      "known_present": "goku"
+      "known_present": "goku",
+      "disabled": true,
+      "disabled_reason": "duplicate of Nintendo Life"
     },
     {
       "name": "Nitro Type",
@@ -17324,7 +17392,9 @@
           "text": "<title>Nitro Type | Competitive Typing Game | Race Your Friends</title>"
         }
       ],
-      "known_present": "jianclash"
+      "known_present": "jianclash",
+      "disabled": true,
+      "disabled_reason": "duplicate of Nitro Type"
     },
     {
       "name": "Nixp",
@@ -17406,7 +17476,9 @@
       "tags": [
         "region:ru"
       ],
-      "regex_check": "^[\\w@-]+?$"
+      "regex_check": "^[\\w@-]+?$",
+      "disabled": true,
+      "disabled_reason": "duplicate of NN.RU"
     },
     {
       "name": "nod32-forever.clan.su",
@@ -17731,7 +17803,9 @@
           "text": "Page not found"
         }
       ],
-      "known_present": "mbostock"
+      "known_present": "mbostock",
+      "disabled": true,
+      "disabled_reason": "duplicate of Observable"
     },
     {
       "name": "odonvv.ru",
@@ -18224,7 +18298,9 @@
           ]
         }
       ],
-      "known_present": "sindresorhus"
+      "known_present": "sindresorhus",
+      "disabled": true,
+      "disabled_reason": "duplicate of OpenCollective"
     },
     {
       "name": "Open Game Art",
@@ -18293,7 +18369,9 @@
           ]
         }
       ],
-      "known_present": "ski"
+      "known_present": "ski",
+      "disabled": true,
+      "disabled_reason": "duplicate of Open Game Art"
     },
     {
       "name": "openhub.net",
@@ -19401,7 +19479,9 @@
         }
       ],
       "known_present": "0day",
-      "regex_check": "^[\\w]{4,30}$"
+      "regex_check": "^[\\w]{4,30}$",
+      "disabled": true,
+      "disabled_reason": "duplicate of Pentester Lab"
     },
     {
       "name": "Pepper NL",
@@ -19510,7 +19590,9 @@
           ]
         }
       ],
-      "known_present": "Stepan"
+      "known_present": "Stepan",
+      "disabled": true,
+      "disabled_reason": "duplicate of Peppereals US"
     },
     {
       "name": "PepperNL",
@@ -19529,7 +19611,9 @@
           ]
         }
       ],
-      "known_present": "Dynaw"
+      "known_present": "Dynaw",
+      "disabled": true,
+      "disabled_reason": "duplicate of Pepper NL"
     },
     {
       "name": "PepperPL",
@@ -19551,7 +19635,9 @@
       "known_present": "FireChicken",
       "tags": [
         "region:pl"
-      ]
+      ],
+      "disabled": true,
+      "disabled_reason": "duplicate of Pepper PL"
     },
     {
       "name": "PerfectWorld",
@@ -21512,7 +21598,9 @@
           "text": "Oops! That page doesn’t exist or is private."
         }
       ],
-      "known_present": "pablogsal"
+      "known_present": "pablogsal",
+      "disabled": true,
+      "disabled_reason": "duplicate of DiscussPython"
     },
     {
       "name": "python.su",
@@ -22022,7 +22110,9 @@
           ]
         }
       ],
-      "known_present": "ncw"
+      "known_present": "ncw",
+      "disabled": true,
+      "disabled_reason": "duplicate of RcloneForum"
     },
     {
       "name": "RcloneForum",
@@ -22834,7 +22924,9 @@
         "bot-protected",
         "source:maigret"
       ],
-      "known_present": "SimonParkes"
+      "known_present": "SimonParkes",
+      "disabled": true,
+      "disabled_reason": "duplicate of Rumble"
     },
     {
       "name": "run-log.com",
@@ -23270,7 +23362,9 @@
       "known_present": "red",
       "tags": [
         "bot-protected"
-      ]
+      ],
+      "disabled": true,
+      "disabled_reason": "duplicate of SatsisInfo"
     },
     {
       "name": "satwarez.ru",
@@ -24249,7 +24343,9 @@
           ]
         }
       ],
-      "known_present": "blue"
+      "known_present": "blue",
+      "disabled": true,
+      "disabled_reason": "duplicate of sketchfab.com"
     },
     {
       "name": "sketchfab.com",
@@ -24381,7 +24477,9 @@
         "bot-protected",
         "source:maigret"
       ],
-      "known_present": "bob"
+      "known_present": "bob",
+      "disabled": true,
+      "disabled_reason": "duplicate of Slant"
     },
     {
       "name": "Slashdot",
@@ -25427,7 +25525,9 @@
         "source:maigret",
         "sport"
       ],
-      "known_present": "blue"
+      "known_present": "blue",
+      "disabled": true,
+      "disabled_reason": "duplicate of SportsRU"
     },
     {
       "name": "sportsjournalists.com",
@@ -25867,7 +25967,9 @@
       "known_present": "blue",
       "tags": [
         "gaming"
-      ]
+      ],
+      "disabled": true,
+      "disabled_reason": "duplicate of Steam (Group)"
     },
     {
       "name": "Steam Community (User)",
@@ -25949,7 +26051,9 @@
         "gaming",
         "source:maigret"
       ],
-      "known_present": "blue"
+      "known_present": "blue",
+      "disabled": true,
+      "disabled_reason": "duplicate of Steamid (by id)"
     },
     {
       "name": "Steamid (by id)",
@@ -26020,7 +26124,9 @@
         "gaming",
         "source:maigret"
       ],
-      "known_present": "76561197982198022"
+      "known_present": "76561197982198022",
+      "disabled": true,
+      "disabled_reason": "duplicate of Steamidfinder"
     },
     {
       "name": "Steemit",
@@ -26301,7 +26407,9 @@
           ]
         }
       ],
-      "known_present": "blue"
+      "known_present": "blue",
+      "disabled": true,
+      "disabled_reason": "duplicate of forum.sublimetext.com"
     },
     {
       "name": "Substack",
@@ -27116,7 +27224,9 @@
         }
       ],
       "known_present": "red",
-      "regex_check": "^[A-Za-z0-9_]{2,32}$"
+      "regex_check": "^[A-Za-z0-9_]{2,32}$",
+      "disabled": true,
+      "disabled_reason": "duplicate of Tenor.com"
     },
     {
       "name": "Tenor.com",
@@ -28362,7 +28472,9 @@
       "tags": [
         "region:ru"
       ],
-      "regex_check": "^[A-Za-z0-9_-]{3,16}$"
+      "regex_check": "^[A-Za-z0-9_-]{3,16}$",
+      "disabled": true,
+      "disabled_reason": "duplicate of Trashbox.ru"
     },
     {
       "name": "Travis",
@@ -29251,7 +29363,9 @@
           ]
         }
       ],
-      "known_present": "blue"
+      "known_present": "blue",
+      "disabled": true,
+      "disabled_reason": "duplicate of uID.me (by username)"
     },
     {
       "name": "uID.me (by uguid)",
@@ -31543,7 +31657,9 @@
       "tags": [
         "source:maigret"
       ],
-      "known_present": "stefano"
+      "known_present": "stefano",
+      "disabled": true,
+      "disabled_reason": "duplicate of WICG Forum"
     },
     {
       "name": "Wigle",
@@ -32078,7 +32194,9 @@
           ]
         }
       ],
-      "known_present": "unico"
+      "known_present": "unico",
+      "disabled": true,
+      "disabled_reason": "duplicate of Wolframalpha Forum"
     },
     {
       "name": "WolniSlowianie",
