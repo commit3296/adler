@@ -7748,7 +7748,9 @@
         "source:maigret"
       ],
       "known_present": "zuck",
-      "popularity": 2
+      "popularity": 2,
+      "disabled": true,
+      "disabled_reason": "Honest Limits: login wall for all but Meta-special-cased accounts; same shape as Threads"
     },
     {
       "name": "FacultyOfMedicine",
@@ -20067,7 +20069,9 @@
         "images",
         "photo"
       ],
-      "popularity": 10
+      "popularity": 10,
+      "disabled": true,
+      "disabled_reason": "Honest Limits: JS-only SPA, profile data never hydrates into headless-browser DOM"
     },
     {
       "name": "pio-bets.ucoz.ru",
@@ -22283,7 +22287,9 @@
         "bot-protected",
         "social"
       ],
-      "popularity": 6
+      "popularity": 6,
+      "disabled": true,
+      "disabled_reason": "Honest Limits: 403s anonymous requests since the 2023 API restriction; only OAuth path forward defeats anonymous OSINT"
     },
     {
       "name": "Redtube",
@@ -25605,7 +25611,9 @@
         "source:maigret"
       ],
       "known_present": "alex",
-      "popularity": 16
+      "popularity": 16,
+      "disabled": true,
+      "disabled_reason": "signal too permissive from datacenter IP: open.spotify.com/user/{id} 200s for arbitrary strings; needs tighter signal authored from a clean IP"
     },
     {
       "name": "SpotifyCommunity",
@@ -25926,7 +25934,9 @@
         "gaming",
         "source:maigret"
       ],
-      "known_present": "76561197960287930"
+      "known_present": "76561197960287930",
+      "disabled": true,
+      "disabled_reason": "signal too permissive: steamcommunity.com profile URLs 200 for arbitrary numeric strings; needs tighter signal authored from a clean IP"
     },
     {
       "name": "Steam (Group)",
@@ -27794,7 +27804,9 @@
         "source:maigret"
       ],
       "known_present": "zuck",
-      "popularity": 20
+      "popularity": 20,
+      "disabled": true,
+      "disabled_reason": "Honest Limits: login wall for all but Meta-special-cased accounts; indistinguishable from missing user"
     },
     {
       "name": "Tiendanube",
@@ -27871,7 +27883,9 @@
       "tags": [
         "social"
       ],
-      "popularity": 7
+      "popularity": 7,
+      "disabled": true,
+      "disabled_reason": "Honest Limits: JS-only SPA, profile data never hydrates into headless-browser DOM"
     },
     {
       "name": "timich.ru",

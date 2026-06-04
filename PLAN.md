@@ -263,9 +263,13 @@ next chunk of work.
     PepperNL, Pepper PL / PepperPL, Peppereals US / PepperealsUS and
     similar pairs probably want de-duping rather than per-entry
     signal work.
-  - **Confirmed structurally-unscrapable** (Facebook, Threads,
-    Spotify, Steam-by-id) belong in *Honest limits* with
-    `disabled: true`, not in the signal-authoring queue.
+  - **Confirmed structurally-unscrapable** (Facebook + Threads,
+    Reddit, TikTok, Pinterest, plus the datacenter-IP-too-permissive
+    pair Spotify / Steam-by-id) all carry `disabled: true` +
+    per-site `disabled_reason` as of this round, so the doctor stops
+    flagging them every night. Re-enabling Spotify and Steam-by-id
+    just needs a tighter body marker authored from a clean IP; the
+    Meta sites stay disabled until something changes upstream.
   - **Custom-page sites with broken body markers** (Voice123,
     Viddler, Treehouse, Wego.social, …) need a hand-authored marker
     pointing at user-specific content; `--doctor --fix` can often
@@ -290,7 +294,10 @@ next chunk of work.
 These were tested during the v0.3.x development; the conclusion is
 that they're structurally unscrapable for our anonymous-OSINT use
 case until something changes upstream. Documented so a future
-contributor doesn't re-tread the same ground:
+contributor doesn't re-tread the same ground. **All entries below
+now carry `disabled: true` + a per-site `disabled_reason` in
+`sites.json`** so the doctor / scan paths skip them outright rather
+than producing too-permissive noise on every run.
 
 - **Reddit** — 403s any unauthenticated request to its JSON or
   canonical user endpoints from datacenter, Browserbase, and most
@@ -301,9 +308,10 @@ contributor doesn't re-tread the same ground:
   hydrates into the DOM for headless browsers (verified with up to
   15 s post-load wait through Browserbase). Probably needs full
   browser fingerprint spoofing plus realistic user interaction.
-- **Threads** — public profile pages exist for a handful of
-  Meta-special-cased accounts (e.g. `@zuck`); every normal username
-  redirects to a login wall. Indistinguishable from a missing user.
+- **Threads**, **Facebook** — public profile pages exist for a
+  handful of Meta-special-cased accounts (e.g. `@zuck`); every
+  normal username redirects to a login wall. Indistinguishable from
+  a missing user.
 
 ### Infra polish
 
