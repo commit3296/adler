@@ -1,8 +1,12 @@
 //! End-to-end tests for the `adler` binary.
 
+use std::io::BufRead;
+use std::io::BufReader;
 use std::io::Write as _;
+use std::process::Stdio;
 
 use assert_cmd::Command;
+use assert_cmd::cargo::CommandCargoExt as _;
 use predicates::str;
 use tempfile::NamedTempFile;
 use wiremock::matchers::{any, path};
@@ -1162,4 +1166,180 @@ async fn watch_records_baseline_then_reports_no_change() {
     let assert = adler().args(common).arg("alice").assert().success();
     let out = String::from_utf8(assert.get_output().stdout.clone()).unwrap();
     assert!(out.contains("no change"), "{out}");
+}
+
+#[test]
+fn mcp_stdio_serves_initialize_tools_resources_prompts() {
+    // Spawn the binary with `--mcp` (stdio transport), drive a full
+    // JSON-RPC handshake plus one of each: tools/list, resources/list,
+    // prompts/list. Exercises the same surface a Claude-Desktop-style
+    // host would see when configuring adler-mcp as a subprocess.
+    let mut child = std::process::Command::cargo_bin("adler")
+        .expect("cargo bin adler")
+        .arg("--mcp")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("spawn adler --mcp");
+
+    let stdin = child.stdin.as_mut().expect("stdin piped");
+    let writes = [
+        r#"{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"integration","version":"0.0"}},"id":1}"#,
+        r#"{"jsonrpc":"2.0","method":"notifications/initialized"}"#,
+        r#"{"jsonrpc":"2.0","method":"tools/list","id":2}"#,
+        r#"{"jsonrpc":"2.0","method":"resources/list","id":3}"#,
+        r#"{"jsonrpc":"2.0","method":"prompts/list","id":4}"#,
+    ];
+    for line in writes {
+        writeln!(stdin, "{line}").expect("write stdin");
+    }
+    // Drop stdin so the server sees EOF and exits cleanly once the
+    // pending requests are drained.
+    drop(child.stdin.take());
+
+    let stdout = child.stdout.take().expect("stdout piped");
+    let reader = BufReader::new(stdout);
+    let mut responses_by_id: std::collections::HashMap<u64, serde_json::Value> =
+        std::collections::HashMap::new();
+    for line in reader.lines() {
+        let Ok(raw) = line else { break };
+        let trimmed = raw.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        let Ok(value): Result<serde_json::Value, _> = serde_json::from_str(trimmed) else {
+            continue;
+        };
+        if let Some(id) = value.get("id").and_then(serde_json::Value::as_u64) {
+            responses_by_id.insert(id, value);
+        }
+        if responses_by_id.contains_key(&1)
+            && responses_by_id.contains_key(&2)
+            && responses_by_id.contains_key(&3)
+            && responses_by_id.contains_key(&4)
+        {
+            break;
+        }
+    }
+
+    let _ = child.wait();
+
+    // 1 — initialize
+    let init = &responses_by_id[&1];
+    assert_eq!(init["result"]["serverInfo"]["name"], "adler-mcp");
+    assert!(init["result"]["capabilities"]["tools"].is_object());
+    assert!(init["result"]["capabilities"]["resources"].is_object());
+    assert!(init["result"]["capabilities"]["prompts"].is_object());
+
+    // 2 — tools/list: all 5 names
+    let tools = responses_by_id[&2]["result"]["tools"].as_array().unwrap();
+    let tool_names: std::collections::HashSet<&str> =
+        tools.iter().filter_map(|t| t["name"].as_str()).collect();
+    for expected in [
+        "list_sites",
+        "scan_username",
+        "scan_batch",
+        "doctor_check",
+        "get_scan_history",
+    ] {
+        assert!(
+            tool_names.contains(expected),
+            "missing tool {expected}: have {tool_names:?}",
+        );
+    }
+
+    // 3 — resources/list: the 4 static resources
+    let resources = responses_by_id[&3]["result"]["resources"]
+        .as_array()
+        .unwrap();
+    let resource_names: std::collections::HashSet<&str> = resources
+        .iter()
+        .filter_map(|r| r["name"].as_str())
+        .collect();
+    for expected in [
+        "registry_sites",
+        "registry_tags",
+        "registry_disabled",
+        "scans_recent",
+    ] {
+        assert!(
+            resource_names.contains(expected),
+            "missing resource {expected}: have {resource_names:?}",
+        );
+    }
+
+    // 4 — prompts/list: 3 names
+    let prompts = responses_by_id[&4]["result"]["prompts"].as_array().unwrap();
+    let prompt_names: std::collections::HashSet<&str> =
+        prompts.iter().filter_map(|p| p["name"].as_str()).collect();
+    for expected in [
+        "investigate_username",
+        "audit_registry_health",
+        "correlate_accounts",
+    ] {
+        assert!(
+            prompt_names.contains(expected),
+            "missing prompt {expected}: have {prompt_names:?}",
+        );
+    }
+}
+
+#[test]
+fn mcp_stdio_tool_call_returns_structured_content() {
+    // End-to-end tool call: list_sites with a tag filter. Exercises the
+    // tools/call dispatch path — initialize → tools/call → parse the
+    // structuredContent envelope.
+    let mut child = std::process::Command::cargo_bin("adler")
+        .expect("cargo bin adler")
+        .arg("--mcp")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("spawn adler --mcp");
+
+    let stdin = child.stdin.as_mut().expect("stdin piped");
+    for line in [
+        r#"{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"integration","version":"0.0"}},"id":1}"#,
+        r#"{"jsonrpc":"2.0","method":"notifications/initialized"}"#,
+        r#"{"jsonrpc":"2.0","method":"tools/call","params":{"name":"list_sites","arguments":{"tag":["coding"]}},"id":2}"#,
+    ] {
+        writeln!(stdin, "{line}").expect("write stdin");
+    }
+    drop(child.stdin.take());
+
+    let stdout = child.stdout.take().expect("stdout piped");
+    let reader = BufReader::new(stdout);
+    let mut call_response: Option<serde_json::Value> = None;
+    for line in reader.lines() {
+        let Ok(raw) = line else { break };
+        let trimmed = raw.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        let Ok(value): Result<serde_json::Value, _> = serde_json::from_str(trimmed) else {
+            continue;
+        };
+        if value.get("id").and_then(serde_json::Value::as_u64) == Some(2) {
+            call_response = Some(value);
+            break;
+        }
+    }
+    let _ = child.wait();
+
+    let response = call_response.expect("expected response for id=2");
+    let structured = &response["result"]["structuredContent"];
+    let total = structured["total"].as_u64().expect("total field");
+    assert!(
+        total >= 5,
+        "expected several coding-tagged sites, got {total}"
+    );
+    let sites = structured["sites"].as_array().unwrap();
+    let names: std::collections::HashSet<&str> =
+        sites.iter().filter_map(|s| s["name"].as_str()).collect();
+    assert!(
+        names.contains("GitHub") || names.contains("GitLab"),
+        "expected GitHub or GitLab in coding-tagged list_sites response: {names:?}",
+    );
 }
