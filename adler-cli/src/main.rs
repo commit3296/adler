@@ -90,7 +90,7 @@ struct Cli {
     /// Username to search for. With `--add-site`, this is an account that
     /// EXISTS on the site (used to derive the signature). Not required with
     /// `--doctor`, `--cache-clear`, `--list-sites`, or `--completions`.
-    #[arg(required_unless_present_any = ["doctor", "cache_clear", "list_sites", "list_tags", "completions", "man_page", "add_site", "input", "web", "mcp"])]
+    #[arg(required_unless_present_any = ["doctor", "cache_clear", "list_sites", "list_tags", "completions", "man_page", "add_site", "input", "web", "mcp", "mcp_http"])]
     username: Option<String>,
 
     /// List registry site names (honoring `--only`/`--exclude`/`--tag`) and
@@ -493,6 +493,25 @@ struct Cli {
     ], help_heading = "MCP")]
     mcp: bool,
 
+    /// Start an MCP server over HTTP+SSE on this address (e.g.
+    /// `127.0.0.1:8766`). Implies `--mcp` but switches the transport
+    /// from stdio to the Streamable HTTP variant. The endpoint is
+    /// mounted at `/mcp`, so an agent connects to
+    /// `http://<addr>/mcp`. Default loopback-only hostname filter
+    /// guards against DNS-rebind attacks; binding a non-loopback
+    /// address exposes the API without authentication — only do it
+    /// on a trusted network.
+    #[arg(
+        long,
+        value_name = "ADDR",
+        conflicts_with_all = [
+            "watch", "input", "doctor", "list_sites", "list_tags",
+            "completions", "add_site", "cache_clear", "correlate", "web",
+        ],
+        help_heading = "MCP",
+    )]
+    mcp_http: Option<SocketAddr>,
+
     /// Print a shell completion script to stdout and exit.
     #[arg(long, value_enum, value_name = "SHELL", help_heading = "Misc")]
     completions: Option<Shell>,
@@ -751,8 +770,8 @@ async fn run(cli: Cli) -> Result<ExitCode> {
         return run_web(&cli, sites, client).await;
     }
 
-    if cli.mcp {
-        return run_mcp().await;
+    if cli.mcp || cli.mcp_http.is_some() {
+        return run_mcp(cli.mcp_http).await;
     }
 
     if cli.doctor {
@@ -775,24 +794,37 @@ async fn run(cli: Cli) -> Result<ExitCode> {
     run_scan(&cli, &client, &sites).await
 }
 
-/// `--mcp`: start the MCP server over stdio and block until the
-/// client closes the connection.
+/// `--mcp` / `--mcp-http`: start the MCP server. When `http_bind` is
+/// `Some`, listens for HTTP+SSE on that address (mounted at `/mcp`);
+/// otherwise drives the stdio transport.
 ///
 /// The server uses the default embedded registry; the CLI's
 /// `--sites` / `--only` / etc. don't propagate yet because tools
 /// declare their own filter parameters via MCP arguments. Stdout is
-/// reserved for the JSON-RPC stream — boot banners, tracing, and
-/// errors all go to stderr so the protocol stays clean.
-async fn run_mcp() -> Result<ExitCode> {
+/// reserved for the JSON-RPC stream in stdio mode — boot banners,
+/// tracing, and errors all go to stderr so the protocol stays clean.
+async fn run_mcp(http_bind: Option<SocketAddr>) -> Result<ExitCode> {
     let server = adler_mcp::AdlerMcp::new().context("building adler-mcp server")?;
-    eprintln!(
-        "adler-mcp v{} — stdio transport, registry: {} sites",
-        env!("CARGO_PKG_VERSION"),
-        server.registry().len(),
-    );
-    adler_mcp::run_stdio(server)
-        .await
-        .context("running mcp stdio server")?;
+    if let Some(addr) = http_bind {
+        eprintln!(
+            "adler-mcp v{} — http+sse transport, endpoint http://{addr}{}, registry: {} sites",
+            env!("CARGO_PKG_VERSION"),
+            adler_mcp::HTTP_ENDPOINT,
+            server.registry().len(),
+        );
+        adler_mcp::run_http(server, addr)
+            .await
+            .context("running mcp http server")?;
+    } else {
+        eprintln!(
+            "adler-mcp v{} — stdio transport, registry: {} sites",
+            env!("CARGO_PKG_VERSION"),
+            server.registry().len(),
+        );
+        adler_mcp::run_stdio(server)
+            .await
+            .context("running mcp stdio server")?;
+    }
     Ok(ExitCode::SUCCESS)
 }
 

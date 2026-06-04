@@ -24,6 +24,8 @@ mod server;
 mod transport;
 
 pub use server::AdlerMcp;
+pub use transport::HTTP_ENDPOINT;
+pub use transport::run_http;
 pub use transport::run_stdio;
 
 /// Crate-level result alias.

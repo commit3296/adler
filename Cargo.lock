@@ -60,7 +60,9 @@ name = "adler-mcp"
 version = "0.11.7"
 dependencies = [
  "adler-core",
+ "axum",
  "futures",
+ "reqwest",
  "rmcp",
  "schemars",
  "serde",

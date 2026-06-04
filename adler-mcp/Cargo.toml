@@ -17,13 +17,18 @@ rmcp = { workspace = true }
 schemars.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-tokio.workspace = true
+tokio = { workspace = true, features = ["net"] }
 thiserror.workspace = true
 tracing.workspace = true
 futures.workspace = true
+# HTTP+SSE transport (StreamableHttpService is a tower::Service; we
+# mount it under axum and let axum::serve drive the listener loop).
+axum.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
+reqwest = { workspace = true }
+tokio = { workspace = true, features = ["test-util", "macros"] }
 
 [lints]
 workspace = true
