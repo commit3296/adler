@@ -152,6 +152,48 @@ def load_state(path: Path) -> dict:
     return data
 
 
+def load_disabled_names(sites_json_path: Path) -> set[str]:
+    """Return the set of site names marked `disabled: true` in the live
+    registry. Used by [`prune_disabled_from_state`] to drop frozen
+    state entries for sites the doctor no longer probes.
+    """
+    try:
+        root = json.loads(sites_json_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return set()
+    arr = root.get("sites")
+    if not isinstance(arr, list):
+        return set()
+    return {
+        s["name"]
+        for s in arr
+        if isinstance(s, dict)
+        and s.get("disabled")
+        and isinstance(s.get("name"), str)
+    }
+
+
+def prune_disabled_from_state(state: dict, disabled_names: set[str]) -> list[str]:
+    """Remove state entries for sites that are now `disabled: true` in
+    the live registry. Returns the sorted list of pruned names.
+
+    The aggregator tracks per-site consecutive-failure counters. A site
+    that's been disabled — manually, via a prior aggregator PR, or via
+    the dedup pass — never appears in future doctor reports, so its
+    counter would otherwise sit frozen forever. Pruning on load keeps
+    state eventually consistent with the live registry's enabled set;
+    if the entry ever gets re-enabled, the counter starts fresh from 0,
+    which is the right behaviour (clean slate on re-introduction).
+    """
+    sites_map = state.get("sites")
+    if not isinstance(sites_map, dict):
+        return []
+    pruned = sorted(name for name in list(sites_map.keys()) if name in disabled_names)
+    for name in pruned:
+        del sites_map[name]
+    return pruned
+
+
 def apply_sites_patch(
     sites_json_path: Path,
     flagged: list[str],
@@ -247,6 +289,14 @@ def main() -> int:
     state = load_state(args.state)
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
+    # Drop state for any site that's already disabled in the live
+    # registry. The doctor skips disabled entries, so their counters
+    # never advance — leaving them in state just accumulates dead
+    # rows forever. Pruning on load keeps the file proportional to
+    # the active probe set.
+    disabled_now = load_disabled_names(args.sites_json)
+    pruned = prune_disabled_from_state(state, disabled_now)
+
     # Reset counters for sites that ran today and didn't structurally
     # fail. Sites that didn't run today (e.g. doctor didn't reach
     # them) keep their previous counter — we shouldn't reward
@@ -290,17 +340,21 @@ def main() -> int:
         )
 
     args.pr_body.parent.mkdir(parents=True, exist_ok=True)
-    args.pr_body.write_text(render_pr_body(candidates, recovered, state, args.threshold))
+    args.pr_body.write_text(
+        render_pr_body(candidates, recovered, pruned, state, args.threshold)
+    )
 
     if args.gh_output is not None:
         with args.gh_output.open("a", encoding="utf-8") as f:
             f.write(f"candidates={len(candidates)}\n")
             f.write(f"patched={patched}\n")
+            f.write(f"pruned={len(pruned)}\n")
 
     print(
         f"structural today: {len(structural_today)}; "
         f"candidates over threshold: {len(candidates)}; "
-        f"patched: {patched}; recovered (counter reset): {len(recovered)}"
+        f"patched: {patched}; recovered (counter reset): {len(recovered)}; "
+        f"pruned (already disabled): {len(pruned)}"
     )
     return 0
 
@@ -308,6 +362,7 @@ def main() -> int:
 def render_pr_body(
     candidates: list[str],
     recovered: list[str],
+    pruned: list[str],
     state: dict,
     threshold: int,
 ) -> str:
@@ -349,6 +404,20 @@ def render_pr_body(
         )
         lines.append("")
         for name in sorted(recovered):
+            lines.append(f"- `{name}`")
+        lines.append("")
+    if pruned:
+        lines.append("## Pruned from state (now `disabled: true`)")
+        lines.append("")
+        lines.append(
+            "These sites were already disabled in `sites.json` (manual "
+            "tagging, prior auto-PR, or duplicate-of dedup) and had stale "
+            "consecutive-failure counters that would never advance again. "
+            "Their state-tracking rows were dropped on this run; if any "
+            "ever gets re-enabled, its counter starts fresh from 0."
+        )
+        lines.append("")
+        for name in pruned:
             lines.append(f"- `{name}`")
         lines.append("")
     lines.append("---")
