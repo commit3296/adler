@@ -22439,7 +22439,9 @@
       "tags": [
         "blog",
         "source:wmn"
-      ]
+      ],
+      "disabled": true,
+      "disabled_reason": "duplicate of WordPress.org (Forums)"
     },
     {
       "name": "Wowhead",
