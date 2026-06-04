@@ -41,8 +41,9 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-# A "[FAIL] <site>" header line in the doctor output, followed by one
-# or more "       · <issue>" continuation lines (4 leading spaces + ·).
+# Legacy human-readable format — `[FAIL] <site>` header followed by
+# `       · <issue>` continuation lines (4 leading spaces + ·).
+# Kept as a fallback so old artifacts still parse.
 RE_FAIL = re.compile(r"^\[FAIL\]\s+(.+?)\s*$")
 RE_ISSUE = re.compile(r"^\s+·\s+(.+?)\s*$")
 RE_OK = re.compile(r"^\[OK\]\s+")
@@ -53,10 +54,50 @@ RE_OK = re.compile(r"^\[OK\]\s+")
 STRUCTURAL_HINTS = ("reported NotFound", "too permissive")
 
 
+def looks_like_ndjson(report_path: Path) -> bool:
+    """Sniff the report format. NDJSON: every non-empty line is a JSON
+    object. Text: `[OK]` / `[FAIL]` prefixes. We need only the first
+    non-blank line to distinguish."""
+    for raw in report_path.read_text(encoding="utf-8", errors="replace").splitlines():
+        stripped = raw.strip()
+        if not stripped:
+            continue
+        return stripped.startswith("{")
+    return False
+
+
+def _parse_ndjson_records(report_path: Path) -> list[dict]:
+    out: list[dict] = []
+    for raw in report_path.read_text(encoding="utf-8", errors="replace").splitlines():
+        stripped = raw.strip()
+        if not stripped:
+            continue
+        try:
+            obj = json.loads(stripped)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(obj, dict):
+            out.append(obj)
+    return out
+
+
 def parse_structural_failures(report_path: Path) -> set[str]:
     """Return the set of site names that hit at least one structural
-    failure in `report_path`."""
-    failures: set[str] = set()
+    failure in `report_path`. Reads NDJSON if the file looks structured,
+    falls back to the legacy text format otherwise."""
+    if looks_like_ndjson(report_path):
+        failures: set[str] = set()
+        for rec in _parse_ndjson_records(report_path):
+            if rec.get("verdict") != "unhealthy":
+                continue
+            issues = rec.get("issues") or []
+            if any(any(h in issue for h in STRUCTURAL_HINTS) for issue in issues):
+                name = rec.get("name")
+                if isinstance(name, str):
+                    failures.add(name)
+        return failures
+    # Legacy text fallback.
+    failures = set()
     current_site: str | None = None
     for raw in report_path.read_text(encoding="utf-8", errors="replace").splitlines():
         if (m := RE_FAIL.match(raw)) is not None:
@@ -71,8 +112,6 @@ def parse_structural_failures(report_path: Path) -> set[str]:
             issue = m.group(1)
             if any(h in issue for h in STRUCTURAL_HINTS):
                 failures.add(current_site)
-                # one issue is enough — keep iterating in case more
-                # `[FAIL]` blocks follow, but no need to re-add.
     return failures
 
 
@@ -83,13 +122,20 @@ def parse_all_sites(report_path: Path) -> set[str]:
     appeared in the report and didn't fail had a clean run and its
     consecutive counter should drop back to zero.
     """
-    seen: set[str] = set()
+    if looks_like_ndjson(report_path):
+        seen: set[str] = set()
+        for rec in _parse_ndjson_records(report_path):
+            name = rec.get("name")
+            if isinstance(name, str):
+                seen.add(name)
+        return seen
+    # Legacy text fallback.
+    seen = set()
     for raw in report_path.read_text(encoding="utf-8", errors="replace").splitlines():
         if (m := RE_FAIL.match(raw)) is not None:
             seen.add(m.group(1))
             continue
         if (m := RE_OK.match(raw)) is not None:
-            # `[OK]   <site name>` — strip prefix.
             seen.add(raw[len("[OK]") :].strip())
     return seen
 
