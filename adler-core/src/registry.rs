@@ -4,7 +4,7 @@
 //! [`include_str!`]. Callers can override it with a file at runtime through
 //! [`Registry::load_from_path`].
 
-use std::collections::{BTreeMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::Path;
 
 use serde::Deserialize;
@@ -60,14 +60,34 @@ impl Registry {
     pub fn default_embedded_with_wmn() -> Result<Self> {
         let mut base = Self::default_embedded()?;
         let wmn: Self = serde_json::from_str(EMBEDDED_WMN_REGISTRY)?;
-        let existing: HashSet<String> = base.sites.iter().map(|s| s.name.to_lowercase()).collect();
+        let existing_names: HashSet<String> =
+            base.sites.iter().map(|s| s.name.to_lowercase()).collect();
+        // URL-claim only counts enabled base entries — the dedup pattern
+        // keeps disabled siblings at the canonical's URL, and a WMN
+        // entry colliding with one of *those* is no worse than colliding
+        // with the canonical.
+        let claimed_urls: HashSet<String> = base
+            .sites
+            .iter()
+            .filter(|s| !s.disabled)
+            .map(|s| s.url.as_str().to_owned())
+            .collect();
         for (name, engine) in wmn.engines {
             base.engines.entry(name).or_insert(engine);
         }
         for site in wmn.sites {
-            if !existing.contains(&site.name.to_lowercase()) {
-                base.sites.push(site);
+            if existing_names.contains(&site.name.to_lowercase()) {
+                continue;
             }
+            if !site.disabled && claimed_urls.contains(site.url.as_str()) {
+                // Base already has an enabled site at this URL; WMN's
+                // version would just produce a doubled probe, and
+                // validate() would refuse the merged registry. Drop the
+                // WMN entry; base canonical wins (same precedence rule
+                // we apply for name collisions).
+                continue;
+            }
+            base.sites.push(site);
         }
         base.resolve_engines()?;
         base.validate()?;
@@ -278,6 +298,44 @@ impl Registry {
                 });
             }
         }
+        // (URL, signals) uniqueness among ENABLED sites: each
+        // (URL template, signal-set) pair should back exactly one live
+        // entry. Disabled entries can legitimately share URLs with
+        // their canonicals — that's how the `duplicate of <canonical>`
+        // dedup pattern works. A second enabled hit at the same URL
+        // *and* the same signal array is almost always an importer
+        // re-introducing a known duplicate
+        // (Sherlock/Maigret/WhatsMyName each name the same site
+        // slightly differently); the doctor would otherwise
+        // double-probe the URL for an identical verdict.
+        //
+        // Same URL with *distinct* signals is the legitimate-alias
+        // shape — WordPress.com (Public/Private/Deleted) hit the same
+        // API endpoint and disambiguate via their `body_present`
+        // marker, which the doctor reads as three independent verdicts.
+        let mut seen_url_sig: HashMap<(String, String), &str> = HashMap::new();
+        for site in &self.sites {
+            if site.disabled {
+                continue;
+            }
+            // `Debug` on `Signal` is deterministic and avoids pulling
+            // serde_json into the validation hot path.
+            let key = (site.url.as_str().to_owned(), format!("{:?}", site.signals));
+            if let Some(prev) = seen_url_sig.insert(key, site.name.as_str()) {
+                return Err(Error::InvalidSite {
+                    reason: format!(
+                        "duplicate (URL, signals) among enabled sites: {:?} and {:?} both back \
+                         {:?} with identical signals. Mark one `disabled: true` with \
+                         `disabled_reason: \"duplicate of {prev}\"` (or, if the two entries are \
+                         supposed to disambiguate via different markers, give each a distinct \
+                         signal set).",
+                        prev,
+                        site.name,
+                        site.url.as_str(),
+                    ),
+                });
+            }
+        }
         Ok(())
     }
 }
@@ -358,6 +416,65 @@ mod tests {
         let err = Registry::from_json_str(json).unwrap_err();
         assert!(matches!(err, Error::InvalidSite { .. }));
         assert!(err.to_string().contains("duplicate"));
+    }
+
+    #[test]
+    fn rejects_duplicate_enabled_urls() {
+        // Two enabled sites at the same URL is almost always an importer
+        // re-introducing a known duplicate. Reject at load time with a
+        // message naming both entries.
+        let json = r#"{
+            "sites": [
+                { "name": "Hub Code", "url": "https://example.com/{username}",
+                  "signals": [{ "kind": "status_found", "codes": [200] }] },
+                { "name": "HubCode", "url": "https://example.com/{username}",
+                  "signals": [{ "kind": "status_found", "codes": [200] }] }
+            ]
+        }"#;
+        let err = Registry::from_json_str(json).unwrap_err();
+        assert!(matches!(err, Error::InvalidSite { .. }));
+        let msg = err.to_string();
+        assert!(msg.contains("duplicate (URL, signals)"), "msg: {msg}");
+        assert!(msg.contains("Hub Code"), "msg: {msg}");
+        assert!(msg.contains("HubCode"), "msg: {msg}");
+    }
+
+    #[test]
+    fn allows_duplicate_urls_with_distinct_signals() {
+        // Same URL, distinct signal sets — this is the legitimate-alias
+        // shape (e.g. WordPress.com (Public/Private/Deleted) hit one
+        // endpoint and disambiguate via the body marker). Must NOT
+        // trigger the URL-uniqueness rule.
+        let json = r#"{
+            "sites": [
+                { "name": "Site Public", "url": "https://example.com/{username}",
+                  "signals": [{ "kind": "status_found", "codes": [200] }] },
+                { "name": "Site Private", "url": "https://example.com/{username}",
+                  "signals": [{ "kind": "status_found", "codes": [403] }] }
+            ]
+        }"#;
+        let registry = Registry::from_json_str(json).expect("distinct-signal alias must validate");
+        assert_eq!(registry.len(), 2);
+    }
+
+    #[test]
+    fn allows_duplicate_urls_when_one_side_is_disabled() {
+        // The dedup pattern that the v0.14 hygiene pass established:
+        // canonical stays enabled, the surplus entry gets
+        // `disabled: true` + `disabled_reason: "duplicate of <canonical>"`.
+        // This shape must continue loading cleanly.
+        let json = r#"{
+            "sites": [
+                { "name": "Hub Code", "url": "https://example.com/{username}",
+                  "signals": [{ "kind": "status_found", "codes": [200] }] },
+                { "name": "HubCode", "url": "https://example.com/{username}",
+                  "signals": [{ "kind": "status_found", "codes": [200] }],
+                  "disabled": true,
+                  "disabled_reason": "duplicate of Hub Code" }
+            ]
+        }"#;
+        let registry = Registry::from_json_str(json).expect("dedup pattern must validate");
+        assert_eq!(registry.len(), 2);
     }
 
     #[test]
