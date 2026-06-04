@@ -57,10 +57,17 @@ docs(contributing): document commit-message conventions
 Growing the registry is the highest-leverage contribution. The flow is meant
 to be short: describe the site, let `--doctor` verify it, open a PR.
 
-The registry (`adler-core/data/sites.json`) is **generated** from Sherlock by
-`scripts/import_sherlock.py`. Hand-edits to the JSON are overwritten on
-re-import, so durable changes go in the importer's `OVERRIDES` /
-`KNOWN_BROKEN` maps (and you regenerate the JSON).
+The registry (`adler-core/data/sites.json`) was originally **generated**
+from Sherlock by `scripts/import_sherlock.py`, with two later tranches
+merged in via `scripts/import_maigret.py` and (under CC BY-SA, behind
+an opt-in load path) `scripts/import_whatsmyname.py`. The importers
+aren't run on a schedule today — the file is hand-curated between
+imports, and the doctor's `--apply` flow (see *Maintaining existing
+sites* below) is the daily-driver for live edits. If you *do* re-run an
+importer, hand-edits to entries the importer also touches would be
+overwritten unless they're captured in the importer's `OVERRIDES` /
+`KNOWN_BROKEN` maps — so durable surgery (a deliberate disable, a
+hand-authored signature) should land there too.
 
 ### Anatomy of a site
 
@@ -153,6 +160,106 @@ workflow then runs automatically:
   review, it doesn't fail the build.
 
 No live network? Say so in the PR and a maintainer will run the doctor.
+
+## Maintaining existing sites
+
+Once a site is in the registry, the doctor's three `--apply` flows are
+the daily-driver for keeping it healthy. Each pairs a `--suggest-*` or
+`--fix` discovery step with an atomic JSON rewrite, so the registry
+file ends up byte-stable everywhere except the patched fields.
+
+| Symptom (from `--doctor`) | Fix flow |
+| --- | --- |
+| `known_present "blue" reported NotFound` (placeholder never resolved) | `adler --doctor --suggest-known-present --apply --sites adler-core/data/sites.json --yes` |
+| `--enrich <user>` returns empty profile | `adler --doctor --suggest-extract --apply --sites adler-core/data/sites.json --yes` |
+| `signal too permissive` *and* the page has distinguishable present/absent shapes | `adler --doctor --fix --apply --sites adler-core/data/sites.json --only "<Site>" --yes` |
+
+`--apply` rewrites through a sibling `*.tmp` so a crash mid-write
+leaves the original intact. Each flow prints a per-site `- old + new`
+diff and prompts once; `--yes` skips the prompt for CI batch repair.
+`--apply` requires `--sites <writable>` because the embedded registry
+isn't patchable in place. A bare `--apply` without any of `--fix` /
+`--suggest-known-present` / `--suggest-extract` errors out — `--apply`
+is the verb, the suggestion flag is the noun.
+
+The discovery side has one important guard: `--suggest-known-present`
+first probes a random nonsense user and aborts with `None` if *that*
+already returns `Found`. So a site whose signal is structurally too
+permissive (returns `Found` for arbitrary strings — a brand-name
+catch-all, a sign-up funnel, …) won't yield a false-positive
+"discovery". When `--apply` skips a site for this reason it says so.
+
+### Disabling instead of deleting
+
+Some entries can't be fixed from any IP (login-walled, JS-SPA-only,
+OAuth-only API). Park them rather than delete — disabled entries stay
+discoverable for re-enablement if upstream ever changes, and the
+`disabled_reason` tells the next maintainer at-a-glance which bucket
+they're in:
+
+```json
+{
+  "name": "Reddit",
+  "url": "https://www.reddit.com/user/{username}",
+  "signals": [{ "kind": "status_found", "codes": [200] }],
+  "disabled": true,
+  "disabled_reason": "Honest Limits: 403s anonymous requests since the 2023 API restriction"
+}
+```
+
+The Rust loader keys all gating decisions off `disabled: bool` — the
+reason is annotation for humans and `scripts/doctor_aggregate.py`.
+The conventions in use:
+
+- `duplicate of <canonical>` — surplus entry from importer overlap
+  (Sherlock/Maigret/WhatsMyName each named the same site differently).
+  Pick the canonical by metadata-completeness, disable the rest.
+- `Honest Limits: <one-line reason>` — structurally unscrapable for
+  anonymous OSINT. See the *Honest limits* section in `PLAN.md` for
+  the canonical list.
+- `doctor: 3+ consecutive structural failures` — written by the
+  nightly aggregator's auto-PR (`scripts/doctor_aggregate.py`) when a
+  site has failed `--doctor` for *N* nights running.
+
+Anything else gets a free-form one-liner; the field is unconstrained
+in the schema.
+
+### URL + signals uniqueness
+
+`Registry::validate` rejects any registry where two enabled entries
+share both a URL template *and* a signal set. The check fires at load
+time, so the `validate-sites` workflow blocks the PR before CI even
+gets to the doctor step:
+
+```
+duplicate (URL, signals) among enabled sites: "Hub Code" and "HubCode"
+both back "https://example.com/{username}" with identical signals.
+Mark one `disabled: true` with `disabled_reason: "duplicate of Hub Code"`
+(or, if the two entries are supposed to disambiguate via different
+markers, give each a distinct signal set).
+```
+
+Two shapes are legitimate and the rule lets them through:
+
+- **Disabled sibling at the same URL** — the dedup pattern. The
+  canonical is enabled; the surplus carries `disabled: true` +
+  `disabled_reason: "duplicate of <canonical>"`. The rule only counts
+  enabled entries.
+- **Same URL, distinct signals** — intentional aliases. WordPress.com
+  (Public/Private/Deleted) all hit one API endpoint and disambiguate
+  via different `body_present` markers; the doctor reads three
+  independent verdicts on one URL.
+
+If an importer run ever re-introduces a known duplicate, the
+registry won't load and the PR fails fast. Two ways to handle the
+re-introduction durably:
+
+- Add the matching entry to `scripts/import_sherlock.py`'s
+  `OVERRIDES` map (or the equivalent in `import_maigret.py` /
+  `import_whatsmyname.py`) with `{"disabled": True,
+  "disabled_reason": "duplicate of <canonical>"}` so the next
+  importer run lands the same disabled state.
+- Or add the name to `KNOWN_BROKEN` so the importer skips it entirely.
 
 ## Versioning & releases
 
