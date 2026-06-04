@@ -19,13 +19,20 @@ use rmcp::handler::server::router::tool::ToolRouter;
 use rmcp::handler::server::wrapper::Json;
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::model::Annotated;
+use rmcp::model::GetPromptRequestParams;
+use rmcp::model::GetPromptResult;
 use rmcp::model::Implementation;
 use rmcp::model::InitializeResult;
+use rmcp::model::ListPromptsResult;
 use rmcp::model::ListResourceTemplatesResult;
 use rmcp::model::ListResourcesResult;
 use rmcp::model::Meta;
 use rmcp::model::PaginatedRequestParams;
 use rmcp::model::ProgressNotificationParam;
+use rmcp::model::Prompt;
+use rmcp::model::PromptArgument;
+use rmcp::model::PromptMessage;
+use rmcp::model::PromptMessageRole;
 use rmcp::model::RawResource;
 use rmcp::model::RawResourceTemplate;
 use rmcp::model::ReadResourceRequestParams;
@@ -752,11 +759,58 @@ impl ServerHandler for AdlerMcp {
         let capabilities = ServerCapabilities::builder()
             .enable_tools()
             .enable_resources()
+            .enable_prompts()
             .build();
         let mut result = InitializeResult::new(capabilities);
         result.server_info = server_info;
         result.instructions = Some(ADLER_MCP_INSTRUCTIONS.to_owned());
         result
+    }
+
+    async fn list_prompts(
+        &self,
+        _req: Option<PaginatedRequestParams>,
+        _ctx: RequestContext<RoleServer>,
+    ) -> Result<ListPromptsResult, rmcp::ErrorData> {
+        let prompts: Vec<Prompt> = PROMPT_SPECS
+            .iter()
+            .map(|spec| {
+                let args: Vec<PromptArgument> = spec
+                    .arguments
+                    .iter()
+                    .map(|a| {
+                        PromptArgument::new(a.name)
+                            .with_description(a.description.to_owned())
+                            .with_required(a.required)
+                    })
+                    .collect();
+                let arguments = if args.is_empty() { None } else { Some(args) };
+                Prompt::new(spec.name, Some(spec.description), arguments)
+            })
+            .collect();
+        Ok(ListPromptsResult {
+            prompts,
+            ..Default::default()
+        })
+    }
+
+    async fn get_prompt(
+        &self,
+        req: GetPromptRequestParams,
+        _ctx: RequestContext<RoleServer>,
+    ) -> Result<GetPromptResult, rmcp::ErrorData> {
+        let spec = PROMPT_SPECS
+            .iter()
+            .find(|s| s.name == req.name)
+            .ok_or_else(|| {
+                rmcp::ErrorData::invalid_params(format!("unknown prompt {:?}", req.name), None)
+            })?;
+        let args = req.arguments.unwrap_or_default();
+        let text = render_prompt(spec, &args)?;
+        let mut result =
+            GetPromptResult::new(vec![PromptMessage::new_text(PromptMessageRole::User, text)]);
+        result.description = Some(spec.description.to_owned());
+        Ok(result)
     }
 
     async fn list_resources(
@@ -871,6 +925,172 @@ enum ResourceError {
     Unknown,
     Io(std::io::Error),
     Json(serde_json::Error),
+}
+
+/// Argument spec for one prompt template.
+struct PromptArgSpec {
+    name: &'static str,
+    description: &'static str,
+    required: bool,
+}
+
+/// Static spec for one prompt template, including the body text with
+/// `{placeholder}` substitution points.
+struct PromptSpec {
+    name: &'static str,
+    description: &'static str,
+    arguments: &'static [PromptArgSpec],
+    /// Body text with `{arg}` placeholders. Substitution is literal —
+    /// arguments come from MCP and are quoted into the body verbatim,
+    /// so a malicious-looking arg can't open new placeholders.
+    body: &'static str,
+}
+
+const PROMPT_SPECS: &[PromptSpec] = &[
+    PromptSpec {
+        name: "investigate_username",
+        description: "Walk the agent through a full OSINT investigation of a single username — pick a \
+             scope from the registry, scan, and report Found accounts.",
+        arguments: &[
+            PromptArgSpec {
+                name: "username",
+                description: "The username to investigate.",
+                required: true,
+            },
+            PromptArgSpec {
+                name: "regions",
+                description: "Comma-separated ISO-3166 country codes to prefer (e.g. \"ru,ua\"). \
+                              Empty means all regions.",
+                required: false,
+            },
+            PromptArgSpec {
+                name: "categories",
+                description: "Comma-separated registry tags to scope the scan (e.g. \"social,\
+                              coding\"). Empty means every category — uses `adler://registry/\
+                              tags` to pick.",
+                required: false,
+            },
+        ],
+        body: "\
+Please investigate the username `{username}` across Adler's site registry.
+
+Workflow:
+
+1. Read `adler://registry/tags` to see what categories are available, and \
+`adler://registry/sites` if you want the full enabled set.
+2. Pick a scoped subset: regions = `{regions}`, categories = `{categories}`. \
+If both are empty, default to the `social` + `coding` tags. If only regions are \
+set, filter via the `region:<cc>` tags Adler attaches to each entry.
+3. Call the `scan_username` tool with `username=\"{username}\"` and your filter. \
+Subscribe to `notifications/progress` if you want to see per-site results stream.
+4. Group the response by verdict (Found / NotFound / Uncertain). For each \
+Found account, report the canonical URL.
+5. If any sites came back Uncertain, note them but do not infer existence \
+either way — that's the doctor's responsibility.
+
+Be honest about scope: Adler is for authorised security testing and OSINT \
+research. Do not generate or suggest harassment, doxxing, or unauthorised \
+surveillance of individuals.\
+",
+    },
+    PromptSpec {
+        name: "audit_registry_health",
+        description: "Walk the doctor + dedup + disabled-state surface and report what needs \
+             maintainer attention (broken signals, stale known_present, importer \
+             duplicates).",
+        arguments: &[PromptArgSpec {
+            name: "focus",
+            description: "Optional sub-area: \"known_present\" / \"disabled\" / \"signals\". \
+                          Empty means walk all three.",
+            required: false,
+        }],
+        body: "\
+Please audit the health of Adler's site registry. Focus area: `{focus}` (empty \
+means walk everything).
+
+Workflow:
+
+1. Read `adler://registry/disabled` for the disabled-entry surface. Tally by \
+`disabled_reason` prefix (`duplicate of …`, `Honest Limits: …`, \
+`doctor: 3+ …`). Flag any entries whose reason looks stale (e.g. a `Honest \
+Limits: …` site whose upstream restriction has plausibly lifted).
+2. Read `adler://registry/tags` to spot tags with abnormally low or \
+abnormally high counts — both are signs of importer-tag drift.
+3. For each candidate (1-5 entries that look most-worth-investigating), \
+invoke `doctor_check` to confirm the current verdict. Don't run more than \
+~5 of these — the doctor takes ~1 second per site.
+4. Report your findings as a short table: site name, current state, what \
+maintainer action you recommend (re-enable, change reason, file an issue, no \
+action). For \"file an issue\", link to \
+<https://github.com/commit3296/adler/issues>.
+
+If you find any obvious mistakes (e.g. a Honest-Limits-disabled site that \
+clearly works now), state your evidence explicitly so the maintainer can \
+verify before flipping the flag.\
+",
+    },
+    PromptSpec {
+        name: "correlate_accounts",
+        description: "Scan multiple usernames, then look for shared profile signal (name, bio, \
+             avatar) across the Found accounts to suggest whether they belong to one person.",
+        arguments: &[PromptArgSpec {
+            name: "usernames",
+            description: "Comma-separated list of usernames to correlate (e.g. \
+                          \"alice,alice_dev,a-liddell\").",
+            required: true,
+        }],
+        body: "\
+Please correlate the following usernames to see whether they likely belong to \
+one person: `{usernames}`.
+
+Workflow:
+
+1. Call `scan_batch` with the comma-split username list. Use a small filter \
+(e.g. `tag=[\"social\",\"coding\"]`) so the scan finishes quickly — broad \
+sweeps add noise without helping correlation.
+2. For each username's Found accounts, look at the `outcomes[].url` field to \
+read each profile's name / bio / avatar where available. The agent doing \
+this should call `scan_username` with `enrich=true` if it needs richer profile \
+data than the bare-bones outcome.
+3. Compare across usernames: shared exact name, shared bio fragments, shared \
+avatar URLs are strong signals; shared sites alone are weak.
+4. Report a confidence verdict (Strong / Plausible / Weak / Distinct) per \
+pair, with the evidence that supports it.
+
+Be honest about uncertainty: matching usernames across sites does NOT prove \
+they're the same person. Multiple people use common handles. State your \
+limits explicitly.\
+",
+    },
+];
+
+/// Substitute `{name}` placeholders in a prompt's body with the
+/// argument values supplied by the client. Missing required args
+/// produce `invalid_params`; missing optional args render as empty
+/// strings so the prompt still parses cleanly.
+fn render_prompt(
+    spec: &PromptSpec,
+    args: &serde_json::Map<String, serde_json::Value>,
+) -> Result<String, rmcp::ErrorData> {
+    let mut body = spec.body.to_owned();
+    for arg_spec in spec.arguments {
+        let placeholder = format!("{{{}}}", arg_spec.name);
+        let value = match args.get(arg_spec.name) {
+            Some(v) => v.as_str().unwrap_or("").to_owned(),
+            None if arg_spec.required => {
+                return Err(rmcp::ErrorData::invalid_params(
+                    format!(
+                        "prompt {:?} requires argument {:?}",
+                        spec.name, arg_spec.name
+                    ),
+                    None,
+                ));
+            }
+            None => String::new(),
+        };
+        body = body.replace(&placeholder, &value);
+    }
+    Ok(body)
 }
 
 impl AdlerMcp {
@@ -989,7 +1209,9 @@ const ADLER_MCP_INSTRUCTIONS: &str = concat!(
     "`adler://registry/tags` (tags with site counts), `adler://registry/disabled` ",
     "(disabled entries + reasons — audit surface), `adler://scans/recent` (recent ",
     "history), `adler://scans/{id}` (one scan by id).\n\n",
-    "Prompt templates land in a follow-up version.\n\n",
+    "Prompts: `investigate_username` (full OSINT walk for one username), ",
+    "`audit_registry_health` (doctor + dedup + disabled audit), `correlate_accounts` ",
+    "(scan a list and look for shared profile signal).\n\n",
     "For ethical use: Adler is for authorised security testing, OSINT research, and ",
     "defensive security work only. The tool detects anti-bot gates but never ",
     "circumvents them.",
@@ -1241,6 +1463,70 @@ mod tests {
                 "evil id {evil:?} should yield Unknown, not Io",
             );
         }
+    }
+
+    #[test]
+    fn server_info_advertises_prompts_capability() {
+        let server = AdlerMcp::new().expect("embedded registry must load");
+        let info = server.get_info();
+        assert!(info.capabilities.prompts.is_some());
+    }
+
+    #[test]
+    fn prompt_specs_register_three_named_prompts() {
+        let names: Vec<&str> = PROMPT_SPECS.iter().map(|s| s.name).collect();
+        assert_eq!(
+            names,
+            [
+                "investigate_username",
+                "audit_registry_health",
+                "correlate_accounts"
+            ],
+        );
+    }
+
+    #[test]
+    fn render_prompt_substitutes_placeholders() {
+        let spec = PROMPT_SPECS
+            .iter()
+            .find(|s| s.name == "investigate_username")
+            .unwrap();
+        let mut args = serde_json::Map::new();
+        args.insert("username".into(), serde_json::Value::String("alice".into()));
+        args.insert("regions".into(), serde_json::Value::String("ru,ua".into()));
+        // categories left unset — should render as empty, not panic.
+        let body = render_prompt(spec, &args).unwrap();
+        assert!(body.contains("`alice`"));
+        assert!(body.contains("regions = `ru,ua`"));
+        assert!(body.contains("categories = ``"));
+        // No leftover placeholders.
+        assert!(!body.contains("{username}"));
+        assert!(!body.contains("{regions}"));
+        assert!(!body.contains("{categories}"));
+    }
+
+    #[test]
+    fn render_prompt_rejects_missing_required_arg() {
+        let spec = PROMPT_SPECS
+            .iter()
+            .find(|s| s.name == "investigate_username")
+            .unwrap();
+        // Empty args — `username` is required.
+        let args = serde_json::Map::new();
+        let err = render_prompt(spec, &args).unwrap_err();
+        assert!(err.message.contains("requires argument"));
+        assert!(err.message.contains("username"));
+    }
+
+    #[test]
+    fn render_prompt_allows_missing_optional_arg() {
+        let spec = PROMPT_SPECS
+            .iter()
+            .find(|s| s.name == "audit_registry_health")
+            .unwrap();
+        // `focus` is optional — empty args should render fine.
+        let body = render_prompt(spec, &serde_json::Map::new()).unwrap();
+        assert!(body.contains("Focus area: ``"));
     }
 
     #[test]
