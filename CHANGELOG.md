@@ -9,6 +9,11 @@ pre-1.0 bump rules.
 
 ## [Unreleased]
 
+## [0.11.7](https://github.com/commit3296/adler/compare/v0.11.6...v0.11.7) - 2026-06-04
+
+### Fixed
+- *(doctor)* guard discover_known_present against too-permissive sites
+
 ## [0.11.6](https://github.com/commit3296/adler/compare/v0.11.5...v0.11.6) - 2026-06-03
 
 ### Added
