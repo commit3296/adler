@@ -223,6 +223,15 @@ fn brand_name_from_site(site: &Site) -> Option<String> {
 /// probe count with the default pool ([`default_candidate_pool`]) is
 /// 2–3 per site rather than `pool.len()`.
 ///
+/// **Permissiveness guard.** First probes a random nonsense username;
+/// if *that* already resolves to `Found`, the site's signal is too
+/// permissive (returns Found for arbitrary strings) and no candidate
+/// from the pool would be reliable — a "discovered" name would just be
+/// the brand-name landing page, the sign-up funnel, or whatever generic
+/// 200 the site serves for every URL. Aborts with `None` rather than
+/// surfacing a false-positive candidate the maintainer would then bake
+/// into the registry.
+///
 /// Candidates that aren't valid usernames are silently skipped (the
 /// pool is small enough that an invalid entry isn't an error
 /// condition). Returns `None` when no candidate yields `Found`.
@@ -231,6 +240,18 @@ pub async fn discover_known_present(
     site: &Site,
     candidates: &[String],
 ) -> Option<String> {
+    // Permissiveness guard. A site whose signals say "Found" for a random
+    // nonsense user will say "Found" for any candidate in the pool, so
+    // the first hit is meaningless and the suggestion would be a
+    // false positive. Skip the site entirely instead of polluting
+    // sites.json with a brand-name URL or signup-funnel target.
+    if let Ok(nonsense) = Username::new(random_nonsense_username()) {
+        let nonsense_outcome = client.check(site, &nonsense).await;
+        if nonsense_outcome.kind == MatchKind::Found {
+            return None;
+        }
+    }
+
     for name in candidates {
         let Ok(user) = Username::new(name.clone()) else {
             continue;
@@ -1050,6 +1071,27 @@ mod tests {
         let candidates = vec!["torvalds".into(), "admin".into()];
         let found = discover_known_present(&build_client(), &s, &candidates).await;
         assert!(found.is_none());
+    }
+
+    #[tokio::test]
+    async fn discover_aborts_when_nonsense_user_already_returns_found() {
+        // Site returns 200 for *every* URL — including the random
+        // nonsense probe the guard runs first. Without the guard, the
+        // search would return the first candidate (`torvalds`) as a
+        // false positive. The guard catches the too-permissive shape
+        // and aborts with None.
+        let server = MockServer::start().await;
+        Mock::given(any())
+            .respond_with(ResponseTemplate::new(200))
+            .mount(&server)
+            .await;
+        let s = site(&server, "Mock", None);
+        let candidates = vec!["torvalds".into(), "admin".into()];
+        let found = discover_known_present(&build_client(), &s, &candidates).await;
+        assert!(
+            found.is_none(),
+            "expected None against too-permissive site, got {found:?}"
+        );
     }
 
     #[tokio::test]
