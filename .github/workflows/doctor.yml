@@ -67,9 +67,16 @@ jobs:
           # still need to be kept healthy for users who opt in via the same
           # flag at scan time; without it here the maintainer tool would
           # silently stop catching their rot.
+          #
+          # `--format ndjson` makes the report a stream of JSON objects
+          # (one per site, plus a `type=summary` line) so the Classify
+          # step below uses `jq` instead of regex-grepping the human-
+          # readable format. The downstream aggregate-and-pr job's
+          # script auto-detects either format, so the artifact stays
+          # backward-compatible with prior runs.
           set +e
           ./target/release/adler ${{ matrix.sites_arg }} ${{ matrix.no_wmn }} \
-            --doctor --nsfw \
+            --doctor --nsfw --format ndjson \
             --no-cache --max-retries 0 --rotate-ua --timeout 10 \
             > report.txt 2> doctor.log
           echo "doctor exit code: $?"
@@ -77,19 +84,36 @@ jobs:
 
       - name: Classify and summarise
         run: |
-          structural=$(grep -cE "reported NotFound|too permissive" report.txt || true)
-          transient=$(grep -c "reported Uncertain" report.txt || true)
-          tally=$(grep -E "site\(s\) checked" report.txt | tail -n 1)
+          # Per-site records carry `name`; the trailing summary record
+          # has `type="summary"`. Filtering on those discriminators
+          # keeps each `jq` invocation reading the right rows.
+          structural=$(jq -r '
+            select(.name) | select(.verdict=="unhealthy")
+            | select(.issues | any(test("reported NotFound|too permissive")))
+            | .name
+          ' report.txt | wc -l)
+          transient=$(jq -r '
+            select(.name) | select(.verdict=="unhealthy")
+            | select(.issues | any(test("reported Uncertain")))
+            | .name
+          ' report.txt | wc -l)
+          total=$(jq -r 'select(.type=="summary") | .total' report.txt)
+          healthy=$(jq -r 'select(.type=="summary") | .healthy' report.txt)
+          failing=$(jq -r 'select(.type=="summary") | .failing' report.txt)
           {
             echo "# Registry doctor report — ${{ matrix.tranche }} tranche"
             echo
-            echo "- ${tally:-no tally line found}"
+            echo "- ${total:-?} site(s) checked, ${failing:-?} failed (${healthy:-?} healthy)"
             echo "- **structural** failures (likely signature rot): **${structural}**"
             echo "- transient failures (likely rate-limit / network): ${transient}"
             echo
             echo "## Structural failures"
             echo '```'
-            grep -B1 -E "reported NotFound|too permissive" report.txt || echo "(none)"
+            jq -r '
+              select(.name) | select(.verdict=="unhealthy")
+              | select(.issues | any(test("reported NotFound|too permissive")))
+              | "[FAIL] " + .name + "\n" + (.issues | map("       · " + .) | join("\n"))
+            ' report.txt || echo "(none)"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
           echo "STRUCTURAL=${structural}" >> "$GITHUB_ENV"
