@@ -261,6 +261,49 @@ re-introduction durably:
   importer run lands the same disabled state.
 - Or add the name to `KNOWN_BROKEN` so the importer skips it entirely.
 
+## MCP server (`adler-mcp`)
+
+The `adler-mcp` workspace crate exposes Adler's OSINT surface to AI
+assistants over the
+[Model Context Protocol](https://modelcontextprotocol.io/). The CLI
+launches it via `adler --mcp` (stdio) or `adler --mcp-http <addr>`
+(HTTP+SSE). Built on the official Rust SDK (`rmcp`); the daily-driver
+pattern is the `#[tool_router]` + `#[tool_handler]` macro pair that
+auto-generates `list_tools` / `call_tool` from per-method `#[tool]`
+annotations.
+
+Surface conventions:
+
+- **Tools** (callable actions) live in the `#[tool_router] impl
+  AdlerMcp` block. New tools should reuse the existing `ScanFilter`
+  shape via `#[serde(flatten)]` when they take a filter — keeps the
+  agent's mental model consistent.
+- **Resources** (browsable data) live in the `ServerHandler` impl on
+  the same struct. Static URIs go in the `STATIC_RESOURCES` table;
+  parameterized URIs (e.g. `adler://scans/{id}`) go in
+  `list_resource_templates`. Resource readers must defend against path
+  traversal — see `render_scan_by_id`'s `/` / `\` rejection.
+- **Prompts** (templated OSINT workflows) live in the
+  `PROMPT_SPECS` table. The body is `&'static str` with `{name}`
+  placeholders and a small `render_prompt` substitutor. Substitution
+  is literal — argument values are quoted into the body verbatim, so
+  no placeholder-injection from a malicious arg.
+
+Tests:
+
+- Unit tests in `adler-mcp/src/server.rs` cover the tools / resources
+  / prompts logic against the embedded registry — no network required.
+- End-to-end stdio tests in `adler-cli/tests/cli.rs` (`mcp_stdio_*`)
+  spawn the real binary and drive a full JSON-RPC handshake +
+  `tools/call` / `tools/list` / `resources/list` / `prompts/list`.
+  These exercise the same code path Claude Desktop would.
+
+Ethical line: every new tool that scans / probes must respect the
+project's bound — authorised security testing / OSINT research /
+defensive work only. The MCP `instructions` block and the
+`investigate_username` prompt both restate this, so an agent's first
+peek at the server names what's in-scope.
+
 ## Versioning & releases
 
 Adler follows **SemVer**. While we're pre-1.0, the version reads as

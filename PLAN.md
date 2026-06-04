@@ -338,6 +338,22 @@ than producing too-permissive noise on every run.
   sites with no suggestion and names absent from the file (warning,
   never erased). Requires `--sites <writable>` because the embedded
   registry isn't patchable in place.
+- [x] **`adler-mcp` — Model Context Protocol server**
+  ([rmcp 1.7](https://github.com/modelcontextprotocol/rust-sdk)).
+  New workspace crate exposes the OSINT surface to AI agents over
+  two transports: stdio (`adler --mcp`, Claude Desktop / Cursor /
+  local agents) and Streamable HTTP+SSE (`adler --mcp-http <addr>`,
+  endpoint `/mcp`, remote agents). Five tools (`list_sites`,
+  `scan_username` with streaming progress, `scan_batch`,
+  `doctor_check`, `get_scan_history`), five resources
+  (`adler://registry/{sites,tags,disabled}`, `adler://scans/recent`,
+  `adler://scans/{id}` template), three prompts
+  (`investigate_username`, `audit_registry_health`,
+  `correlate_accounts`). HTTP transport inherits rmcp's loopback
+  `allowed_hosts` DNS-rebind guard; the `instructions` block sent on
+  `initialize` restates the project's ethical bound. End-to-end
+  stdio integration tests in `adler-cli/tests/cli.rs` spawn the real
+  binary and drive a full JSON-RPC handshake.
 ### Web UI — shipped
 
 The `--tui` flag was retired in favour of a browser-based UI that
