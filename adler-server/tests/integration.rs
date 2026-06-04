@@ -44,6 +44,7 @@ fn site(name: &str, base: &str, segment: &str) -> Site {
         request_body: None,
         protection: Vec::new(),
         disabled: false,
+        disabled_reason: None,
         source: None,
         popularity: None,
         access: adler_core::AccessPolicy::default(),

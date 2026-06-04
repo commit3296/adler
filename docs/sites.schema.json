@@ -120,6 +120,10 @@
           "type": "boolean",
           "description": "Park the site without removing it: disabled entries are skipped by every filter, never probed, never appear in `--list-sites`. Use for known-broken signatures so a future contributor can re-enable by flipping the flag once a working signature exists."
         },
+        "disabled_reason": {
+          "type": "string",
+          "description": "Free-form annotation explaining why this entry is disabled. Conventions in use: `duplicate of <canonical>` for importer dedup, `Honest Limits: …` for structurally unscrapable sites, `doctor: 3+ consecutive structural failures` for nightly-aggregator parking. Only meaningful when `disabled` is also true."
+        },
         "source": {
           "type": "string",
           "minLength": 1,

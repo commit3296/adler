@@ -150,6 +150,17 @@ pub struct Site {
     /// working signature.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub disabled: bool,
+    /// Free-form annotation explaining why a [`Site::disabled`] entry
+    /// was parked. The Rust runtime doesn't act on it — the JSON
+    /// loader, scan path and doctor all just look at `disabled` — but
+    /// downstream tooling (`scripts/doctor_aggregate.py`, ad-hoc
+    /// audits) and human maintainers reading `sites.json` directly
+    /// rely on it to tell categories apart at-a-glance:
+    /// `duplicate of <canonical>`, `Honest Limits: …`, `doctor: 3+
+    /// consecutive structural failures`, etc. Optional; only meaningful
+    /// when `disabled` is also `true`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub disabled_reason: Option<String>,
     /// Canonical-source link for mirror-style sites. When a site is
     /// a mirror of another (e.g. Nitter ↔ Twitter, Invidious ↔
     /// `YouTube`), `source` carries the name of the primary site this
@@ -781,6 +792,7 @@ mod tests {
             request_body: None,
             protection: Vec::new(),
             disabled: false,
+            disabled_reason: None,
             source: None,
             popularity: None,
             access: crate::AccessPolicy::default(),

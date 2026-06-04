@@ -393,6 +393,7 @@ pub async fn scaffold_site(
         request_body: None,
         protection: Vec::new(),
         disabled: false,
+        disabled_reason: None,
         source: None,
         popularity: None,
         access: crate::AccessPolicy::default(),
@@ -603,6 +604,7 @@ mod tests {
             request_body: None,
             protection: Vec::new(),
             disabled: false,
+            disabled_reason: None,
             source: None,
             popularity: None,
             access: crate::AccessPolicy::default(),
@@ -834,6 +836,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[allow(clippy::too_many_lines)] // mock-backend wiring + Site literal scaffolding inflate the body
     async fn suggest_fix_routes_bot_protected_sites_through_browser_backend() {
         // suggest_fix on a raw-HTTP path only sees the login wall both
         // sites return, so without the browser it'd produce no
@@ -923,6 +926,7 @@ mod tests {
             request_body: None,
             protection: Vec::new(),
             disabled: false,
+            disabled_reason: None,
             source: None,
             popularity: None,
             access: crate::AccessPolicy::default(),
@@ -1133,6 +1137,7 @@ mod tests {
             request_body: None,
             protection: Vec::new(),
             disabled: false,
+            disabled_reason: None,
             source: None,
             popularity: None,
             access: crate::AccessPolicy::default(),
@@ -1173,6 +1178,7 @@ mod tests {
             request_body: None,
             protection: Vec::new(),
             disabled: false,
+            disabled_reason: None,
             source: None,
             popularity: None,
             access: crate::AccessPolicy::default(),

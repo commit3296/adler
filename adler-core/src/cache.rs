@@ -268,6 +268,7 @@ mod tests {
             request_body: None,
             protection: Vec::new(),
             disabled: false,
+            disabled_reason: None,
             source: None,
             popularity: None,
             access: crate::AccessPolicy::default(),
