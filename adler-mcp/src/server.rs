@@ -18,11 +18,22 @@ use rmcp::ServerHandler;
 use rmcp::handler::server::router::tool::ToolRouter;
 use rmcp::handler::server::wrapper::Json;
 use rmcp::handler::server::wrapper::Parameters;
+use rmcp::model::Annotated;
 use rmcp::model::Implementation;
 use rmcp::model::InitializeResult;
+use rmcp::model::ListResourceTemplatesResult;
+use rmcp::model::ListResourcesResult;
 use rmcp::model::Meta;
+use rmcp::model::PaginatedRequestParams;
 use rmcp::model::ProgressNotificationParam;
+use rmcp::model::RawResource;
+use rmcp::model::RawResourceTemplate;
+use rmcp::model::ReadResourceRequestParams;
+use rmcp::model::ReadResourceResult;
+use rmcp::model::Resource;
+use rmcp::model::ResourceContents;
 use rmcp::model::ServerCapabilities;
+use rmcp::service::RequestContext;
 use rmcp::tool;
 use rmcp::tool_handler;
 use rmcp::tool_router;
@@ -738,22 +749,247 @@ impl ServerHandler for AdlerMcp {
         server_info.title = Some("Adler OSINT".to_owned());
         server_info.website_url = Some("https://github.com/commit3296/adler".to_owned());
 
-        let mut result =
-            InitializeResult::new(ServerCapabilities::builder().enable_tools().build());
+        let capabilities = ServerCapabilities::builder()
+            .enable_tools()
+            .enable_resources()
+            .build();
+        let mut result = InitializeResult::new(capabilities);
         result.server_info = server_info;
         result.instructions = Some(ADLER_MCP_INSTRUCTIONS.to_owned());
         result
+    }
+
+    async fn list_resources(
+        &self,
+        _req: Option<PaginatedRequestParams>,
+        _ctx: RequestContext<RoleServer>,
+    ) -> Result<ListResourcesResult, rmcp::ErrorData> {
+        let resources: Vec<Resource> = STATIC_RESOURCES
+            .iter()
+            .map(|spec| {
+                Annotated::new(
+                    RawResource::new(spec.uri, spec.name)
+                        .with_description(spec.description.to_owned())
+                        .with_mime_type("application/json".to_owned()),
+                    None,
+                )
+            })
+            .collect();
+        Ok(ListResourcesResult {
+            resources,
+            ..Default::default()
+        })
+    }
+
+    async fn list_resource_templates(
+        &self,
+        _req: Option<PaginatedRequestParams>,
+        _ctx: RequestContext<RoleServer>,
+    ) -> Result<ListResourceTemplatesResult, rmcp::ErrorData> {
+        let template = Annotated::new(
+            RawResourceTemplate::new("adler://scans/{id}", "scan_by_id")
+                .with_description(
+                    "Read one persisted scan by id (filename stem). Returns the full \
+                     scan JSON envelope as written by `adler --web` to \
+                     $XDG_CACHE_HOME/adler/scans/{id}.json."
+                        .to_owned(),
+                )
+                .with_mime_type("application/json".to_owned()),
+            None,
+        );
+        Ok(ListResourceTemplatesResult {
+            resource_templates: vec![template],
+            ..Default::default()
+        })
+    }
+
+    async fn read_resource(
+        &self,
+        req: ReadResourceRequestParams,
+        _ctx: RequestContext<RoleServer>,
+    ) -> Result<ReadResourceResult, rmcp::ErrorData> {
+        let payload = self.render_resource(&req.uri).map_err(|e| match e {
+            ResourceError::Unknown => {
+                rmcp::ErrorData::invalid_params(format!("unknown resource URI {:?}", req.uri), None)
+            }
+            ResourceError::Io(err) => rmcp::ErrorData::internal_error(
+                format!("reading resource {:?}: {err}", req.uri),
+                None,
+            ),
+            ResourceError::Json(err) => rmcp::ErrorData::internal_error(
+                format!("serialising resource {:?}: {err}", req.uri),
+                None,
+            ),
+        })?;
+        let contents =
+            ResourceContents::text(payload, &req.uri).with_mime_type("application/json".to_owned());
+        Ok(ReadResourceResult::new(vec![contents]))
+    }
+}
+
+/// Static resource specs: `(uri, name, description)`. Resource
+/// templates (parameterized URIs like `adler://scans/{id}`) live in
+/// `list_resource_templates` instead.
+struct StaticResourceSpec {
+    uri: &'static str,
+    name: &'static str,
+    description: &'static str,
+}
+
+const STATIC_RESOURCES: &[StaticResourceSpec] = &[
+    StaticResourceSpec {
+        uri: "adler://registry/sites",
+        name: "registry_sites",
+        description: "Compact view of every enabled site in the registry: name, URL template, \
+                      tags, popularity. The `list_sites` tool returns the same shape with \
+                      filter parameters; the resource is for one-shot browsing.",
+    },
+    StaticResourceSpec {
+        uri: "adler://registry/tags",
+        name: "registry_tags",
+        description: "Available tags with per-tag site counts, so the agent can pick a useful \
+                      filter for `list_sites` / `scan_username` before scanning.",
+    },
+    StaticResourceSpec {
+        uri: "adler://registry/disabled",
+        name: "registry_disabled",
+        description: "Disabled entries with their `disabled_reason` annotations. Audit surface \
+                      for the dedup / Honest Limits / nightly auto-disable conventions \
+                      (see CONTRIBUTING.md).",
+    },
+    StaticResourceSpec {
+        uri: "adler://scans/recent",
+        name: "scans_recent",
+        description: "The 50 most recent persisted scans from the web server's history dir, \
+                      one summary row each.",
+    },
+];
+
+/// Error from resource rendering.
+#[derive(Debug)]
+enum ResourceError {
+    Unknown,
+    Io(std::io::Error),
+    Json(serde_json::Error),
+}
+
+impl AdlerMcp {
+    /// Render the JSON payload for a resource URI. The MCP layer then
+    /// wraps it in a `ResourceContents::TextResourceContents`.
+    fn render_resource(&self, uri: &str) -> Result<String, ResourceError> {
+        match uri {
+            "adler://registry/sites" => self.render_registry_sites(),
+            "adler://registry/tags" => self.render_registry_tags(),
+            "adler://registry/disabled" => self.render_registry_disabled(),
+            "adler://scans/recent" => self.render_scans_recent(),
+            other => other
+                .strip_prefix("adler://scans/")
+                .map_or(Err(ResourceError::Unknown), |id| self.render_scan_by_id(id)),
+        }
+    }
+
+    fn render_registry_sites(&self) -> Result<String, ResourceError> {
+        let entries: Vec<SiteEntry> = self
+            .registry
+            .sites()
+            .iter()
+            .filter(|s| !s.disabled)
+            .map(|s| SiteEntry {
+                name: s.name.clone(),
+                url: s.url.as_str().to_owned(),
+                tags: s.tags.clone(),
+                popularity: s.popularity,
+            })
+            .collect();
+        let envelope = serde_json::json!({
+            "total": entries.len(),
+            "sites": entries,
+        });
+        serde_json::to_string_pretty(&envelope).map_err(ResourceError::Json)
+    }
+
+    fn render_registry_tags(&self) -> Result<String, ResourceError> {
+        use std::collections::BTreeMap;
+        let mut counts: BTreeMap<String, usize> = BTreeMap::new();
+        for site in self.registry.sites() {
+            if site.disabled {
+                continue;
+            }
+            for tag in &site.tags {
+                *counts.entry(tag.clone()).or_insert(0) += 1;
+            }
+        }
+        let entries: Vec<serde_json::Value> = counts
+            .into_iter()
+            .map(|(tag, count)| serde_json::json!({"tag": tag, "site_count": count}))
+            .collect();
+        let envelope = serde_json::json!({
+            "total_tags": entries.len(),
+            "tags": entries,
+        });
+        serde_json::to_string_pretty(&envelope).map_err(ResourceError::Json)
+    }
+
+    fn render_registry_disabled(&self) -> Result<String, ResourceError> {
+        let entries: Vec<serde_json::Value> = self
+            .registry
+            .sites()
+            .iter()
+            .filter(|s| s.disabled)
+            .map(|s| {
+                serde_json::json!({
+                    "name": s.name,
+                    "url": s.url.as_str(),
+                    "disabled_reason": s.disabled_reason,
+                })
+            })
+            .collect();
+        let envelope = serde_json::json!({
+            "total": entries.len(),
+            "disabled": entries,
+        });
+        serde_json::to_string_pretty(&envelope).map_err(ResourceError::Json)
+    }
+
+    fn render_scans_recent(&self) -> Result<String, ResourceError> {
+        let rows =
+            read_scan_history(self.scans_dir.as_ref(), 50, None).map_err(ResourceError::Io)?;
+        let envelope = serde_json::json!({
+            "total": rows.len(),
+            "scans": rows,
+        });
+        serde_json::to_string_pretty(&envelope).map_err(ResourceError::Json)
+    }
+
+    fn render_scan_by_id(&self, id: &str) -> Result<String, ResourceError> {
+        // Defensive: reject any id with a path separator so we can't be
+        // tricked into reading arbitrary files via `..` or absolute
+        // paths. `adler-server` writes ids that are URL-safe random
+        // strings, so a legitimate id never contains slashes.
+        if id.is_empty() || id.contains('/') || id.contains('\\') {
+            return Err(ResourceError::Unknown);
+        }
+        let path = self.scans_dir.join(format!("{id}.json"));
+        match std::fs::read_to_string(&path) {
+            Ok(raw) => Ok(raw),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Err(ResourceError::Unknown),
+            Err(e) => Err(ResourceError::Io(e)),
+        }
     }
 }
 
 const ADLER_MCP_INSTRUCTIONS: &str = concat!(
     "Adler is an OSINT username-search tool — given a username, it probes a curated ",
-    "registry of sites for the presence of a matching account. Available tools: ",
-    "`list_sites` (browse the registry by tag), `scan_username` (single-username ",
-    "scan with streaming progress notifications), `scan_batch` (sequential multi-",
-    "username scan), `doctor_check` (health probe for one named site), ",
-    "`get_scan_history` (recent persisted scans from the web server's history dir). ",
-    "Resources and prompt templates land in follow-up versions.\n\n",
+    "registry of sites for the presence of a matching account.\n\n",
+    "Tools: `list_sites` (browse the registry by tag), `scan_username` (single-",
+    "username scan with streaming progress notifications), `scan_batch` (sequential ",
+    "multi-username scan), `doctor_check` (health probe for one named site), ",
+    "`get_scan_history` (recent persisted scans from the web server's history dir).\n\n",
+    "Resources: `adler://registry/sites` (full enabled registry), ",
+    "`adler://registry/tags` (tags with site counts), `adler://registry/disabled` ",
+    "(disabled entries + reasons — audit surface), `adler://scans/recent` (recent ",
+    "history), `adler://scans/{id}` (one scan by id).\n\n",
+    "Prompt templates land in a follow-up version.\n\n",
     "For ethical use: Adler is for authorised security testing, OSINT research, and ",
     "defensive security work only. The tool detects anti-bot gates but never ",
     "circumvents them.",
@@ -917,5 +1153,112 @@ mod tests {
             transport: None,
             escalations: 0,
         }
+    }
+
+    #[test]
+    fn server_info_advertises_resources_capability() {
+        let server = AdlerMcp::new().expect("embedded registry must load");
+        let info = server.get_info();
+        assert!(info.capabilities.resources.is_some());
+    }
+
+    #[test]
+    fn registry_sites_resource_returns_enabled_entries_only() {
+        let server = AdlerMcp::new().expect("embedded registry must load");
+        let payload = server.render_resource("adler://registry/sites").unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&payload).unwrap();
+        let total = parsed["total"].as_u64().unwrap();
+        let registry_enabled = server
+            .registry()
+            .sites()
+            .iter()
+            .filter(|s| !s.disabled)
+            .count() as u64;
+        assert_eq!(total, registry_enabled);
+        // Disabled sites must not appear by name in the payload.
+        let payload_lower = payload.to_lowercase();
+        assert!(
+            !payload_lower.contains("\"facebook\""),
+            "Facebook is disabled; must not appear in enabled-sites view",
+        );
+    }
+
+    #[test]
+    fn registry_tags_resource_counts_per_tag() {
+        let server = AdlerMcp::new().expect("embedded registry must load");
+        let payload = server.render_resource("adler://registry/tags").unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&payload).unwrap();
+        let tags = parsed["tags"].as_array().unwrap();
+        assert!(!tags.is_empty());
+        // Pick a known-busy tag and verify the count is plausible.
+        let dev_count = tags
+            .iter()
+            .find(|t| t["tag"] == "dev")
+            .map(|t| t["site_count"].as_u64().unwrap())
+            .expect("dev tag should exist");
+        assert!(dev_count > 5, "dev should tag more than 5 sites");
+    }
+
+    #[test]
+    fn registry_disabled_resource_includes_disabled_reason() {
+        let server = AdlerMcp::new().expect("embedded registry must load");
+        let payload = server.render_resource("adler://registry/disabled").unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&payload).unwrap();
+        let disabled = parsed["disabled"].as_array().unwrap();
+        assert!(
+            !disabled.is_empty(),
+            "registry has known-disabled entries from the v0.14 hygiene round",
+        );
+        // Every entry has a `disabled_reason` (the v0.14 work guaranteed
+        // it for every disabled entry — see CONTRIBUTING.md).
+        for entry in disabled {
+            assert!(
+                entry["disabled_reason"].is_string(),
+                "expected string disabled_reason, got {entry}",
+            );
+        }
+    }
+
+    #[test]
+    fn unknown_resource_uri_yields_unknown_error() {
+        let server = AdlerMcp::new().expect("embedded registry must load");
+        let err = server.render_resource("adler://nope/never").unwrap_err();
+        assert!(matches!(err, ResourceError::Unknown));
+    }
+
+    #[test]
+    fn scan_by_id_rejects_path_traversal_ids() {
+        let tmp = tempfile::tempdir().unwrap();
+        let registry = Arc::new(Registry::default_embedded().unwrap());
+        let client = Arc::new(default_client().unwrap());
+        let server = AdlerMcp::with_components(registry, client, tmp.path().to_path_buf());
+        for evil in ["../etc/passwd", "/etc/passwd", "..\\..\\foo", ""] {
+            let err = server
+                .render_resource(&format!("adler://scans/{evil}"))
+                .unwrap_err();
+            assert!(
+                matches!(err, ResourceError::Unknown),
+                "evil id {evil:?} should yield Unknown, not Io",
+            );
+        }
+    }
+
+    #[test]
+    fn scan_by_id_reads_persisted_file() {
+        let tmp = tempfile::tempdir().unwrap();
+        let scan_id = "smoke123";
+        std::fs::write(
+            tmp.path().join(format!("{scan_id}.json")),
+            r#"{"id":"smoke123","username":"alice","outcomes":[]}"#,
+        )
+        .unwrap();
+        let registry = Arc::new(Registry::default_embedded().unwrap());
+        let client = Arc::new(default_client().unwrap());
+        let server = AdlerMcp::with_components(registry, client, tmp.path().to_path_buf());
+        let payload = server
+            .render_resource(&format!("adler://scans/{scan_id}"))
+            .unwrap();
+        assert!(payload.contains("alice"));
+        assert!(payload.contains("smoke123"));
     }
 }
