@@ -90,7 +90,7 @@ struct Cli {
     /// Username to search for. With `--add-site`, this is an account that
     /// EXISTS on the site (used to derive the signature). Not required with
     /// `--doctor`, `--cache-clear`, `--list-sites`, or `--completions`.
-    #[arg(required_unless_present_any = ["doctor", "cache_clear", "list_sites", "list_tags", "completions", "man_page", "add_site", "input", "web"])]
+    #[arg(required_unless_present_any = ["doctor", "cache_clear", "list_sites", "list_tags", "completions", "man_page", "add_site", "input", "web", "mcp"])]
     username: Option<String>,
 
     /// List registry site names (honoring `--only`/`--exclude`/`--tag`) and
@@ -480,6 +480,19 @@ struct Cli {
     #[arg(long, value_name = "ADDR", requires = "web", help_heading = "Web UI")]
     web_bind: Option<SocketAddr>,
 
+    /// Start a Model Context Protocol (MCP) server over stdio
+    /// instead of running a scan. Intended for AI assistants like
+    /// Claude Desktop / Cursor / any agent that speaks MCP. The
+    /// server exposes Adler tools (currently `list_sites`; scan /
+    /// doctor / history land in follow-up versions). Tracing
+    /// output is forced onto stderr so stdout stays clean for the
+    /// JSON-RPC protocol stream.
+    #[arg(long, conflicts_with_all = [
+        "watch", "input", "doctor", "list_sites", "list_tags",
+        "completions", "add_site", "cache_clear", "correlate", "web",
+    ], help_heading = "MCP")]
+    mcp: bool,
+
     /// Print a shell completion script to stdout and exit.
     #[arg(long, value_enum, value_name = "SHELL", help_heading = "Misc")]
     completions: Option<Shell>,
@@ -738,6 +751,10 @@ async fn run(cli: Cli) -> Result<ExitCode> {
         return run_web(&cli, sites, client).await;
     }
 
+    if cli.mcp {
+        return run_mcp().await;
+    }
+
     if cli.doctor {
         let color = cli.color.resolve(io::stdout().is_terminal());
         let opts = DoctorOpts {
@@ -756,6 +773,27 @@ async fn run(cli: Cli) -> Result<ExitCode> {
     }
 
     run_scan(&cli, &client, &sites).await
+}
+
+/// `--mcp`: start the MCP server over stdio and block until the
+/// client closes the connection.
+///
+/// The server uses the default embedded registry; the CLI's
+/// `--sites` / `--only` / etc. don't propagate yet because tools
+/// declare their own filter parameters via MCP arguments. Stdout is
+/// reserved for the JSON-RPC stream — boot banners, tracing, and
+/// errors all go to stderr so the protocol stays clean.
+async fn run_mcp() -> Result<ExitCode> {
+    let server = adler_mcp::AdlerMcp::new().context("building adler-mcp server")?;
+    eprintln!(
+        "adler-mcp v{} — stdio transport, registry: {} sites",
+        env!("CARGO_PKG_VERSION"),
+        server.registry().len(),
+    );
+    adler_mcp::run_stdio(server)
+        .await
+        .context("running mcp stdio server")?;
+    Ok(ExitCode::SUCCESS)
 }
 
 /// `--web`: start the embedded HTTP API server and block until shutdown.

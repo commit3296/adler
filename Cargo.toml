@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["adler-core", "adler-cli", "adler-server"]
+members = ["adler-core", "adler-cli", "adler-server", "adler-mcp"]
 
 [workspace.package]
 version = "0.11.7"
@@ -86,6 +86,20 @@ async-stream = "0.3"
 # `adler --web` ships a self-contained UI.
 rust-embed = { version = "8", default-features = false, features = ["debug-embed"] }
 mime_guess = "2"
+
+# MCP server (adler-mcp crate). The official Rust SDK for the Model
+# Context Protocol; pulled into the default `adler-cli` build so
+# `adler --mcp` is discoverable without an extra feature flag.
+# `schemars` derives JSON Schema for tool argument structs so agents
+# get typed parameter descriptions.
+rmcp = { version = "1", features = [
+    "server",
+    "transport-io",
+    "transport-streamable-http-server",
+    "macros",
+    "schemars",
+] }
+schemars = "1"
 
 # Dev-deps
 wiremock = "0.6"

@@ -1,0 +1,29 @@
+[package]
+name = "adler-mcp"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Model Context Protocol server for the Adler OSINT username-search engine — exposes scan / list / doctor / history tools, registry + scan-history resources, and OSINT workflow prompts."
+categories = ["command-line-utilities", "api-bindings"]
+keywords = ["osint", "username", "mcp", "model-context-protocol", "ai"]
+readme = "../README.md"
+
+[dependencies]
+adler-core = { path = "../adler-core", version = "0.11.7" }
+rmcp = { workspace = true }
+schemars.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+futures.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true
