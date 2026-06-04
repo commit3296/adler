@@ -295,6 +295,130 @@ async fn doctor_reports_healthy_for_well_behaved_site() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn doctor_format_json_emits_structured_envelope() {
+    let server = MockServer::start().await;
+    Mock::given(any())
+        .and(path("/alice"))
+        .respond_with(ResponseTemplate::new(200))
+        .mount(&server)
+        .await;
+    Mock::given(any())
+        .respond_with(ResponseTemplate::new(404))
+        .mount(&server)
+        .await;
+    let json = format!(
+        r#"{{"sites":[
+            {{"name":"Healthy","url":"{0}/{{username}}","signals":[
+                {{"kind":"status_found","codes":[200]}},
+                {{"kind":"status_not_found","codes":[404]}}
+            ],"known_present":"alice"}}
+        ]}}"#,
+        server.uri()
+    );
+    let sites = sites_file(&json);
+    let assert = adler()
+        .args([
+            "--sites",
+            sites.path().to_str().unwrap(),
+            "--no-progress",
+            "--doctor",
+            "--format",
+            "json",
+        ])
+        .assert()
+        .success();
+    let stdout = String::from_utf8(assert.get_output().stdout.clone()).unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&stdout).expect("valid JSON envelope");
+    let sites_arr = parsed["sites"].as_array().expect("sites array");
+    assert_eq!(sites_arr.len(), 1);
+    assert_eq!(sites_arr[0]["name"], "Healthy");
+    assert_eq!(sites_arr[0]["verdict"], "healthy");
+    assert!(sites_arr[0]["issues"].as_array().unwrap().is_empty());
+    assert_eq!(parsed["summary"]["total"], 1);
+    assert_eq!(parsed["summary"]["healthy"], 1);
+    assert_eq!(parsed["summary"]["failing"], 0);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn doctor_format_ndjson_emits_line_delimited_records_plus_summary() {
+    let server = MockServer::start().await;
+    // Site that fails too-permissive: any URL → 200.
+    Mock::given(any())
+        .respond_with(ResponseTemplate::new(200))
+        .mount(&server)
+        .await;
+    let json = format!(
+        r#"{{"sites":[
+            {{"name":"TooPerm","url":"{0}/{{username}}","signals":[
+                {{"kind":"status_found","codes":[200]}}
+            ],"known_present":"alice"}}
+        ]}}"#,
+        server.uri()
+    );
+    let sites = sites_file(&json);
+    let assert = adler()
+        .args([
+            "--sites",
+            sites.path().to_str().unwrap(),
+            "--no-progress",
+            "--doctor",
+            "--format",
+            "ndjson",
+        ])
+        .assert()
+        .code(1); // failures > 0 → exit 1, same as text format
+    let stdout = String::from_utf8(assert.get_output().stdout.clone()).unwrap();
+    let lines: Vec<&str> = stdout.lines().filter(|l| !l.is_empty()).collect();
+    assert_eq!(
+        lines.len(),
+        2,
+        "expected one site record + one summary: {lines:?}"
+    );
+
+    let site_record: serde_json::Value = serde_json::from_str(lines[0]).expect("site record JSON");
+    assert_eq!(site_record["name"], "TooPerm");
+    assert_eq!(site_record["verdict"], "unhealthy");
+    let issues = site_record["issues"].as_array().unwrap();
+    assert!(
+        issues
+            .iter()
+            .any(|i| i.as_str().unwrap_or("").contains("too permissive")),
+        "expected too-permissive issue, got {issues:?}",
+    );
+
+    let summary: serde_json::Value = serde_json::from_str(lines[1]).expect("summary JSON");
+    assert_eq!(summary["type"], "summary");
+    assert_eq!(summary["total"], 1);
+    assert_eq!(summary["failing"], 1);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn doctor_rejects_format_csv_with_actionable_message() {
+    // Tiny registry so this is fast even though the rejection happens
+    // after sites load.
+    let sites = sites_file(
+        r#"{"sites":[{"name":"X","url":"https://x.example/{username}","signals":[
+            {"kind":"status_found","codes":[200]}]}]}"#,
+    );
+    let assert = adler()
+        .args([
+            "--sites",
+            sites.path().to_str().unwrap(),
+            "--no-progress",
+            "--doctor",
+            "--format",
+            "csv",
+        ])
+        .assert()
+        .failure();
+    let stderr = String::from_utf8(assert.get_output().stderr.clone()).unwrap();
+    assert!(
+        stderr.contains("--doctor supports --format text|json|ndjson"),
+        "expected actionable error, got: {stderr}",
+    );
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn doctor_exits_1_when_signature_too_permissive() {
     let server = MockServer::start().await;
     // Always 200 — both real and nonsense users look "Found". Signature is

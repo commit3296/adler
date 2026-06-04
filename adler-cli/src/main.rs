@@ -750,6 +750,7 @@ async fn run(cli: Cli) -> Result<ExitCode> {
             sites_path: cli.sites.as_deref(),
             scans_dir: cli.scans_dir.as_deref(),
             color,
+            format: cli.format,
         };
         return run_doctor(&client, &sites, opts).await;
     }
@@ -1651,8 +1652,10 @@ struct DoctorOpts<'a> {
     sites_path: Option<&'a Path>,
     scans_dir: Option<&'a Path>,
     color: bool,
+    format: OutputFormat,
 }
 
+#[allow(clippy::too_many_lines)] // text + json + ndjson branches fan out
 async fn run_doctor(client: &Client, sites: &[Site], opts: DoctorOpts<'_>) -> Result<ExitCode> {
     tracing::info!(
         count = sites.len(),
@@ -1660,38 +1663,114 @@ async fn run_doctor(client: &Client, sites: &[Site], opts: DoctorOpts<'_>) -> Re
         apply = opts.apply,
         suggest_known_present = opts.suggest_known_present,
         suggest_extract = opts.suggest_extract,
+        format = ?opts.format,
         "starting doctor"
     );
+    // The suggest/apply helper paths still emit human text; the structured
+    // formats target the headline walk. csv/html aren't a natural fit for
+    // doctor output — surface that rather than letting --format silently
+    // no-op.
+    match opts.format {
+        OutputFormat::Text | OutputFormat::Json | OutputFormat::Ndjson => {}
+        OutputFormat::Csv | OutputFormat::Html => {
+            anyhow::bail!(
+                "--doctor supports --format text|json|ndjson (got {:?})",
+                opts.format
+            );
+        }
+    }
+    let structured = matches!(opts.format, OutputFormat::Json | OutputFormat::Ndjson);
     let mut failures = 0_usize;
     let mut failed_sites: Vec<&Site> = Vec::new();
     let mut healthy_sites: Vec<&Site> = Vec::new();
+    let mut records: Vec<serde_json::Value> = if matches!(opts.format, OutputFormat::Json) {
+        Vec::with_capacity(sites.len())
+    } else {
+        Vec::new()
+    };
     for site in sites {
         let report = doctor::check_site(client, site).await;
+        let (verdict, issues): (&'static str, Vec<String>) = match &report {
+            DoctorReport::Healthy { .. } => ("healthy", Vec::new()),
+            DoctorReport::Unhealthy { issues, .. } => ("unhealthy", issues.clone()),
+        };
         match report {
-            DoctorReport::Healthy { .. } => {
-                healthy_sites.push(site);
-                if opts.color {
-                    println!("\x1b[32m[OK]\x1b[0m   {}", site.name);
-                } else {
-                    println!("[OK]   {}", site.name);
-                }
-            }
-            DoctorReport::Unhealthy { issues, .. } => {
+            DoctorReport::Healthy { .. } => healthy_sites.push(site),
+            DoctorReport::Unhealthy { .. } => {
                 failures += 1;
                 failed_sites.push(site);
-                if opts.color {
-                    println!("\x1b[31m[FAIL]\x1b[0m {}", site.name);
-                } else {
-                    println!("[FAIL] {}", site.name);
-                }
-                for issue in &issues {
-                    println!("       · {issue}");
-                }
+            }
+        }
+        if structured {
+            let record = serde_json::json!({
+                "name": site.name,
+                "verdict": verdict,
+                "issues": issues,
+            });
+            match opts.format {
+                OutputFormat::Ndjson => println!(
+                    "{}",
+                    serde_json::to_string(&record)
+                        .context("serialising doctor site record as ndjson")?
+                ),
+                OutputFormat::Json => records.push(record),
+                _ => unreachable!("structured implies json/ndjson"),
+            }
+        } else if verdict == "healthy" {
+            if opts.color {
+                println!("\x1b[32m[OK]\x1b[0m   {}", site.name);
+            } else {
+                println!("[OK]   {}", site.name);
+            }
+        } else {
+            if opts.color {
+                println!("\x1b[31m[FAIL]\x1b[0m {}", site.name);
+            } else {
+                println!("[FAIL] {}", site.name);
+            }
+            for issue in &issues {
+                println!("       · {issue}");
             }
         }
     }
-    println!();
-    println!("{} site(s) checked, {failures} failed", sites.len());
+    let summary = serde_json::json!({
+        "total": sites.len(),
+        "healthy": healthy_sites.len(),
+        "failing": failures,
+    });
+    match opts.format {
+        OutputFormat::Text => {
+            println!();
+            println!("{} site(s) checked, {failures} failed", sites.len());
+        }
+        OutputFormat::Ndjson => {
+            // Tagged differently from per-site records so consumers can
+            // distinguish without positional logic.
+            let summary_line = serde_json::json!({
+                "type": "summary",
+                "total": sites.len(),
+                "healthy": healthy_sites.len(),
+                "failing": failures,
+            });
+            println!(
+                "{}",
+                serde_json::to_string(&summary_line)
+                    .context("serialising doctor summary as ndjson")?
+            );
+        }
+        OutputFormat::Json => {
+            let envelope = serde_json::json!({
+                "sites": records,
+                "summary": summary,
+            });
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&envelope)
+                    .context("serialising doctor report as json")?
+            );
+        }
+        OutputFormat::Csv | OutputFormat::Html => unreachable!("rejected at function entry"),
+    }
 
     if opts.fix && !failed_sites.is_empty() {
         if opts.apply {
