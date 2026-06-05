@@ -297,6 +297,12 @@ Tests:
   spawn the real binary and drive a full JSON-RPC handshake +
   `tools/call` / `tools/list` / `resources/list` / `prompts/list`.
   These exercise the same code path Claude Desktop would.
+- Hand-runnable probes in `adler-mcp/examples/probe_stdio.py` and
+  `probe_http.py` walk the *entire* advertised surface (every tool
+  including live `scan_username`, every resource, every prompt with
+  argument substitution) and double as reference implementations of
+  a minimal MCP client in each transport. See
+  `adler-mcp/examples/README.md` for usage.
 
 Ethical line: every new tool that scans / probes must respect the
 project's bound — authorised security testing / OSINT research /
