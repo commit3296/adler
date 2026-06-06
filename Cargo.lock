@@ -4,7 +4,7 @@ version = 4
 
 [[package]]
 name = "adler-cli"
-version = "0.12.0"
+version = "0.12.1"
 dependencies = [
  "adler-core",
  "adler-mcp",
@@ -31,7 +31,7 @@ dependencies = [
 
 [[package]]
 name = "adler-core"
-version = "0.12.0"
+version = "0.12.1"
 dependencies = [
  "async-trait",
  "async-tungstenite 0.34.1",
@@ -57,7 +57,7 @@ dependencies = [
 
 [[package]]
 name = "adler-mcp"
-version = "0.12.0"
+version = "0.12.1"
 dependencies = [
  "adler-core",
  "axum",
@@ -75,7 +75,7 @@ dependencies = [
 
 [[package]]
 name = "adler-server"
-version = "0.12.0"
+version = "0.12.1"
 dependencies = [
  "adler-core",
  "async-stream",
