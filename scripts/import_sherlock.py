@@ -199,6 +199,10 @@ OVERRIDES: dict[str, dict] = {
     "mstdn.io": {"known_present": "admin"},
     "Reddit": {"known_present": "reddit"},
     "Sbazar.cz": {"known_present": "dhh"},
+    # Sherlock's upstream PlayStore username_claimed (`Facebook`) now 404s;
+    # `KONAMI` is an existing Google Play developer page verified on
+    # 2026-06-06.
+    "PlayStore": {"known_present": "KONAMI"},
     "SOOP": {"known_present": "support"},
     "Trakt": {"known_present": "admin"},
     "Typeracer": {"known_present": "typeracer"},

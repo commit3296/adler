@@ -10485,7 +10485,7 @@
           "text": "the requested URL was not found on this server"
         }
       ],
-      "known_present": "GitHub",
+      "known_present": "KONAMI",
       "disabled": true,
       "disabled_reason": "duplicate of GooglePlayStore"
     },
