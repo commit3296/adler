@@ -124,7 +124,8 @@ site.
 | ------------- | ---- | ---------------------------------------------------- |
 | `adler-core`  | lib  | Detection engine, site registry, executor.          |
 | `adler-server`| lib  | HTTP API + SSE streaming + scan persistence; embeds the SolidJS web UI via `rust-embed`. |
-| `adler-cli`   | bin  | `adler` command-line interface; `--web` launches the embedded server + UI in-process. |
+| `adler-mcp`   | lib  | Model Context Protocol server (`rmcp 1.7`); exposes the OSINT surface to AI agents over stdio + Streamable HTTP+SSE. |
+| `adler-cli`   | bin  | `adler` command-line interface; `--web` launches the embedded server + UI in-process; `--mcp` / `--mcp-http` launch the MCP server. |
 
 ## Install
 
@@ -246,6 +247,39 @@ adler --web --web-bind 0.0.0.0:9000  # listen on all interfaces, custom port
 covers the full feature set, the `/api/*` surface, and the deployment
 notes (the SPA is `rust-embed`'d into the binary; rebuild from source
 with `npm ci && npm run build` in `adler-server/web/`).
+
+## MCP server
+
+Adler exposes its OSINT surface to AI assistants over the
+[Model Context Protocol](https://modelcontextprotocol.io/). Five
+**tools** the agent can call (`list_sites`, `scan_username` with
+streamed progress, `scan_batch`, `doctor_check`, `get_scan_history`),
+five **resources** it can browse (`adler://registry/{sites,tags,
+disabled}`, `adler://scans/recent`, `adler://scans/{id}` template),
+and three **prompts** with templated OSINT workflows
+(`investigate_username`, `audit_registry_health`,
+`correlate_accounts`). Two transports — pick whichever fits how the
+agent runs.
+
+```bash
+adler --mcp                              # stdio: Claude Desktop / Cursor / local agents
+adler --mcp-http 127.0.0.1:8766          # HTTP+SSE: remote agents, mounted at /mcp
+```
+
+The HTTP transport inherits `rmcp`'s loopback `allowed_hosts`
+DNS-rebind guard out of the box; non-loopback binds expose the API
+without authentication, so only do it on a trusted network. The
+`instructions` block sent on `initialize` restates the project's
+ethical bound (authorised security testing / OSINT research /
+defensive work only; no harassment, doxxing, or unauthorised
+surveillance) so the agent's first peek at the server names what's
+in scope.
+
+→ The [**Usage**](https://adler-docs.pages.dev/usage/#mcp-server)
+page lists every tool / resource / prompt with its arguments and
+return shape. `adler-mcp/examples/` ships two hand-runnable probes
+(stdio + HTTP) that double as reference implementations of a
+minimal MCP client.
 
 ## Access engine
 
