@@ -47,7 +47,7 @@ jobs:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@d77b13a0df3134d64a457ea9003f600b09fa1c8a # v3
+        uses: github/codeql-action/init@8aad20d150bbac5944a9f9d289da16a4b0d87c1e # v3
         with:
           languages: rust
           # `security-extended` adds the medium-severity query suite
@@ -59,9 +59,9 @@ jobs:
       # `autobuild` runs `cargo build` in workspace root, which is
       # exactly what we want.
       - name: Build
-        uses: github/codeql-action/autobuild@d77b13a0df3134d64a457ea9003f600b09fa1c8a # v3
+        uses: github/codeql-action/autobuild@8aad20d150bbac5944a9f9d289da16a4b0d87c1e # v3
 
       - name: Analyze
-        uses: github/codeql-action/analyze@d77b13a0df3134d64a457ea9003f600b09fa1c8a # v3
+        uses: github/codeql-action/analyze@8aad20d150bbac5944a9f9d289da16a4b0d87c1e # v3
         with:
           category: "/language:rust"
