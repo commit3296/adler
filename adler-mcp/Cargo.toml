@@ -8,7 +8,7 @@ repository.workspace = true
 homepage.workspace = true
 description = "Model Context Protocol server for the Adler OSINT username-search engine — exposes scan / list / doctor / history tools, registry + scan-history resources, and OSINT workflow prompts."
 categories = ["command-line-utilities", "api-bindings"]
-keywords = ["osint", "username", "mcp", "model-context-protocol", "ai"]
+keywords = ["osint", "username", "mcp", "ai"]
 readme = "../README.md"
 
 [dependencies]
