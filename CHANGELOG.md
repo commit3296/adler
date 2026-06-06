@@ -9,6 +9,28 @@ pre-1.0 bump rules.
 
 ## [Unreleased]
 
+## [0.12.0](https://github.com/commit3296/adler/compare/adler-mcp-v0.11.7...adler-mcp-v0.12.0) - 2026-06-06
+
+### Added
+- *(mcp)* HTTP+SSE transport via Streamable HTTP
+- *(mcp)* prompts surface — investigate / audit / correlate workflows
+- *(mcp)* resources surface — registry + scans
+- *(mcp)* scan_username + scan_batch + doctor_check + get_scan_history tools
+- *(mcp)* adler-mcp crate + --mcp stdio server with list_sites tool
+- *(server)* per-scan egress subset selection (phase 6b)
+- *(server)* read-only access engine view + transport telemetry in SPA (phase 6a)
+- *(core)* escalation router + transport telemetry (access engine phase 4)
+- *(core)* impersonate transport behind the `impersonate` Cargo feature (phase 2)
+- operator session injection for login-walled sites (access engine phase 5)
+- *(cli)* --proxy-pool egress config for geo routing (phase 3)
+- *(cli)* [**breaking**] include WhatsMyName tranche by default, rename flag to --no-wmn
+- *(registry)* opt-in WhatsMyName tranche as CC-BY-SA registry
+- *(browser)* raw async CDP client unblocks Browserbase backend
+
+### Fixed
+- *(ci)* pin scorecard-action; replace broken docs badge
+- *(browser)* document Browserbase/chromiumoxide incompatibility
+
 ## [0.11.7](https://github.com/commit3296/adler/compare/v0.11.6...v0.11.7) - 2026-06-04
 
 ### Fixed
