@@ -1145,11 +1145,16 @@ fn render_prompt(
     spec: &PromptSpec,
     args: &serde_json::Map<String, serde_json::Value>,
 ) -> Result<String, rmcp::ErrorData> {
-    let mut body = spec.body.to_owned();
+    // Resolve every declared argument up-front: enforces the "required"
+    // contract before any output is produced, and lets the single-pass
+    // substitution below treat the lookup table as authoritative — so an
+    // arg's value that happens to contain `{other_arg}` is never
+    // expanded recursively.
+    let mut resolved: std::collections::HashMap<&str, &str> =
+        std::collections::HashMap::with_capacity(spec.arguments.len());
     for arg_spec in spec.arguments {
-        let placeholder = format!("{{{}}}", arg_spec.name);
         let value = match args.get(arg_spec.name) {
-            Some(v) => v.as_str().unwrap_or("").to_owned(),
+            Some(v) => v.as_str().unwrap_or(""),
             None if arg_spec.required => {
                 return Err(rmcp::ErrorData::invalid_params(
                     format!(
@@ -1159,11 +1164,36 @@ fn render_prompt(
                     None,
                 ));
             }
-            None => String::new(),
+            None => "",
         };
-        body = body.replace(&placeholder, &value);
+        resolved.insert(arg_spec.name, value);
     }
-    Ok(body)
+
+    // Single-pass scan: every `{ident}` whose ident matches a declared
+    // argument is replaced with the resolved value. Unknown placeholders
+    // (or stray braces inside literal prose) pass through verbatim so
+    // body authors can mention `{foo}` without it disappearing.
+    let body = spec.body;
+    let mut out = String::with_capacity(body.len());
+    let mut rest = body;
+    while let Some(open) = rest.find('{') {
+        out.push_str(&rest[..open]);
+        let after_open = &rest[open + 1..];
+        if let Some(close) = after_open.find('}') {
+            let ident = &after_open[..close];
+            if let Some(value) = resolved.get(ident) {
+                out.push_str(value);
+                rest = &after_open[close + 1..];
+                continue;
+            }
+        }
+        // No matching placeholder — emit the `{` literally and keep
+        // scanning from the next character.
+        out.push('{');
+        rest = after_open;
+    }
+    out.push_str(rest);
+    Ok(out)
 }
 
 impl AdlerMcp {
@@ -1589,6 +1619,48 @@ mod tests {
         let err = render_prompt(spec, &args).unwrap_err();
         assert!(err.message.contains("requires argument"));
         assert!(err.message.contains("username"));
+    }
+
+    #[test]
+    fn render_prompt_does_not_re_expand_values_that_look_like_placeholders() {
+        // If `username` resolves to a string containing `{regions}`,
+        // the old multi-pass `body.replace` would substitute again on
+        // the next iteration and yield "ru,ua" — letting a caller
+        // smuggle one argument's value into another's slot. Single-pass
+        // substitution must emit the literal `{regions}` instead.
+        let spec = PROMPT_SPECS
+            .iter()
+            .find(|s| s.name == "investigate_username")
+            .unwrap();
+        let mut args = serde_json::Map::new();
+        args.insert(
+            "username".into(),
+            serde_json::Value::String("trap_{regions}".into()),
+        );
+        args.insert("regions".into(), serde_json::Value::String("ru,ua".into()));
+        let body = render_prompt(spec, &args).unwrap();
+        assert!(
+            body.contains("`trap_{regions}`"),
+            "username slot should contain the literal value: {body}"
+        );
+        assert!(
+            body.contains("regions = `ru,ua`"),
+            "the real regions slot should still substitute: {body}"
+        );
+    }
+
+    #[test]
+    fn render_prompt_leaves_unknown_braces_literal() {
+        // A body author writing `{foo}` for an undeclared placeholder
+        // should see it survive into the output rather than vanishing.
+        let spec = PromptSpec {
+            name: "stub",
+            description: "",
+            arguments: &[],
+            body: "before {unknown} after",
+        };
+        let body = render_prompt(&spec, &serde_json::Map::new()).unwrap();
+        assert_eq!(body, "before {unknown} after");
     }
 
     #[test]
