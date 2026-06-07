@@ -1730,7 +1730,6 @@ struct DoctorOpts<'a> {
     format: OutputFormat,
 }
 
-#[allow(clippy::too_many_lines)] // text + json + ndjson branches fan out
 async fn run_doctor(client: &Client, sites: &[Site], opts: DoctorOpts<'_>) -> Result<ExitCode> {
     tracing::info!(
         count = sites.len(),
@@ -1754,145 +1753,9 @@ async fn run_doctor(client: &Client, sites: &[Site], opts: DoctorOpts<'_>) -> Re
             );
         }
     }
-    let structured = matches!(opts.format, OutputFormat::Json | OutputFormat::Ndjson);
-    let mut failures = 0_usize;
-    let mut failed_sites: Vec<&Site> = Vec::new();
-    let mut healthy_sites: Vec<&Site> = Vec::new();
-    let mut records: Vec<serde_json::Value> = if matches!(opts.format, OutputFormat::Json) {
-        Vec::with_capacity(sites.len())
-    } else {
-        Vec::new()
-    };
-    for site in sites {
-        let report = doctor::check_site(client, site).await;
-        let (verdict, issues): (&'static str, Vec<String>) = match &report {
-            DoctorReport::Healthy { .. } => ("healthy", Vec::new()),
-            DoctorReport::Unhealthy { issues, .. } => ("unhealthy", issues.clone()),
-        };
-        match report {
-            DoctorReport::Healthy { .. } => healthy_sites.push(site),
-            DoctorReport::Unhealthy { .. } => {
-                failures += 1;
-                failed_sites.push(site);
-            }
-        }
-        if structured {
-            let record = serde_json::json!({
-                "name": site.name,
-                "verdict": verdict,
-                "issues": issues,
-            });
-            match opts.format {
-                OutputFormat::Ndjson => println!(
-                    "{}",
-                    serde_json::to_string(&record)
-                        .context("serialising doctor site record as ndjson")?
-                ),
-                OutputFormat::Json => records.push(record),
-                _ => unreachable!("structured implies json/ndjson"),
-            }
-        } else if verdict == "healthy" {
-            if opts.color {
-                println!("\x1b[32m[OK]\x1b[0m   {}", site.name);
-            } else {
-                println!("[OK]   {}", site.name);
-            }
-        } else {
-            if opts.color {
-                println!("\x1b[31m[FAIL]\x1b[0m {}", site.name);
-            } else {
-                println!("[FAIL] {}", site.name);
-            }
-            for issue in &issues {
-                println!("       · {issue}");
-            }
-        }
-    }
-    let summary = serde_json::json!({
-        "total": sites.len(),
-        "healthy": healthy_sites.len(),
-        "failing": failures,
-    });
-    match opts.format {
-        OutputFormat::Text => {
-            println!();
-            println!("{} site(s) checked, {failures} failed", sites.len());
-        }
-        OutputFormat::Ndjson => {
-            // Tagged differently from per-site records so consumers can
-            // distinguish without positional logic.
-            let summary_line = serde_json::json!({
-                "type": "summary",
-                "total": sites.len(),
-                "healthy": healthy_sites.len(),
-                "failing": failures,
-            });
-            println!(
-                "{}",
-                serde_json::to_string(&summary_line)
-                    .context("serialising doctor summary as ndjson")?
-            );
-        }
-        OutputFormat::Json => {
-            let envelope = serde_json::json!({
-                "sites": records,
-                "summary": summary,
-            });
-            println!(
-                "{}",
-                serde_json::to_string_pretty(&envelope)
-                    .context("serialising doctor report as json")?
-            );
-        }
-        OutputFormat::Csv | OutputFormat::Html => unreachable!("rejected at function entry"),
-    }
-
-    if opts.fix && !failed_sites.is_empty() {
-        if opts.apply {
-            // `--apply` requires `--sites` (enforced by clap), so this is
-            // always Some by construction; the `?` is just belt-and-braces.
-            let path = opts
-                .sites_path
-                .context("internal: --apply reached run_doctor without --sites")?;
-            apply_fix_suggestions(client, &failed_sites, path, opts.yes).await?;
-        } else {
-            print_fix_suggestions(client, &failed_sites).await?;
-        }
-    }
-
-    if opts.suggest_known_present && !failed_sites.is_empty() {
-        if opts.apply {
-            let path = opts.sites_path.context(
-                "internal: --apply --suggest-known-present reached run_doctor without --sites",
-            )?;
-            apply_known_present_suggestions(client, &failed_sites, path, opts.yes).await?;
-        } else {
-            print_known_present_suggestions(client, &failed_sites).await?;
-        }
-    }
-
-    if opts.suggest_extract {
-        // Extractor derivation only makes sense on sites whose
-        // known_present user actually resolves — that's exactly the
-        // `Healthy` population the walk above identified. Sites that
-        // already declare `extract` rules are skipped so hand-authored
-        // selectors aren't clobbered.
-        let candidates: Vec<&Site> = healthy_sites
-            .iter()
-            .copied()
-            .filter(|s| s.extract.is_empty())
-            .collect();
-        if !candidates.is_empty() {
-            if opts.apply {
-                let path = opts.sites_path.context(
-                    "internal: --apply --suggest-extract reached run_doctor without --sites",
-                )?;
-                apply_extract_suggestions(client, &candidates, path, opts.yes).await?;
-            } else {
-                print_extract_suggestions(client, &candidates).await?;
-            }
-        }
-    }
+    let walk = walk_doctor_sites(client, sites, opts.format, opts.color).await?;
+    render_doctor_summary(opts.format, sites.len(), &walk)?;
+    run_doctor_suggestions(client, &opts, &walk).await?;
 
     // `--apply` is meaningless without something to apply: clap allows
     // `--apply --sites <path>` on its own (since `--fix` /
@@ -1912,11 +1775,193 @@ async fn run_doctor(client: &Client, sites: &[Site], opts: DoctorOpts<'_>) -> Re
         print_protection_suggestions(opts.scans_dir);
     }
 
-    Ok(if failures == 0 {
+    Ok(if walk.failures == 0 {
         ExitCode::SUCCESS
     } else {
         ExitCode::from(1)
     })
+}
+
+/// Buckets accumulated by [`walk_doctor_sites`] — the headline walk's
+/// state, owned outside `run_doctor` so output rendering and suggestion
+/// dispatch can each consume the slices they care about.
+struct DoctorWalk<'a> {
+    failures: usize,
+    failed_sites: Vec<&'a Site>,
+    healthy_sites: Vec<&'a Site>,
+    /// Per-site records, only populated when format == Json (Ndjson
+    /// streams them eagerly inside the loop).
+    records: Vec<serde_json::Value>,
+}
+
+/// Probe every site once, print the per-site line for text output (or
+/// stream the ndjson record), and return the failed/healthy partition
+/// plus the buffered JSON records for the final envelope.
+async fn walk_doctor_sites<'a>(
+    client: &Client,
+    sites: &'a [Site],
+    format: OutputFormat,
+    color: bool,
+) -> Result<DoctorWalk<'a>> {
+    let structured = matches!(format, OutputFormat::Json | OutputFormat::Ndjson);
+    let mut walk = DoctorWalk {
+        failures: 0,
+        failed_sites: Vec::new(),
+        healthy_sites: Vec::new(),
+        records: if matches!(format, OutputFormat::Json) {
+            Vec::with_capacity(sites.len())
+        } else {
+            Vec::new()
+        },
+    };
+    for site in sites {
+        let report = doctor::check_site(client, site).await;
+        let (verdict, issues): (&'static str, Vec<String>) = match &report {
+            DoctorReport::Healthy { .. } => ("healthy", Vec::new()),
+            DoctorReport::Unhealthy { issues, .. } => ("unhealthy", issues.clone()),
+        };
+        match report {
+            DoctorReport::Healthy { .. } => walk.healthy_sites.push(site),
+            DoctorReport::Unhealthy { .. } => {
+                walk.failures += 1;
+                walk.failed_sites.push(site);
+            }
+        }
+        if structured {
+            let record = serde_json::json!({
+                "name": site.name,
+                "verdict": verdict,
+                "issues": issues,
+            });
+            match format {
+                OutputFormat::Ndjson => println!(
+                    "{}",
+                    serde_json::to_string(&record)
+                        .context("serialising doctor site record as ndjson")?
+                ),
+                OutputFormat::Json => walk.records.push(record),
+                _ => unreachable!("structured implies json/ndjson"),
+            }
+        } else if verdict == "healthy" {
+            if color {
+                println!("\x1b[32m[OK]\x1b[0m   {}", site.name);
+            } else {
+                println!("[OK]   {}", site.name);
+            }
+        } else {
+            if color {
+                println!("\x1b[31m[FAIL]\x1b[0m {}", site.name);
+            } else {
+                println!("[FAIL] {}", site.name);
+            }
+            for issue in &issues {
+                println!("       · {issue}");
+            }
+        }
+    }
+    Ok(walk)
+}
+
+/// Emit the trailing summary line (text), tagged summary record
+/// (ndjson) or the full `{sites, summary}` envelope (json).
+fn render_doctor_summary(format: OutputFormat, total: usize, walk: &DoctorWalk<'_>) -> Result<()> {
+    let summary = serde_json::json!({
+        "total": total,
+        "healthy": walk.healthy_sites.len(),
+        "failing": walk.failures,
+    });
+    match format {
+        OutputFormat::Text => {
+            println!();
+            println!("{total} site(s) checked, {} failed", walk.failures);
+        }
+        OutputFormat::Ndjson => {
+            // Tagged differently from per-site records so consumers can
+            // distinguish without positional logic.
+            let summary_line = serde_json::json!({
+                "type": "summary",
+                "total": total,
+                "healthy": walk.healthy_sites.len(),
+                "failing": walk.failures,
+            });
+            println!(
+                "{}",
+                serde_json::to_string(&summary_line)
+                    .context("serialising doctor summary as ndjson")?
+            );
+        }
+        OutputFormat::Json => {
+            let envelope = serde_json::json!({
+                "sites": walk.records,
+                "summary": summary,
+            });
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&envelope)
+                    .context("serialising doctor report as json")?
+            );
+        }
+        OutputFormat::Csv | OutputFormat::Html => unreachable!("rejected at function entry"),
+    }
+    Ok(())
+}
+
+/// Dispatch the three suggestion modes (`--fix`,
+/// `--suggest-known-present`, `--suggest-extract`); each is gated on
+/// its CLI flag and on having an input population to act on.
+async fn run_doctor_suggestions(
+    client: &Client,
+    opts: &DoctorOpts<'_>,
+    walk: &DoctorWalk<'_>,
+) -> Result<()> {
+    if opts.fix && !walk.failed_sites.is_empty() {
+        if opts.apply {
+            // `--apply` requires `--sites` (enforced by clap), so this is
+            // always Some by construction; the `?` is just belt-and-braces.
+            let path = opts
+                .sites_path
+                .context("internal: --apply reached run_doctor without --sites")?;
+            apply_fix_suggestions(client, &walk.failed_sites, path, opts.yes).await?;
+        } else {
+            print_fix_suggestions(client, &walk.failed_sites).await?;
+        }
+    }
+
+    if opts.suggest_known_present && !walk.failed_sites.is_empty() {
+        if opts.apply {
+            let path = opts.sites_path.context(
+                "internal: --apply --suggest-known-present reached run_doctor without --sites",
+            )?;
+            apply_known_present_suggestions(client, &walk.failed_sites, path, opts.yes).await?;
+        } else {
+            print_known_present_suggestions(client, &walk.failed_sites).await?;
+        }
+    }
+
+    if opts.suggest_extract {
+        // Extractor derivation only makes sense on sites whose
+        // known_present user actually resolves — that's exactly the
+        // `Healthy` population the walk above identified. Sites that
+        // already declare `extract` rules are skipped so hand-authored
+        // selectors aren't clobbered.
+        let candidates: Vec<&Site> = walk
+            .healthy_sites
+            .iter()
+            .copied()
+            .filter(|s| s.extract.is_empty())
+            .collect();
+        if !candidates.is_empty() {
+            if opts.apply {
+                let path = opts.sites_path.context(
+                    "internal: --apply --suggest-extract reached run_doctor without --sites",
+                )?;
+                apply_extract_suggestions(client, &candidates, path, opts.yes).await?;
+            } else {
+                print_extract_suggestions(client, &candidates).await?;
+            }
+        }
+    }
+    Ok(())
 }
 
 /// One of the three doctor suggestion modes — `--fix`,
