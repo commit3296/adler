@@ -233,7 +233,13 @@ impl AdlerMcp {
         }
         let total = sites.len();
         let outcomes = self
-            .run_scan_with_progress(sites, username.clone(), &meta, &peer, args.concurrency)
+            .run_scan_with_progress(
+                Arc::new(sites),
+                username.clone(),
+                &meta,
+                &peer,
+                args.concurrency,
+            )
             .await?;
         let summary = ScanSummary::from_outcomes(&outcomes);
         Ok(Json(ScanOutput {
@@ -274,6 +280,12 @@ impl AdlerMcp {
                 None,
             ));
         }
+        // Share the filtered site list across every username in the
+        // batch via Arc — cloning a Vec per iteration would be ~9k
+        // unnecessary Site clones for a 1834-site registry × 5
+        // usernames.
+        let sites_total = sites.len();
+        let sites = Arc::new(sites);
         let mut results: Vec<ScanOutput> = Vec::with_capacity(args.usernames.len());
         for raw_username in args.usernames {
             let username = match Username::new(raw_username.clone()) {
@@ -293,7 +305,7 @@ impl AdlerMcp {
             };
             let outcomes = self
                 .run_scan_with_progress(
-                    sites.clone(),
+                    Arc::clone(&sites),
                     username.clone(),
                     &meta,
                     &peer,
@@ -303,7 +315,7 @@ impl AdlerMcp {
             let summary = ScanSummary::from_outcomes(&outcomes);
             results.push(ScanOutput {
                 username: raw_username,
-                total_probed: sites.len(),
+                total_probed: sites_total,
                 summary,
                 outcomes: outcomes.into_iter().map(OutcomeRow::from).collect(),
             });
@@ -406,9 +418,13 @@ impl AdlerMcp {
 
     /// Run a scan and bridge the synchronous progress callback into
     /// MCP progress notifications when the client supplied a token.
+    ///
+    /// `sites` is passed as `Arc<Vec<Site>>` so `scan_batch` can share
+    /// the filtered site list across many usernames without cloning
+    /// the Vec per call.
     async fn run_scan_with_progress(
         &self,
-        sites: Vec<adler_core::Site>,
+        sites: Arc<Vec<adler_core::Site>>,
         username: Username,
         meta: &Meta,
         peer: &Peer<RoleServer>,
@@ -426,9 +442,15 @@ impl AdlerMcp {
         let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<CheckOutcome>();
         let client = self.client.clone();
         let scan_handle = tokio::spawn(async move {
-            executor::run_with_progress(client.as_ref(), &sites, &username, opts, move |o| {
-                let _ = tx.send(o.clone());
-            })
+            executor::run_with_progress(
+                client.as_ref(),
+                sites.as_ref(),
+                &username,
+                opts,
+                move |o| {
+                    let _ = tx.send(o.clone());
+                },
+            )
             .await
         });
 
