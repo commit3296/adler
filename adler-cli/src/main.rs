@@ -2065,13 +2065,19 @@ struct PatchReport {
     missing: Vec<String>,
 }
 
-/// Pure helper: read the JSON, replace `signals` on matching entries by
-/// name, write the result back atomically through a sibling `*.tmp` file.
-/// Split out from [`apply_fix_suggestions`] so it can be unit-tested
-/// without a [`Client`] or the network.
-fn patch_sites_file(
+/// Pure helper: load the JSON registry file, walk the `sites` array,
+/// replace one named field on each entry matched by name, and write
+/// back atomically through a sibling `*.tmp`. The three concrete
+/// `patch_*_in_sites_file` helpers are thin shims around this.
+///
+/// `T` only needs `serde::Serialize` — the value is materialised via
+/// `serde_json::to_value` so each apply path can pass the natural
+/// Rust type (a `Vec<Signal>`, a `String`, a `Vec<Extractor>`)
+/// without an intermediate conversion.
+fn patch_registry_field<T: serde::Serialize>(
     sites_path: &Path,
-    patches: &[(String, Vec<adler_core::Signal>)],
+    patches: &[(String, T)],
+    field: &str,
 ) -> Result<PatchReport> {
     let content = std::fs::read_to_string(sites_path)
         .with_context(|| format!("reading {} for --apply", sites_path.display()))?;
@@ -2088,7 +2094,7 @@ fn patch_sites_file(
         })?;
 
     let mut report = PatchReport::default();
-    for (name, signals) in patches {
+    for (name, value) in patches {
         let entry = arr.iter_mut().find_map(|v| {
             let obj = v.as_object_mut()?;
             (obj.get("name").and_then(serde_json::Value::as_str) == Some(name.as_str()))
@@ -2096,7 +2102,9 @@ fn patch_sites_file(
         });
         match entry {
             Some(obj) => {
-                obj.insert("signals".into(), serde_json::to_value(signals)?);
+                let json = serde_json::to_value(value)
+                    .with_context(|| format!("serialising {field} value for {name:?}"))?;
+                obj.insert(field.into(), json);
                 report.patched += 1;
             }
             None => report.missing.push(name.clone()),
@@ -2114,6 +2122,14 @@ fn patch_sites_file(
         .with_context(|| format!("renaming {} → {}", tmp.display(), sites_path.display()))?;
 
     Ok(report)
+}
+
+/// Apply `signals` patches to the named registry entries.
+fn patch_sites_file(
+    sites_path: &Path,
+    patches: &[(String, Vec<adler_core::Signal>)],
+) -> Result<PatchReport> {
+    patch_registry_field(sites_path, patches, "signals")
 }
 
 /// Render an [`adler_core::Signal`] in compact JSON for the diff output.
@@ -2248,58 +2264,12 @@ async fn apply_known_present_suggestions(
     Ok(())
 }
 
-/// Pure helper for the `known_present` apply path. Mirrors [`patch_sites_file`]'s
-/// shape: load the JSON, walk the `sites` array, replace each named
-/// entry's `known_present` with the new value, atomic rename through
-/// a sibling `*.tmp`.
+/// Apply `known_present` patches to the named registry entries.
 fn patch_known_present_in_sites_file(
     sites_path: &Path,
     patches: &[(String, String)],
 ) -> Result<PatchReport> {
-    let content = std::fs::read_to_string(sites_path)
-        .with_context(|| format!("reading {} for --apply", sites_path.display()))?;
-    let mut root: serde_json::Value = serde_json::from_str(&content)
-        .with_context(|| format!("parsing {} as JSON", sites_path.display()))?;
-    let arr = root
-        .get_mut("sites")
-        .and_then(serde_json::Value::as_array_mut)
-        .with_context(|| {
-            format!(
-                "{} has no top-level \"sites\" array — is it a valid registry file?",
-                sites_path.display()
-            )
-        })?;
-
-    let mut report = PatchReport::default();
-    for (name, new_known) in patches {
-        let entry = arr.iter_mut().find_map(|v| {
-            let obj = v.as_object_mut()?;
-            (obj.get("name").and_then(serde_json::Value::as_str) == Some(name.as_str()))
-                .then_some(obj)
-        });
-        match entry {
-            Some(obj) => {
-                obj.insert(
-                    "known_present".into(),
-                    serde_json::Value::String(new_known.clone()),
-                );
-                report.patched += 1;
-            }
-            None => report.missing.push(name.clone()),
-        }
-    }
-
-    let mut serialised =
-        serde_json::to_string_pretty(&root).context("re-serialising patched registry")?;
-    serialised.push('\n');
-
-    let tmp = sites_path.with_extension("json.tmp");
-    std::fs::write(&tmp, serialised.as_bytes())
-        .with_context(|| format!("writing {}", tmp.display()))?;
-    std::fs::rename(&tmp, sites_path)
-        .with_context(|| format!("renaming {} → {}", tmp.display(), sites_path.display()))?;
-
-    Ok(report)
+    patch_registry_field(sites_path, patches, "known_present")
 }
 
 /// `--suggest-extract` dry-run path: for each healthy candidate site,
@@ -2419,57 +2389,12 @@ async fn apply_extract_suggestions(
     Ok(())
 }
 
-/// Pure helper for the `extract` apply path. Mirrors
-/// [`patch_known_present_in_sites_file`]'s shape: load the JSON, walk
-/// the `sites` array, replace each named entry's `extract` array with
-/// the new block, atomic rename through a sibling `*.tmp`.
+/// Apply `extract` block patches to the named registry entries.
 fn patch_extract_in_sites_file(
     sites_path: &Path,
     patches: &[(String, Vec<adler_core::Extractor>)],
 ) -> Result<PatchReport> {
-    let content = std::fs::read_to_string(sites_path)
-        .with_context(|| format!("reading {} for --apply", sites_path.display()))?;
-    let mut root: serde_json::Value = serde_json::from_str(&content)
-        .with_context(|| format!("parsing {} as JSON", sites_path.display()))?;
-    let arr = root
-        .get_mut("sites")
-        .and_then(serde_json::Value::as_array_mut)
-        .with_context(|| {
-            format!(
-                "{} has no top-level \"sites\" array — is it a valid registry file?",
-                sites_path.display()
-            )
-        })?;
-
-    let mut report = PatchReport::default();
-    for (name, extractors) in patches {
-        let entry = arr.iter_mut().find_map(|v| {
-            let obj = v.as_object_mut()?;
-            (obj.get("name").and_then(serde_json::Value::as_str) == Some(name.as_str()))
-                .then_some(obj)
-        });
-        match entry {
-            Some(obj) => {
-                let value = serde_json::to_value(extractors)
-                    .context("serialising derived extract block")?;
-                obj.insert("extract".into(), value);
-                report.patched += 1;
-            }
-            None => report.missing.push(name.clone()),
-        }
-    }
-
-    let mut serialised =
-        serde_json::to_string_pretty(&root).context("re-serialising patched registry")?;
-    serialised.push('\n');
-
-    let tmp = sites_path.with_extension("json.tmp");
-    std::fs::write(&tmp, serialised.as_bytes())
-        .with_context(|| format!("writing {}", tmp.display()))?;
-    std::fs::rename(&tmp, sites_path)
-        .with_context(|| format!("renaming {} → {}", tmp.display(), sites_path.display()))?;
-
-    Ok(report)
+    patch_registry_field(sites_path, patches, "extract")
 }
 
 /// Default directory the web UI persists scans to (`$XDG_CACHE_HOME/adler/scans/`,
