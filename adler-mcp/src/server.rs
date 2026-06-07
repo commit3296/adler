@@ -2,8 +2,11 @@
 //!
 //! Built on the `rmcp` `#[tool_router]` + `#[tool_handler]` macro
 //! pattern: tool methods are declared on the inherent `impl`, and the
-//! macros wire `list_tools` / `call_tool` automatically. Resource and
-//! prompt support land in follow-up commits.
+//! macros wire `list_tools` / `call_tool` automatically. The
+//! `ServerHandler` impl below adds the remaining surface — resources
+//! (`list_resources` / `read_resource` /
+//! `list_resource_templates`) and prompts (`list_prompts` /
+//! `get_prompt`).
 
 use std::num::NonZeroUsize;
 use std::sync::Arc;
@@ -51,11 +54,10 @@ use serde::Serialize;
 /// MCP server backing Adler's OSINT capabilities.
 ///
 /// Construct via [`AdlerMcp::new`] or [`AdlerMcp::with_registry`] and
-/// hand to one of the transport launchers
-/// (`adler_mcp::run_stdio`, `run_http` — the latter ships in a
-/// follow-up). Cloning is cheap (the registry sits behind an
-/// [`Arc`]) — the server passes itself by `Arc` to rmcp's transport
-/// drivers.
+/// hand to one of the transport launchers (`adler_mcp::run_stdio` or
+/// `adler_mcp::run_http`). Cloning is cheap — every internal field
+/// is `Arc`-wrapped — so rmcp's transport drivers can pass the
+/// server by value without measurable overhead.
 #[derive(Clone)]
 pub struct AdlerMcp {
     registry: Arc<Registry>,
@@ -122,10 +124,25 @@ impl AdlerMcp {
     }
 }
 
+/// Default HTTP timeout for the MCP-bundled client.
+const DEFAULT_TIMEOUT: Duration = Duration::from_secs(10);
+
+/// Default per-scan concurrency for the `scan_username` /
+/// `scan_batch` tools. Matches the executor's normal scan defaults;
+/// higher values risk hammering shared throttle pools.
+const DEFAULT_SCAN_CONCURRENCY: usize = 16;
+
+/// Default `limit` for the `get_scan_history` tool when the caller
+/// doesn't supply one.
+const DEFAULT_HISTORY_LIMIT: usize = 20;
+
+/// Maximum rows the `adler://scans/recent` resource returns.
+const RECENT_SCANS_LIMIT: usize = 50;
+
 /// Default HTTP client used when the host doesn't supply one.
 fn default_client() -> crate::Result<Client> {
     Client::builder()
-        .timeout(Duration::from_secs(10))
+        .timeout(DEFAULT_TIMEOUT)
         .max_retries(0)
         .build()
         .map_err(crate::Error::Core)
@@ -353,7 +370,7 @@ impl AdlerMcp {
         &self,
         Parameters(args): Parameters<ScanHistoryArgs>,
     ) -> Result<Json<ScanHistoryOutput>, rmcp::ErrorData> {
-        let limit = args.limit.unwrap_or(20).max(1);
+        let limit = args.limit.unwrap_or(DEFAULT_HISTORY_LIMIT).max(1);
         let filter_username = args.username;
         let entries = read_scan_history(self.scans_dir.as_ref(), limit, filter_username.as_deref())
             .map_err(|e| {
@@ -403,8 +420,8 @@ impl AdlerMcp {
         #[allow(clippy::cast_precision_loss)]
         let total = sites.len() as f64;
         let progress_token = meta.get_progress_token();
-        let conc = NonZeroUsize::new(concurrency.unwrap_or(16).max(1))
-            .unwrap_or(NonZeroUsize::new(16).expect("16 is non-zero"));
+        let conc = NonZeroUsize::new(concurrency.unwrap_or(DEFAULT_SCAN_CONCURRENCY).max(1))
+            .expect(".max(1) guarantees non-zero");
         let opts = ExecutorOptions::default().concurrency(conc);
         let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<CheckOutcome>();
         let client = self.client.clone();
@@ -914,6 +931,7 @@ const STATIC_RESOURCES: &[StaticResourceSpec] = &[
     StaticResourceSpec {
         uri: "adler://scans/recent",
         name: "scans_recent",
+        // If `RECENT_SCANS_LIMIT` changes, update this description.
         description: "The 50 most recent persisted scans from the web server's history dir, \
                       one summary row each.",
     },
@@ -1172,8 +1190,8 @@ impl AdlerMcp {
     }
 
     fn render_scans_recent(&self) -> Result<String, ResourceError> {
-        let rows =
-            read_scan_history(self.scans_dir.as_ref(), 50, None).map_err(ResourceError::Io)?;
+        let rows = read_scan_history(self.scans_dir.as_ref(), RECENT_SCANS_LIMIT, None)
+            .map_err(ResourceError::Io)?;
         let envelope = serde_json::json!({
             "total": rows.len(),
             "scans": rows,

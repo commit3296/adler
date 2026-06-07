@@ -1,22 +1,22 @@
 //! Model Context Protocol server for Adler.
 //!
 //! Exposes Adler's OSINT capabilities to AI assistants over the MCP
-//! protocol (JSON-RPC). Three surfaces are planned:
+//! protocol (JSON-RPC). Three surfaces:
 //!
-//! - **Tools** — callable agent actions (scan a username, batch scan,
-//!   list sites, doctor-check a site, fetch scan history). This first
-//!   iteration ships `list_sites` only; the scan / doctor / history
-//!   tools land in follow-up commits.
-//! - **Resources** — browsable data (live registry, available tags,
-//!   disabled entries with reasons, recent scans).
-//! - **Prompts** — templated workflows for typical OSINT tasks
-//!   (investigate a username, audit registry health, correlate
-//!   accounts).
+//! - **Tools** — callable agent actions: `list_sites`, `scan_username`
+//!   (with streaming progress notifications), `scan_batch`,
+//!   `doctor_check`, `get_scan_history`.
+//! - **Resources** — browsable data: `adler://registry/sites`,
+//!   `adler://registry/tags`, `adler://registry/disabled` (audit
+//!   surface for the `disabled_reason` annotations),
+//!   `adler://scans/recent`, and the templated `adler://scans/{id}`.
+//! - **Prompts** — templated OSINT workflows: `investigate_username`,
+//!   `audit_registry_health`, `correlate_accounts`.
 //!
-//! Two transports are planned: stdio (Claude Desktop / local agents,
-//! shipped now) and HTTP+SSE (remote agents, multi-client, shipped in
-//! a follow-up). Launched by `adler --mcp` which forwards into
-//! [`run_stdio`].
+//! Two transports: stdio (Claude Desktop / local agents) via
+//! [`run_stdio`] and HTTP+SSE (remote agents, multi-client) via
+//! [`run_http`]. Both drive the same [`AdlerMcp`] service. Launched by
+//! `adler --mcp` (stdio) / `adler --mcp-http <addr>` (HTTP).
 
 #![forbid(unsafe_code)]
 
