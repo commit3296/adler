@@ -1919,6 +1919,28 @@ async fn run_doctor(client: &Client, sites: &[Site], opts: DoctorOpts<'_>) -> Re
     })
 }
 
+/// Common interactive confirmation for every `--apply` family path.
+/// Returns `Ok(true)` when the user accepts (or `skip` is set),
+/// `Ok(false)` after printing the "aborted" message so the caller
+/// can return cleanly.
+fn confirm_apply(skip: bool) -> Result<bool> {
+    if skip {
+        return Ok(true);
+    }
+    print!("Apply? [y/N] ");
+    io::stdout().flush().ok();
+    let mut answer = String::new();
+    io::stdin()
+        .read_line(&mut answer)
+        .context("reading confirmation prompt")?;
+    if matches!(answer.trim(), "y" | "Y" | "yes" | "YES") {
+        Ok(true)
+    } else {
+        println!("aborted; no changes written.");
+        Ok(false)
+    }
+}
+
 /// Diff present/absent responses for each failing site and print a suggested
 /// signature snippet. Suggestions are advisory — nothing is modified.
 async fn print_fix_suggestions(client: &Client, failed: &[&Site]) -> Result<()> {
@@ -2009,17 +2031,8 @@ async fn apply_fix_suggestions(
         sites_path.display()
     );
 
-    if !skip_prompt {
-        print!("Apply? [y/N] ");
-        io::stdout().flush().ok();
-        let mut answer = String::new();
-        io::stdin()
-            .read_line(&mut answer)
-            .context("reading confirmation prompt")?;
-        if !matches!(answer.trim(), "y" | "Y" | "yes" | "YES") {
-            println!("aborted; no changes written.");
-            return Ok(());
-        }
+    if !confirm_apply(skip_prompt)? {
+        return Ok(());
     }
 
     let patches: Vec<(String, Vec<adler_core::Signal>)> =
@@ -2208,17 +2221,8 @@ async fn apply_known_present_suggestions(
         sites_path.display()
     );
 
-    if !skip_prompt {
-        print!("Apply? [y/N] ");
-        io::stdout().flush().ok();
-        let mut answer = String::new();
-        io::stdin()
-            .read_line(&mut answer)
-            .context("reading confirmation prompt")?;
-        if !matches!(answer.trim(), "y" | "Y" | "yes" | "YES") {
-            println!("aborted; no changes written.");
-            return Ok(());
-        }
+    if !confirm_apply(skip_prompt)? {
+        return Ok(());
     }
 
     let pairs: Vec<(String, String)> = patches
@@ -2388,17 +2392,8 @@ async fn apply_extract_suggestions(
         sites_path.display()
     );
 
-    if !skip_prompt {
-        print!("Apply? [y/N] ");
-        io::stdout().flush().ok();
-        let mut answer = String::new();
-        io::stdin()
-            .read_line(&mut answer)
-            .context("reading confirmation prompt")?;
-        if !matches!(answer.trim(), "y" | "Y" | "yes" | "YES") {
-            println!("aborted; no changes written.");
-            return Ok(());
-        }
+    if !confirm_apply(skip_prompt)? {
+        return Ok(());
     }
 
     let pairs: Vec<(String, Vec<adler_core::Extractor>)> = patches
