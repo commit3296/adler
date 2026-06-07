@@ -947,7 +947,14 @@ impl fmt::Debug for ClientBuilder {
     }
 }
 
-const BOT_PROTECTED_TAG: &str = "bot-protected";
+/// Registry tag marking a site as bot-protected.
+///
+/// Set on sites behind Cloudflare, `PerimeterX`, datadome,
+/// `hCaptcha`, etc. The routing layer treats it as a hint that
+/// residential egress is likely required; the doctor and
+/// registry-summary surfaces use it to annotate honest-limit audits.
+/// Tags are compared with [`str::eq_ignore_ascii_case`].
+pub const BOT_PROTECTED_TAG: &str = "bot-protected";
 
 fn default_user_agent() -> String {
     format!("adler/{}", env!("CARGO_PKG_VERSION"))
@@ -1895,7 +1902,7 @@ mod tests {
 
     fn site_bot_protected(server: &MockServer) -> Site {
         let mut s = site_with(server, vec![Signal::StatusFound { codes: vec![200] }]);
-        s.tags = vec!["bot-protected".into()];
+        s.tags = vec![BOT_PROTECTED_TAG.into()];
         s
     }
 

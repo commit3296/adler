@@ -158,7 +158,8 @@ pub use browser::{BrowserBackend, BrowserBudget, RenderedPage};
 pub use cache::Cache;
 pub use check::{CheckOutcome, MatchKind, UncertainReason};
 pub use client::{
-    Client, ClientBuilder, DEFAULT_BROWSER_BUDGET, DEFAULT_ESCALATION_BUDGET, RawResponse,
+    BOT_PROTECTED_TAG, Client, ClientBuilder, DEFAULT_BROWSER_BUDGET, DEFAULT_ESCALATION_BUDGET,
+    RawResponse,
 };
 pub use correlate::{Cluster, CorrelationReport, LINK_THRESHOLD, correlate};
 pub use doctor::{DoctorReport, ExtractSuggestion, FixSuggestion};

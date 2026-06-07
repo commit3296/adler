@@ -571,6 +571,7 @@ fn derive_extractors_from_html(html: &str) -> Option<(Vec<Extractor>, String)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::client::BOT_PROTECTED_TAG;
     use crate::site::{Signal, UrlTemplate};
     use wiremock::matchers::{any, path_regex};
     use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -917,7 +918,7 @@ mod tests {
             known_present: Some(KnownPresent::Single("torvalds".into())),
             known_absent: None,
             extract: Vec::new(),
-            tags: vec!["bot-protected".into()],
+            tags: vec![BOT_PROTECTED_TAG.into()],
             request_headers: std::collections::BTreeMap::new(),
             regex_check: None,
             engine: None,
