@@ -25613,7 +25613,7 @@
       "known_present": "alex",
       "popularity": 16,
       "disabled": true,
-      "disabled_reason": "signal too permissive from datacenter IP: open.spotify.com/user/{id} 200s for arbitrary strings; needs tighter signal authored from a clean IP"
+      "disabled_reason": "Honest Limits: signal too permissive from datacenter IP: open.spotify.com/user/{id} 200s for arbitrary strings; needs tighter signal authored from a clean IP"
     },
     {
       "name": "SpotifyCommunity",
@@ -25936,7 +25936,7 @@
       ],
       "known_present": "76561197960287930",
       "disabled": true,
-      "disabled_reason": "signal too permissive: steamcommunity.com profile URLs 200 for arbitrary numeric strings; needs tighter signal authored from a clean IP"
+      "disabled_reason": "Honest Limits: signal too permissive: steamcommunity.com profile URLs 200 for arbitrary numeric strings; needs tighter signal authored from a clean IP"
     },
     {
       "name": "Steam (Group)",
