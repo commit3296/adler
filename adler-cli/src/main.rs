@@ -1919,6 +1919,287 @@ async fn run_doctor(client: &Client, sites: &[Site], opts: DoctorOpts<'_>) -> Re
     })
 }
 
+/// One of the three doctor suggestion modes — `--fix`,
+/// `--suggest-known-present`, `--suggest-extract`. The trait
+/// captures every per-mode variant point so [`apply_suggestions`]
+/// can drive the shared loop generically.
+trait DoctorSuggestionApplier {
+    /// Concrete patch type — `Vec<Signal>` for fix,
+    /// `String` for `known_present`, `Vec<Extractor>` for extract.
+    type Patch;
+
+    /// Run the per-site discovery; return `Some((patch, rationale))`
+    /// when the site has an actionable suggestion, `None` when it
+    /// should be skipped. The returned future must be `Send`
+    /// because the shared loop awaits it inside a multi-threaded
+    /// tokio runtime.
+    fn discover(
+        &self,
+        client: &Client,
+        site: &Site,
+    ) -> impl std::future::Future<Output = Option<(Self::Patch, String)>> + Send;
+
+    /// Intro line: `"\ngathering fix suggestions for N failing site(s)…"`.
+    fn gather_header(&self, n: usize) -> String;
+
+    /// One-line skip message for a site that produced no suggestion.
+    fn skip_message(&self, site: &Site) -> String;
+
+    /// Wording for "nothing to write" when no suggestion landed.
+    fn empty_message(&self) -> &'static str;
+
+    /// Header above the proposed-changes diff block.
+    fn proposed_header(&self) -> &'static str;
+
+    /// Render one site's diff entry. The shared loop passes the
+    /// in-memory `Site` (when present) so impls can read original
+    /// values for an old → new diff.
+    fn render_diff(
+        &self,
+        original: Option<&Site>,
+        name: &str,
+        patch: &Self::Patch,
+        rationale: &str,
+    );
+
+    /// Field name to write in `sites.json`. Passed to
+    /// [`patch_registry_field`].
+    fn field_name(&self) -> &'static str;
+}
+
+/// Drive the shared apply loop: gather → diff → confirm → patch.
+/// Every `--apply` family path delegates here; only the variant
+/// methods on the [`DoctorSuggestionApplier`] differ.
+async fn apply_suggestions<A>(
+    applier: &A,
+    client: &Client,
+    sites: &[&Site],
+    sites_path: &Path,
+    skip_prompt: bool,
+) -> Result<()>
+where
+    A: DoctorSuggestionApplier + Sync,
+    A::Patch: serde::Serialize + Send,
+{
+    println!("{}", applier.gather_header(sites.len()));
+    let mut gathered: Vec<(String, A::Patch, String)> = Vec::new();
+    for site in sites {
+        if let Some((patch, rationale)) = applier.discover(client, site).await {
+            gathered.push((site.name.clone(), patch, rationale));
+        } else {
+            println!("{}", applier.skip_message(site));
+        }
+    }
+    if gathered.is_empty() {
+        println!("\n{}", applier.empty_message());
+        return Ok(());
+    }
+
+    let in_memory: std::collections::HashMap<&str, &Site> =
+        sites.iter().map(|s| (s.name.as_str(), *s)).collect();
+    println!("\n{}", applier.proposed_header());
+    for (name, patch, rationale) in &gathered {
+        applier.render_diff(
+            in_memory.get(name.as_str()).copied(),
+            name,
+            patch,
+            rationale,
+        );
+    }
+    println!(
+        "\n{} site(s) to patch in {}",
+        gathered.len(),
+        sites_path.display()
+    );
+
+    if !confirm_apply(skip_prompt)? {
+        return Ok(());
+    }
+
+    let patches: Vec<(String, A::Patch)> = gathered.into_iter().map(|(n, p, _)| (n, p)).collect();
+    let report = patch_registry_field(sites_path, &patches, applier.field_name())?;
+
+    if !report.missing.is_empty() {
+        println!(
+            "warning: {} site(s) had a suggestion but no matching entry in {}: {}",
+            report.missing.len(),
+            sites_path.display(),
+            report.missing.join(", ")
+        );
+    }
+
+    println!(
+        "patched {} site(s) in {}; re-run --doctor to verify.",
+        report.patched,
+        sites_path.display()
+    );
+    Ok(())
+}
+
+/// `--fix` implementation of [`DoctorSuggestionApplier`].
+struct FixApplier;
+
+impl DoctorSuggestionApplier for FixApplier {
+    type Patch = Vec<adler_core::Signal>;
+
+    async fn discover(&self, client: &Client, site: &Site) -> Option<(Self::Patch, String)> {
+        doctor::suggest_fix(client, site)
+            .await
+            .map(|f| (f.signals, f.rationale))
+    }
+
+    fn gather_header(&self, n: usize) -> String {
+        format!("\ngathering fix suggestions for {n} failing site(s)…")
+    }
+
+    fn skip_message(&self, site: &Site) -> String {
+        format!(
+            "  {}  — skipped (no suggestion; responses indistinguishable)",
+            site.name
+        )
+    }
+
+    fn empty_message(&self) -> &'static str {
+        "no applicable fixes — nothing to write."
+    }
+
+    fn proposed_header(&self) -> &'static str {
+        "proposed changes:"
+    }
+
+    fn render_diff(
+        &self,
+        original: Option<&Site>,
+        name: &str,
+        patch: &Self::Patch,
+        rationale: &str,
+    ) {
+        println!("\n  {name}  ({rationale})");
+        if let Some(site) = original {
+            for old in &site.signals {
+                println!("    - {}", render_signal(old));
+            }
+        }
+        for new in patch {
+            println!("    + {}", render_signal(new));
+        }
+    }
+
+    fn field_name(&self) -> &'static str {
+        "signals"
+    }
+}
+
+/// `--suggest-known-present` implementation of
+/// [`DoctorSuggestionApplier`].
+struct KnownPresentApplier;
+
+impl DoctorSuggestionApplier for KnownPresentApplier {
+    type Patch = String;
+
+    async fn discover(&self, client: &Client, site: &Site) -> Option<(Self::Patch, String)> {
+        let pool = doctor::default_candidate_pool(site);
+        let pool_len = pool.len();
+        doctor::discover_known_present(client, site, &pool)
+            .await
+            .map(|candidate| (candidate, format!("matched in pool of {pool_len}")))
+    }
+
+    fn gather_header(&self, n: usize) -> String {
+        format!("\ndiscovering known_present candidates for {n} failing site(s)…")
+    }
+
+    fn skip_message(&self, site: &Site) -> String {
+        let pool_len = doctor::default_candidate_pool(site).len();
+        format!(
+            "  {}  — skipped (no candidate matched in pool of {pool_len})",
+            site.name
+        )
+    }
+
+    fn empty_message(&self) -> &'static str {
+        "no applicable patches — nothing to write."
+    }
+
+    fn proposed_header(&self) -> &'static str {
+        "proposed known_present changes:"
+    }
+
+    fn render_diff(
+        &self,
+        original: Option<&Site>,
+        name: &str,
+        patch: &Self::Patch,
+        _rationale: &str,
+    ) {
+        let old = original
+            .and_then(|s| s.known_present.as_ref())
+            .and_then(adler_core::KnownPresent::primary)
+            .unwrap_or("<none>");
+        println!("  {name}");
+        println!("    - {old:?}");
+        println!("    + {patch:?}");
+    }
+
+    fn field_name(&self) -> &'static str {
+        "known_present"
+    }
+}
+
+/// `--suggest-extract` implementation of [`DoctorSuggestionApplier`].
+struct ExtractApplier;
+
+impl DoctorSuggestionApplier for ExtractApplier {
+    type Patch = Vec<adler_core::Extractor>;
+
+    async fn discover(&self, client: &Client, site: &Site) -> Option<(Self::Patch, String)> {
+        doctor::suggest_extract(client, site)
+            .await
+            .map(|s| (s.extractors, s.rationale))
+    }
+
+    fn gather_header(&self, n: usize) -> String {
+        format!("\nderiving extract blocks for {n} candidate site(s)…")
+    }
+
+    fn skip_message(&self, site: &Site) -> String {
+        format!(
+            "  {}  — skipped (page exposed no OpenGraph or Twitter Card metadata)",
+            site.name
+        )
+    }
+
+    fn empty_message(&self) -> &'static str {
+        "no applicable patches — nothing to write."
+    }
+
+    fn proposed_header(&self) -> &'static str {
+        "proposed extract blocks:"
+    }
+
+    fn render_diff(
+        &self,
+        _original: Option<&Site>,
+        name: &str,
+        patch: &Self::Patch,
+        rationale: &str,
+    ) {
+        println!("  {name}  ({rationale})");
+        for e in patch {
+            let attr = e.attr.as_deref().unwrap_or("<text>");
+            println!(
+                "    + {field}: {selector} [{attr}]",
+                field = e.field,
+                selector = e.selector,
+            );
+        }
+    }
+
+    fn field_name(&self) -> &'static str {
+        "extract"
+    }
+}
+
 /// Common interactive confirmation for every `--apply` family path.
 /// Returns `Ok(true)` when the user accepts (or `skip` is set),
 /// `Ok(false)` after printing the "aborted" message so the caller
@@ -1975,85 +2256,14 @@ async fn print_fix_suggestions(client: &Client, failed: &[&Site]) -> Result<()> 
     Ok(())
 }
 
-/// `--apply` variant: collect suggestions, render a per-site signal diff,
-/// confirm once (unless `--yes`), then write the patched JSON back atomically.
-///
-/// Behaviour invariants:
-/// - Sites for which `suggest_fix` returns `None` are skipped, not patched
-///   with empty signals.
-/// - A site missing from the JSON file (e.g. registry merged from a tranche
-///   not on disk) is reported and skipped, not erased.
-/// - Atomic rename through a sibling `*.tmp` file means a crash mid-write
-///   leaves the original intact.
+/// `--fix --apply`: gather diffed signal suggestions, confirm, patch.
 async fn apply_fix_suggestions(
     client: &Client,
     failed: &[&Site],
     sites_path: &Path,
     skip_prompt: bool,
 ) -> Result<()> {
-    let mut fixes: Vec<(String, Vec<adler_core::Signal>, String)> = Vec::new();
-    println!(
-        "\ngathering fix suggestions for {} failing site(s)…",
-        failed.len()
-    );
-    for site in failed {
-        if let Some(fix) = doctor::suggest_fix(client, site).await {
-            fixes.push((site.name.clone(), fix.signals, fix.rationale));
-        } else {
-            println!(
-                "  {}  — skipped (no suggestion; responses indistinguishable)",
-                site.name
-            );
-        }
-    }
-    if fixes.is_empty() {
-        println!("\nno applicable fixes — nothing to write.");
-        return Ok(());
-    }
-
-    let in_memory: std::collections::HashMap<&str, &Site> =
-        failed.iter().map(|s| (s.name.as_str(), *s)).collect();
-    println!("\nproposed changes:");
-    for (name, signals, rationale) in &fixes {
-        println!("\n  {name}  ({rationale})");
-        if let Some(site) = in_memory.get(name.as_str()) {
-            for old in &site.signals {
-                println!("    - {}", render_signal(old));
-            }
-        }
-        for new in signals {
-            println!("    + {}", render_signal(new));
-        }
-    }
-    println!(
-        "\n{} site(s) to patch in {}",
-        fixes.len(),
-        sites_path.display()
-    );
-
-    if !confirm_apply(skip_prompt)? {
-        return Ok(());
-    }
-
-    let patches: Vec<(String, Vec<adler_core::Signal>)> =
-        fixes.into_iter().map(|(n, s, _)| (n, s)).collect();
-    let report = patch_sites_file(sites_path, &patches)?;
-
-    if !report.missing.is_empty() {
-        println!(
-            "warning: {} site(s) had a suggestion but no matching entry in {}: {}",
-            report.missing.len(),
-            sites_path.display(),
-            report.missing.join(", ")
-        );
-    }
-
-    println!(
-        "patched {} site(s) in {}; re-run --doctor to verify.",
-        report.patched,
-        sites_path.display()
-    );
-    Ok(())
+    apply_suggestions(&FixApplier, client, failed, sites_path, skip_prompt).await
 }
 
 #[derive(Debug, Default, PartialEq, Eq)]
@@ -2124,14 +2334,6 @@ fn patch_registry_field<T: serde::Serialize>(
     Ok(report)
 }
 
-/// Apply `signals` patches to the named registry entries.
-fn patch_sites_file(
-    sites_path: &Path,
-    patches: &[(String, Vec<adler_core::Signal>)],
-) -> Result<PatchReport> {
-    patch_registry_field(sites_path, patches, "signals")
-}
-
 /// Render an [`adler_core::Signal`] in compact JSON for the diff output.
 /// Falls back to the `Debug` impl on the (impossible) serialisation
 /// failure so the diff always has something to show.
@@ -2180,96 +2382,22 @@ async fn print_known_present_suggestions(client: &Client, failed: &[&Site]) -> R
     Ok(())
 }
 
-/// `--suggest-known-present --apply` variant: probe candidate users
-/// for every failing site, collect the successful discoveries, render
-/// an old → new diff per site, confirm once unless `--yes`, then
-/// write the patched JSON back atomically via [`patch_known_present_in_sites_file`].
-///
-/// Sites where no candidate yielded `Found` are skipped (printed for
-/// awareness) — leaving them as-is keeps stale data visible to the
-/// next `--doctor` run rather than silently erasing it.
+/// `--suggest-known-present --apply`: probe candidate users for
+/// each failing site, render old → new diff, confirm, patch.
 async fn apply_known_present_suggestions(
     client: &Client,
     failed: &[&Site],
     sites_path: &Path,
     skip_prompt: bool,
 ) -> Result<()> {
-    println!(
-        "\ndiscovering known_present candidates for {} failing site(s)…",
-        failed.len()
-    );
-    let mut patches: Vec<(String, String, Option<String>)> = Vec::new();
-    for site in failed {
-        let pool = doctor::default_candidate_pool(site);
-        let old = site
-            .known_present
-            .as_ref()
-            .and_then(adler_core::KnownPresent::primary)
-            .map(str::to_owned);
-        match doctor::discover_known_present(client, site, &pool).await {
-            Some(name) => {
-                patches.push((site.name.clone(), name, old));
-            }
-            None => {
-                println!(
-                    "  {}  — skipped (no candidate matched in pool of {})",
-                    site.name,
-                    pool.len()
-                );
-            }
-        }
-    }
-    if patches.is_empty() {
-        println!("\nno applicable patches — nothing to write.");
-        return Ok(());
-    }
-
-    println!("\nproposed known_present changes:");
-    for (name, new, old) in &patches {
-        let old_disp = old.as_deref().unwrap_or("<none>");
-        println!("  {name}");
-        println!("    - {old_disp:?}");
-        println!("    + {new:?}");
-    }
-    println!(
-        "\n{} site(s) to patch in {}",
-        patches.len(),
-        sites_path.display()
-    );
-
-    if !confirm_apply(skip_prompt)? {
-        return Ok(());
-    }
-
-    let pairs: Vec<(String, String)> = patches
-        .into_iter()
-        .map(|(name, new, _old)| (name, new))
-        .collect();
-    let report = patch_known_present_in_sites_file(sites_path, &pairs)?;
-
-    if !report.missing.is_empty() {
-        println!(
-            "warning: {} site(s) had a candidate but no matching entry in {}: {}",
-            report.missing.len(),
-            sites_path.display(),
-            report.missing.join(", ")
-        );
-    }
-
-    println!(
-        "patched {} site(s) in {}; re-run --doctor to verify.",
-        report.patched,
-        sites_path.display()
-    );
-    Ok(())
-}
-
-/// Apply `known_present` patches to the named registry entries.
-fn patch_known_present_in_sites_file(
-    sites_path: &Path,
-    patches: &[(String, String)],
-) -> Result<PatchReport> {
-    patch_registry_field(sites_path, patches, "known_present")
+    apply_suggestions(
+        &KnownPresentApplier,
+        client,
+        failed,
+        sites_path,
+        skip_prompt,
+    )
+    .await
 }
 
 /// `--suggest-extract` dry-run path: for each healthy candidate site,
@@ -2306,95 +2434,15 @@ async fn print_extract_suggestions(client: &Client, candidates: &[&Site]) -> Res
     Ok(())
 }
 
-/// `--suggest-extract --apply` variant: discover an `extract` block for
-/// every candidate site, render an old → new diff (old is always empty
-/// here, since this path skips sites that already declare `extract`),
-/// confirm once unless `--yes`, then write the patched JSON back
-/// atomically via [`patch_extract_in_sites_file`].
+/// `--suggest-extract --apply`: derive OpenGraph/Twitter-Card-based
+/// extract blocks for healthy sites without one, confirm, patch.
 async fn apply_extract_suggestions(
     client: &Client,
     candidates: &[&Site],
     sites_path: &Path,
     skip_prompt: bool,
 ) -> Result<()> {
-    println!(
-        "\nderiving extract blocks for {} candidate site(s)…",
-        candidates.len()
-    );
-    let mut patches: Vec<(String, Vec<adler_core::Extractor>, String)> = Vec::new();
-    for site in candidates {
-        match doctor::suggest_extract(client, site).await {
-            Some(suggestion) => {
-                patches.push((
-                    site.name.clone(),
-                    suggestion.extractors,
-                    suggestion.rationale,
-                ));
-            }
-            None => {
-                println!(
-                    "  {}  — skipped (page exposed no OpenGraph or Twitter Card metadata)",
-                    site.name
-                );
-            }
-        }
-    }
-    if patches.is_empty() {
-        println!("\nno applicable patches — nothing to write.");
-        return Ok(());
-    }
-
-    println!("\nproposed extract blocks:");
-    for (name, extractors, rationale) in &patches {
-        println!("  {name}  ({rationale})");
-        for e in extractors {
-            let attr = e.attr.as_deref().unwrap_or("<text>");
-            println!(
-                "    + {field}: {selector} [{attr}]",
-                field = e.field,
-                selector = e.selector
-            );
-        }
-    }
-    println!(
-        "\n{} site(s) to patch in {}",
-        patches.len(),
-        sites_path.display()
-    );
-
-    if !confirm_apply(skip_prompt)? {
-        return Ok(());
-    }
-
-    let pairs: Vec<(String, Vec<adler_core::Extractor>)> = patches
-        .into_iter()
-        .map(|(name, extractors, _rationale)| (name, extractors))
-        .collect();
-    let report = patch_extract_in_sites_file(sites_path, &pairs)?;
-
-    if !report.missing.is_empty() {
-        println!(
-            "warning: {} site(s) had a suggestion but no matching entry in {}: {}",
-            report.missing.len(),
-            sites_path.display(),
-            report.missing.join(", ")
-        );
-    }
-
-    println!(
-        "patched {} site(s) in {}; re-run --doctor to verify.",
-        report.patched,
-        sites_path.display()
-    );
-    Ok(())
-}
-
-/// Apply `extract` block patches to the named registry entries.
-fn patch_extract_in_sites_file(
-    sites_path: &Path,
-    patches: &[(String, Vec<adler_core::Extractor>)],
-) -> Result<PatchReport> {
-    patch_registry_field(sites_path, patches, "extract")
+    apply_suggestions(&ExtractApplier, client, candidates, sites_path, skip_prompt).await
 }
 
 /// Default directory the web UI persists scans to (`$XDG_CACHE_HOME/adler/scans/`,
@@ -3045,7 +3093,7 @@ mod tests {
             ),
         ];
 
-        let report = patch_sites_file(&path, &patches).expect("patch ok");
+        let report = patch_registry_field(&path, &patches, "signals").expect("patch ok");
         assert_eq!(report.patched, 2);
         assert_eq!(report.missing, vec!["never-existed.example".to_owned()]);
 
@@ -3095,7 +3143,7 @@ mod tests {
             "any.example".to_owned(),
             vec![adler_core::Signal::StatusFound { codes: vec![200] }],
         )];
-        let err = patch_sites_file(&path, &patches).unwrap_err();
+        let err = patch_registry_field(&path, &patches, "signals").unwrap_err();
         assert!(
             err.to_string().contains("no top-level \"sites\" array"),
             "unexpected error: {err}",
@@ -3128,7 +3176,7 @@ mod tests {
             ("Untouched".to_owned(), "octocat".to_owned()),
             ("Never-existed".to_owned(), "ghost".to_owned()),
         ];
-        let report = patch_known_present_in_sites_file(&path, &patches).expect("ok");
+        let report = patch_registry_field(&path, &patches, "known_present").expect("ok");
         assert_eq!(report.patched, 2);
         assert_eq!(report.missing, vec!["Never-existed".to_owned()]);
 
@@ -3187,7 +3235,7 @@ mod tests {
             ("Bare".to_owned(), block.clone()),
             ("Never-existed".to_owned(), block),
         ];
-        let report = patch_extract_in_sites_file(&path, &patches).expect("ok");
+        let report = patch_registry_field(&path, &patches, "extract").expect("ok");
         assert_eq!(report.patched, 1);
         assert_eq!(report.missing, vec!["Never-existed".to_owned()]);
 
