@@ -139,6 +139,33 @@ const DEFAULT_HISTORY_LIMIT: usize = 20;
 /// Maximum rows the `adler://scans/recent` resource returns.
 const RECENT_SCANS_LIMIT: usize = 50;
 
+/// Format an error and its full source chain into one human-readable
+/// string. `thiserror`'s `Display` doesn't walk `source()` by default,
+/// so wrapping a leaf error in a higher-level type loses information
+/// when we just print `{e}`.
+fn fmt_chain(err: &(dyn std::error::Error + 'static)) -> String {
+    use std::fmt::Write;
+    let mut out = err.to_string();
+    let mut cur = err.source();
+    while let Some(e) = cur {
+        let _ = write!(&mut out, "\n  caused by: {e}");
+        cur = e.source();
+    }
+    out
+}
+
+/// Wrap a source error in an `invalid_params` `ErrorData`, prepending
+/// `context` and appending the full error chain.
+fn invalid_params_chain(context: &str, err: &(dyn std::error::Error + 'static)) -> rmcp::ErrorData {
+    rmcp::ErrorData::invalid_params(format!("{context}: {}", fmt_chain(err)), None)
+}
+
+/// Wrap a source error in an `internal_error` `ErrorData`, prepending
+/// `context` and appending the full error chain.
+fn internal_error_chain(context: &str, err: &(dyn std::error::Error + 'static)) -> rmcp::ErrorData {
+    rmcp::ErrorData::internal_error(format!("{context}: {}", fmt_chain(err)), None)
+}
+
 /// Default HTTP client used when the host doesn't supply one.
 fn default_client() -> crate::Result<Client> {
     Client::builder()
@@ -223,7 +250,7 @@ impl AdlerMcp {
         peer: Peer<RoleServer>,
     ) -> Result<Json<ScanOutput>, rmcp::ErrorData> {
         let username = Username::new(args.username.clone())
-            .map_err(|e| rmcp::ErrorData::invalid_params(e.to_string(), None))?;
+            .map_err(|e| invalid_params_chain("username validation", &e))?;
         let sites = self.filtered_sites(&args.filter);
         if sites.is_empty() {
             return Err(rmcp::ErrorData::invalid_params(
@@ -385,9 +412,7 @@ impl AdlerMcp {
         let limit = args.limit.unwrap_or(DEFAULT_HISTORY_LIMIT).max(1);
         let filter_username = args.username;
         let entries = read_scan_history(self.scans_dir.as_ref(), limit, filter_username.as_deref())
-            .map_err(|e| {
-                rmcp::ErrorData::internal_error(format!("reading scan history: {e}"), None)
-            })?;
+            .map_err(|e| internal_error_chain("reading scan history", &e))?;
         let total = entries.len();
         Ok(Json(ScanHistoryOutput {
             total,
@@ -473,7 +498,7 @@ impl AdlerMcp {
 
         scan_handle
             .await
-            .map_err(|e| rmcp::ErrorData::internal_error(format!("scan task panicked: {e}"), None))
+            .map_err(|e| internal_error_chain("scan task panicked", &e))
     }
 }
 
@@ -905,14 +930,12 @@ impl ServerHandler for AdlerMcp {
             ResourceError::Unknown => {
                 rmcp::ErrorData::invalid_params(format!("unknown resource URI {:?}", req.uri), None)
             }
-            ResourceError::Io(err) => rmcp::ErrorData::internal_error(
-                format!("reading resource {:?}: {err}", req.uri),
-                None,
-            ),
-            ResourceError::Json(err) => rmcp::ErrorData::internal_error(
-                format!("serialising resource {:?}: {err}", req.uri),
-                None,
-            ),
+            ResourceError::Io(err) => {
+                internal_error_chain(&format!("reading resource {:?}", req.uri), &err)
+            }
+            ResourceError::Json(err) => {
+                internal_error_chain(&format!("serialising resource {:?}", req.uri), &err)
+            }
         })?;
         let contents =
             ResourceContents::text(payload, &req.uri).with_mime_type("application/json".to_owned());
