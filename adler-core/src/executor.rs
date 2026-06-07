@@ -163,47 +163,30 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::site::{Signal, UrlTemplate};
+    use crate::site::Signal;
+    use crate::test_fixtures::{default_site, test_client_builder};
     use wiremock::matchers::{any, path};
     use wiremock::{Mock, MockServer, ResponseTemplate};
 
     /// Test sites are uniformly defined with a Found/NotFound status pair,
     /// matching how production sites.json migrates from Phase 1.
     fn site(server: &MockServer, name: &str, segment: &str) -> Site {
-        Site {
-            name: name.into(),
-            url: UrlTemplate::new(format!("{}/{}/{{username}}", server.uri(), segment)).unwrap(),
-            signals: vec![
-                Signal::StatusFound { codes: vec![200] },
-                Signal::StatusNotFound { codes: vec![404] },
-            ],
-            known_present: None,
-            known_absent: None,
-            extract: Vec::new(),
-            tags: Vec::new(),
-            request_headers: std::collections::BTreeMap::new(),
-            regex_check: None,
-            engine: None,
-            strip_bad_char: None,
-            request_method: crate::site::HttpMethod::Get,
-            request_body: None,
-            protection: Vec::new(),
-            disabled: false,
-            disabled_reason: None,
-            source: None,
-            popularity: None,
-            access: crate::AccessPolicy::default(),
-        }
+        let mut s = default_site(name, &format!("{}/{}/{{username}}", server.uri(), segment));
+        s.signals = vec![
+            Signal::StatusFound { codes: vec![200] },
+            Signal::StatusNotFound { codes: vec![404] },
+        ];
+        s
     }
 
+    /// Wider timeout than the default test client — executor
+    /// concurrency tests fan out 10–30 mock calls and the 2s default
+    /// is too tight on a loaded CI runner.
     fn fast_client() -> Client {
-        Client::builder()
+        test_client_builder()
             .timeout(Duration::from_secs(5))
-            // Tests share host 127.0.0.1 — disable throttling so concurrency
-            // assertions actually exercise the executor.
-            .min_request_interval(Duration::ZERO)
             .build()
-            .unwrap()
+            .expect("fast_client builds")
     }
 
     fn opts_with_concurrency(n: usize) -> ExecutorOptions {

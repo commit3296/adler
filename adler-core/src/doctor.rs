@@ -576,40 +576,20 @@ mod tests {
     use wiremock::matchers::{any, path_regex};
     use wiremock::{Mock, MockServer, ResponseTemplate};
 
+    use crate::test_fixtures::{default_site, test_client};
+
     fn build_client() -> Client {
-        Client::builder()
-            .timeout(std::time::Duration::from_secs(2))
-            .min_request_interval(std::time::Duration::ZERO)
-            .max_retries(0)
-            .build()
-            .unwrap()
+        test_client()
     }
 
     fn site(server: &MockServer, name: &str, known_present: Option<&str>) -> Site {
-        Site {
-            name: name.into(),
-            url: UrlTemplate::new(format!("{}/{{username}}", server.uri())).unwrap(),
-            signals: vec![
-                Signal::StatusFound { codes: vec![200] },
-                Signal::StatusNotFound { codes: vec![404] },
-            ],
-            known_present: known_present.map(KnownPresent::from),
-            known_absent: None,
-            extract: Vec::new(),
-            tags: Vec::new(),
-            request_headers: std::collections::BTreeMap::new(),
-            regex_check: None,
-            engine: None,
-            strip_bad_char: None,
-            request_method: crate::site::HttpMethod::Get,
-            request_body: None,
-            protection: Vec::new(),
-            disabled: false,
-            disabled_reason: None,
-            source: None,
-            popularity: None,
-            access: crate::AccessPolicy::default(),
-        }
+        let mut s = default_site(name, &format!("{}/{{username}}", server.uri()));
+        s.signals = vec![
+            Signal::StatusFound { codes: vec![200] },
+            Signal::StatusNotFound { codes: vec![404] },
+        ];
+        s.known_present = known_present.map(KnownPresent::from);
+        s
     }
 
     #[tokio::test]

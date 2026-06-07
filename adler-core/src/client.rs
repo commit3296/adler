@@ -1021,41 +1021,16 @@ mod tests {
     use wiremock::matchers::{any, method, path};
     use wiremock::{Mock, MockServer, ResponseTemplate};
 
+    use crate::test_fixtures::{default_site, test_client};
+
     fn build_client() -> Client {
-        Client::builder()
-            .timeout(Duration::from_secs(2))
-            // Tests share `127.0.0.1` as host — keep throttle out of the
-            // way for everything but the dedicated throttle test below.
-            .min_request_interval(Duration::ZERO)
-            // Default retry would re-hit ban-test mocks; tests opt in
-            // explicitly when they want to exercise the retry path.
-            .max_retries(0)
-            .build()
-            .expect("client builds")
+        test_client()
     }
 
     fn site_with(server: &MockServer, signals: Vec<Signal>) -> Site {
-        Site {
-            name: "Mock".into(),
-            url: UrlTemplate::new(format!("{}/{{username}}", server.uri())).unwrap(),
-            signals,
-            known_present: None,
-            known_absent: None,
-            extract: Vec::new(),
-            tags: Vec::new(),
-            request_headers: std::collections::BTreeMap::new(),
-            regex_check: None,
-            engine: None,
-            strip_bad_char: None,
-            request_method: crate::site::HttpMethod::Get,
-            request_body: None,
-            protection: Vec::new(),
-            disabled: false,
-            disabled_reason: None,
-            source: None,
-            popularity: None,
-            access: crate::AccessPolicy::default(),
-        }
+        let mut s = default_site("Mock", &format!("{}/{{username}}", server.uri()));
+        s.signals = signals;
+        s
     }
 
     fn user() -> Username {

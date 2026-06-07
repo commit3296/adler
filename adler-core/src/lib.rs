@@ -145,6 +145,8 @@ mod retry;
 mod robots;
 mod site;
 pub mod telemetry;
+#[cfg(test)]
+mod test_fixtures;
 mod throttle;
 mod transport;
 mod username;
