@@ -166,9 +166,12 @@ async fn full_scan_flow_via_sse_stream() {
         events.contains(&"start".to_owned()),
         "missing start: {events:?}"
     );
-    assert!(
-        events.iter().filter(|e| *e == "outcome").count() >= 2,
-        "expected ≥2 outcome events, got: {events:?}",
+    // Exactly two outcome events — the scan has exactly two sites; a
+    // third would be a duplicate-emission bug, not just "enough".
+    assert_eq!(
+        events.iter().filter(|e| *e == "outcome").count(),
+        2,
+        "expected exactly 2 outcome events, got: {events:?}",
     );
     assert!(
         events.contains(&"done".to_owned()),

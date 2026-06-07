@@ -1576,16 +1576,20 @@ mod tests {
     }
 
     #[test]
-    fn prompt_specs_register_three_named_prompts() {
-        let names: Vec<&str> = PROMPT_SPECS.iter().map(|s| s.name).collect();
-        assert_eq!(
-            names,
-            [
-                "investigate_username",
-                "audit_registry_health",
-                "correlate_accounts"
-            ],
-        );
+    fn prompt_specs_register_the_three_seed_prompts() {
+        // Additive-friendly: failure here means a seed prompt
+        // disappeared, not that a new one was introduced.
+        let names: std::collections::HashSet<&str> = PROMPT_SPECS.iter().map(|s| s.name).collect();
+        for expected in [
+            "investigate_username",
+            "audit_registry_health",
+            "correlate_accounts",
+        ] {
+            assert!(
+                names.contains(expected),
+                "missing seed prompt {expected}: have {names:?}",
+            );
+        }
     }
 
     #[test]

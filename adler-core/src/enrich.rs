@@ -154,4 +154,21 @@ mod tests {
         assert!(s.starts_with(t));
         assert!(t.len() <= 5);
     }
+
+    #[test]
+    fn truncation_handles_mixed_charset_around_boundary() {
+        // Real-world bios mix ASCII with multi-byte codepoints — emoji
+        // (4-byte), CJK (3-byte), Cyrillic / Latin-with-diacritic
+        // (2-byte). Truncation must never split a codepoint, even when
+        // the requested cut lands at a boundary inside the next char.
+        let s = "abc🎉де中f"; // 3 ASCII + 4-byte emoji + 2×2-byte Cyrillic + 3-byte CJK + 1 ASCII
+        for cut in 0..=s.len() {
+            let t = truncate_on_char_boundary(s, cut);
+            assert!(s.is_char_boundary(t.len()), "cut {cut} not on boundary");
+            assert!(t.len() <= cut, "cut {cut} produced {} bytes", t.len());
+            assert!(s.starts_with(t), "cut {cut} returned non-prefix");
+            // The returned slice must round-trip as valid UTF-8.
+            assert_eq!(std::str::from_utf8(t.as_bytes()).unwrap(), t);
+        }
+    }
 }
