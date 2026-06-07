@@ -17,6 +17,8 @@ use crate::retry::RetryPolicy;
 use crate::robots::RobotsCache;
 use crate::throttle::HostThrottle;
 use crate::transport::HttpFetcher;
+#[cfg(feature = "impersonate")]
+use crate::transport::ImpersonateFetcher;
 
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(10);
 const DEFAULT_CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
