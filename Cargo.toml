@@ -31,7 +31,10 @@ reqwest = { version = "0.13", default-features = false, features = [
 ] }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
-toml = "1"
+# `parse` + `serde` only — adler reads `--proxy-pool` / `--sessions`
+# TOML via serde::Deserialize but never writes any, so we don't need
+# the display half of the crate.
+toml = { version = "1", default-features = false, features = ["parse", "serde"] }
 # Optional impersonate transport (phase 2 — wreq + boring/bindgen).
 # Workspace-pinned so the optional dep in adler-core and the feature-
 # passthrough in adler-cli use a single version.
@@ -39,12 +42,20 @@ wreq = "5.3"
 wreq-util = "2.2"
 thiserror = "2"
 tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+tracing-subscriber = { version = "0.3", default-features = false, features = [
+    "env-filter",
+    "fmt",
+    "smallvec",
+    "std",
+] }
 clap = { version = "4", features = ["derive", "env", "wrap_help"] }
 clap_complete = "4"
 clap_mangen = "0.3"
 anyhow = "1"
-indicatif = "0.18"
+# Default features pull in `unicode-width` + `unicode-segmentation`
+# for grapheme-aware spinner widths. Adler uses ASCII spinners only,
+# so we drop both and save the tables.
+indicatif = { version = "0.18", default-features = false }
 fastrand = "2"
 open = "5"
 scraper = "0.27"
@@ -85,7 +96,10 @@ async-stream = "0.3"
 # Embed the SolidJS `adler-web/dist/` bundle into the binary so
 # `adler --web` ships a self-contained UI.
 rust-embed = { version = "8", default-features = false, features = ["debug-embed"] }
-mime_guess = "2"
+# Drop the `rev-mappings` default — adler-server only does extension →
+# MIME lookup for serving the embedded SPA, never the reverse direction.
+# Saves ~50KB of static MIME tables in the binary.
+mime_guess = { version = "2", default-features = false }
 
 # MCP server (adler-mcp crate). The official Rust SDK for the Model
 # Context Protocol; pulled into the default `adler-cli` build so
