@@ -318,9 +318,15 @@ impl Registry {
             if site.disabled {
                 continue;
             }
-            // `Debug` on `Signal` is deterministic and avoids pulling
-            // serde_json into the validation hot path.
-            let key = (site.url.as_str().to_owned(), format!("{:?}", site.signals));
+            // `serde_json` for the signal key gives a canonical
+            // serialisation that doesn't depend on field-order or
+            // `Debug` formatting, both of which could shift between
+            // Rust releases or after a `#[derive(Debug)]` rearrange.
+            // serde_json is already a workspace dep; the cost is
+            // ~one allocation per enabled site at load time.
+            let sigs_key = serde_json::to_string(&site.signals)
+                .expect("Signal derives Serialize and contains no Map<_, _> with non-string keys");
+            let key = (site.url.as_str().to_owned(), sigs_key);
             if let Some(prev) = seen_url_sig.insert(key, site.name.as_str()) {
                 return Err(Error::InvalidSite {
                     reason: format!(
