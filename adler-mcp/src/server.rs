@@ -888,7 +888,7 @@ impl ServerHandler for AdlerMcp {
                 Annotated::new(
                     RawResource::new(spec.uri, spec.name)
                         .with_description(spec.description.to_owned())
-                        .with_mime_type("application/json".to_owned()),
+                        .with_mime_type(JSON_MIME.to_owned()),
                     None,
                 )
             })
@@ -912,7 +912,7 @@ impl ServerHandler for AdlerMcp {
                      $XDG_CACHE_HOME/adler/scans/{id}.json."
                         .to_owned(),
                 )
-                .with_mime_type("application/json".to_owned()),
+                .with_mime_type(JSON_MIME.to_owned()),
             None,
         );
         Ok(ListResourceTemplatesResult {
@@ -937,10 +937,20 @@ impl ServerHandler for AdlerMcp {
                 internal_error_chain(&format!("serialising resource {:?}", req.uri), &err)
             }
         })?;
-        let contents =
-            ResourceContents::text(payload, &req.uri).with_mime_type("application/json".to_owned());
+        let contents = json_resource_contents(payload, &req.uri);
         Ok(ReadResourceResult::new(vec![contents]))
     }
+}
+
+/// MIME type stamped onto every resource Adler exposes — list,
+/// templates, and read all return `application/json`.
+const JSON_MIME: &str = "application/json";
+
+/// Build a JSON [`ResourceContents`] payload — used by `read_resource`
+/// to wrap a serialised registry view or scan envelope with the right
+/// URI and MIME type.
+fn json_resource_contents(payload: String, uri: &str) -> ResourceContents {
+    ResourceContents::text(payload, uri).with_mime_type(JSON_MIME.to_owned())
 }
 
 /// Static resource specs: `(uri, name, description)`. Resource
