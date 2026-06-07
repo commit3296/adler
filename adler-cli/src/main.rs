@@ -3,19 +3,18 @@
 mod doctor;
 mod output;
 mod report;
+mod transport;
 
 use std::io::{self, IsTerminal as _, Write};
 use std::net::SocketAddr;
 use std::num::{NonZeroU32, NonZeroUsize};
 use std::path::PathBuf;
 use std::process::ExitCode;
-use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use adler_core::browser::{BrowserbaseBackend, BrowserbaseConfig, LocalBackend, LocalConfig};
 use adler_core::{
-    BrowserBackend, Cache, CheckOutcome, Client, EgressSpec, ExecutorOptions, PermuteLevel,
-    Registry, Session, SessionStore, Site, Username, correlate, executor, permute,
+    Cache, CheckOutcome, Client, ExecutorOptions, PermuteLevel, Registry, Site, Username,
+    correlate, executor, permute,
 };
 
 use crate::doctor::{DoctorOpts, run_doctor};
@@ -24,6 +23,7 @@ use crate::output::{
     print_correlation, print_hint, print_row, print_tally, should_show, stream_row, write_csv_row,
     write_outputs,
 };
+use crate::transport::build_client;
 use anyhow::{Context as _, Result};
 use clap::{CommandFactory as _, Parser, ValueEnum};
 use clap_complete::Shell;
@@ -93,7 +93,7 @@ const LONG_VERSION: &str = include_str!(concat!(env!("OUT_DIR"), "/long_version.
     long_about = None,
     after_help = AFTER_HELP,
 )]
-struct Cli {
+pub(crate) struct Cli {
     /// Username to search for. With `--add-site`, this is an account that
     /// EXISTS on the site (used to derive the signature). Not required with
     /// `--doctor`, `--cache-clear`, `--list-sites`, or `--completions`.
@@ -233,7 +233,7 @@ struct Cli {
         value_name = "SECS",
         help_heading = "Network"
     )]
-    timeout: u64,
+    pub(crate) timeout: u64,
 
     /// Max in-flight site checks.
     #[arg(long, default_value_t = DEFAULT_CONCURRENCY, value_name = "N", help_heading = "Network")]
@@ -241,13 +241,13 @@ struct Cli {
 
     /// Cap total requests/second across all hosts. Uncapped by default.
     #[arg(long, value_name = "RPS", help_heading = "Network")]
-    max_rps: Option<NonZeroU32>,
+    pub(crate) max_rps: Option<NonZeroU32>,
 
     /// Retry attempts after a transient ban (429 / Cloudflare). Default 2.
     /// Set 0 to disable — useful for `--doctor`, where a ban should surface
     /// immediately rather than being retried.
     #[arg(long, default_value_t = 2, value_name = "N", help_heading = "Network")]
-    max_retries: u32,
+    pub(crate) max_retries: u32,
 
     /// Total scan deadline in seconds. Sites still in flight produce Uncertain outcomes.
     #[arg(long, value_name = "SECS", help_heading = "Network")]
@@ -260,20 +260,20 @@ struct Cli {
         conflicts_with = "tor",
         help_heading = "Network"
     )]
-    proxy: Option<String>,
+    pub(crate) proxy: Option<String>,
 
     /// Route through a local Tor SOCKS proxy (`socks5://127.0.0.1:9050`).
     #[arg(long, help_heading = "Network")]
-    tor: bool,
+    pub(crate) tor: bool,
 
     /// Rotate the User-Agent header per request from a built-in browser pool.
     #[arg(long, help_heading = "Network")]
-    rotate_ua: bool,
+    pub(crate) rotate_ua: bool,
 
     /// Honor each site's robots.txt: skip probes to disallowed paths
     /// (reported Uncertain). Adds one cached robots.txt fetch per host.
     #[arg(long, help_heading = "Network")]
-    respect_robots: bool,
+    pub(crate) respect_robots: bool,
 
     /// Route geo / IP-type-specific sites through a pool of proxies
     /// defined in a TOML file (`[[egress]]` entries with `url`,
@@ -281,7 +281,7 @@ struct Cli {
     /// requires a matching egress use the pool; everything else uses the
     /// default egress (`--proxy` or direct). See README → Egress pool.
     #[arg(long, value_name = "FILE", help_heading = "Access engine")]
-    proxy_pool: Option<PathBuf>,
+    pub(crate) proxy_pool: Option<PathBuf>,
 
     /// Supply authenticated sessions from a TOML file. Each `[name]`
     /// table is a set of HTTP headers (e.g. `Cookie`, `Authorization`)
@@ -289,7 +289,7 @@ struct Cli {
     /// (sock-puppet) login, used to reach pages behind a login wall.
     /// Header values are secret: never logged. See README → Sessions.
     #[arg(long, value_name = "FILE", help_heading = "Access engine")]
-    sessions: Option<PathBuf>,
+    pub(crate) sessions: Option<PathBuf>,
 
     /// Browser backend used for sites tagged `bot-protected` (Instagram,
     /// X/Twitter, `TikTok`, Facebook, Threads, Snapchat, Weibo). `local`
@@ -298,13 +298,13 @@ struct Cli {
     /// charges per session-minute. Default `none` leaves those sites on
     /// raw HTTP (typically Uncertain).
     #[arg(long, value_enum, default_value_t = BrowserBackendChoice::None, value_name = "BACKEND", help_heading = "Access engine")]
-    browser_backend: BrowserBackendChoice,
+    pub(crate) browser_backend: BrowserBackendChoice,
 
     /// Per-scan cap on browser-routed probes. Once exceeded, remaining
     /// bot-protected sites return `Uncertain(browser_budget_exceeded)`.
     /// Guardrail against a misconfigured flag burning a whole quota.
     #[arg(long, default_value_t = adler_core::DEFAULT_BROWSER_BUDGET, value_name = "N", help_heading = "Access engine")]
-    browser_budget: usize,
+    pub(crate) browser_budget: usize,
 
     /// Base URL of a self-hosted `FlareSolverr` instance (e.g.
     /// `http://localhost:8191`). Implies `--browser-backend
@@ -312,12 +312,12 @@ struct Cli {
     /// for Cloudflare-WAF sites; see the project README for
     /// `docker run` setup.
     #[arg(long, value_name = "URL", help_heading = "Access engine")]
-    flaresolverr: Option<String>,
+    pub(crate) flaresolverr: Option<String>,
 
     /// Disable the browser backend for this run, even if `--browser-backend`
     /// or its env vars are set. Convenient for one-off raw-HTTP scans.
     #[arg(long, help_heading = "Access engine")]
-    no_browser: bool,
+    pub(crate) no_browser: bool,
 
     /// Per-scan cap on automatic escalations from the cheap transport
     /// (HTTP / impersonate) to the browser when the cheap path returns
@@ -326,14 +326,14 @@ struct Cli {
     /// long-tail escalation subset don't fight over the same number.
     /// Defaults to `adler_core::DEFAULT_ESCALATION_BUDGET`.
     #[arg(long, default_value_t = adler_core::DEFAULT_ESCALATION_BUDGET, value_name = "N", help_heading = "Access engine")]
-    escalation_budget: usize,
+    pub(crate) escalation_budget: usize,
 
     /// Disable automatic escalation entirely — the cheap transport's
     /// outcome stands even when its `Uncertain` reason is one a browser
     /// fetch would resolve. Useful when benchmarking the raw HTTP signals
     /// or when you want strict cheap-path semantics.
     #[arg(long, help_heading = "Access engine")]
-    no_escalation: bool,
+    pub(crate) no_escalation: bool,
 
     /// Skip the result cache for this run (no read, no write).
     #[arg(long, help_heading = "Cache")]
@@ -455,7 +455,7 @@ struct Cli {
     /// sites that declare extractor rules. Implies a fresh scan (skips the
     /// cache) so enrichment data is current.
     #[arg(long, help_heading = "Batch & enrichment")]
-    enrich: bool,
+    pub(crate) enrich: bool,
 
     /// Also search spelling variants of the username (separator swaps, leet,
     /// digit suffixes). Multiplies requests by the number of variants.
@@ -465,7 +465,7 @@ struct Cli {
     /// Group found accounts that look like the same person (by name/bio
     /// similarity) and print the clusters. Implies `--enrich`.
     #[arg(long, help_heading = "Batch & enrichment")]
-    correlate: bool,
+    pub(crate) correlate: bool,
 
     /// Start the web UI server instead of running a scan. Binds to
     /// `127.0.0.1:8765` by default — override with `--web-bind`.
@@ -534,18 +534,6 @@ struct Cli {
     man_page: bool,
 }
 
-/// Built-in User-Agent pool used by `--rotate-ua`. Realistic recent
-/// desktop browser strings; rotated uniformly at random per request.
-const USER_AGENT_POOL: &[&str] = &[
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15",
-    "Mozilla/5.0 (X11; Linux x86_64; rv:125.0) Gecko/20100101 Firefox/125.0",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-];
-
-const TOR_PROXY: &str = "socks5://127.0.0.1:9050";
-
 /// CLI mirror of [`PermuteLevel`] so clap parses it without coupling the
 /// core type to clap.
 #[derive(Debug, Clone, Copy, ValueEnum)]
@@ -581,7 +569,7 @@ pub(crate) enum OutputFormat {
 
 /// Browser backend selection for `bot-protected` sites.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
-enum BrowserBackendChoice {
+pub(crate) enum BrowserBackendChoice {
     /// Don't use a browser backend (default). Bot-protected sites stay on
     /// the raw HTTP path and typically return `Uncertain`.
     None,
@@ -1468,173 +1456,6 @@ async fn scan(
     cached.into_iter().chain(fresh).collect()
 }
 
-/// A proxy-pool config file (`--proxy-pool`): `[[egress]]` entries
-/// describing the geo / IP-type-tagged proxies that sites can require
-/// via their access policy.
-#[derive(serde::Deserialize)]
-struct ProxyPoolFile {
-    #[serde(default)]
-    egress: Vec<EgressSpec>,
-}
-
-/// Parse the TOML body of a proxy-pool file into egress specs.
-fn parse_proxy_pool(text: &str) -> Result<Vec<EgressSpec>> {
-    let parsed: ProxyPoolFile = toml::from_str(text).context("parsing proxy pool TOML")?;
-    Ok(parsed.egress)
-}
-
-/// Read and parse a `--proxy-pool` file.
-fn load_proxy_pool(path: &std::path::Path) -> Result<Vec<EgressSpec>> {
-    let text = std::fs::read_to_string(path)
-        .with_context(|| format!("reading proxy pool {}", path.display()))?;
-    parse_proxy_pool(&text).with_context(|| format!("in proxy pool {}", path.display()))
-}
-
-/// Parse the TOML body of a `--sessions` file: each top-level `[name]`
-/// table is a set of HTTP headers for that named session.
-fn parse_sessions(text: &str) -> Result<SessionStore> {
-    let raw: std::collections::HashMap<String, std::collections::BTreeMap<String, String>> =
-        toml::from_str(text).context("parsing sessions TOML")?;
-    let mut store = SessionStore::new();
-    for (name, headers) in raw {
-        store.insert(name, Session::from_headers(headers));
-    }
-    Ok(store)
-}
-
-/// Read and parse a `--sessions` file.
-fn load_sessions(path: &std::path::Path) -> Result<SessionStore> {
-    let text = std::fs::read_to_string(path)
-        .with_context(|| format!("reading sessions {}", path.display()))?;
-    parse_sessions(&text).with_context(|| format!("in sessions {}", path.display()))
-}
-
-async fn build_client(cli: &Cli) -> Result<Client> {
-    let mut builder = Client::builder()
-        .timeout(Duration::from_secs(cli.timeout))
-        .max_retries(cli.max_retries);
-    if let Some(rps) = cli.max_rps {
-        builder = builder.max_rps(rps);
-    }
-    let proxy_for_browser: Option<String> = if cli.tor {
-        builder = builder.proxy(TOR_PROXY);
-        Some(TOR_PROXY.to_owned())
-    } else if let Some(url) = &cli.proxy {
-        builder = builder.proxy(url.clone());
-        Some(url.clone())
-    } else {
-        None
-    };
-    if let Some(path) = &cli.proxy_pool {
-        builder = builder.egress_pool(load_proxy_pool(path)?);
-    }
-    if let Some(path) = &cli.sessions {
-        builder = builder.sessions(load_sessions(path)?);
-    }
-    if cli.rotate_ua {
-        builder =
-            builder.rotate_user_agents(USER_AGENT_POOL.iter().map(|s| (*s).to_owned()).collect());
-    }
-
-    if let Some(backend) = build_browser_backend(cli, proxy_for_browser.as_deref()).await? {
-        builder = builder.browser(backend).browser_budget(cli.browser_budget);
-    }
-
-    builder = builder.escalation_budget(cli.escalation_budget);
-    if cli.no_escalation {
-        builder = builder.disable_escalation();
-    }
-
-    builder
-        // --correlate needs profile fields, so it implies enrichment.
-        .enrich(cli.enrich || cli.correlate)
-        .respect_robots(cli.respect_robots)
-        .build()
-        .context("building HTTP client")
-}
-
-/// Construct the browser backend selected by CLI flags, or `None` when no
-/// backend should be used. `--no-browser` short-circuits to `None` even if
-/// a backend is configured.
-async fn build_browser_backend(
-    cli: &Cli,
-    proxy_url: Option<&str>,
-) -> Result<Option<Arc<dyn BrowserBackend>>> {
-    if cli.no_browser {
-        return Ok(None);
-    }
-    // `--flaresolverr <URL>` is a shorthand for `--browser-backend
-    // flaresolverr` plus the endpoint — if the user passed the URL
-    // but not the explicit backend choice, promote it.
-    let effective =
-        if cli.flaresolverr.is_some() && cli.browser_backend == BrowserBackendChoice::None {
-            BrowserBackendChoice::Flaresolverr
-        } else {
-            cli.browser_backend
-        };
-    match effective {
-        BrowserBackendChoice::None => Ok(None),
-        BrowserBackendChoice::Local => {
-            let cfg = LocalConfig {
-                proxy_url: proxy_url.map(str::to_owned),
-            };
-            let backend = LocalBackend::launch(cfg)
-                .await
-                .context("launching local browser backend (is Chrome installed?)")?;
-            eprintln!(
-                "adler: launched local Chrome for bot-protected sites (budget: {})",
-                cli.browser_budget
-            );
-            Ok(Some(Arc::new(backend) as Arc<dyn BrowserBackend>))
-        }
-        BrowserBackendChoice::Browserbase => {
-            let api_key = std::env::var("ADLER_BROWSERBASE_API_KEY").map_err(|_| {
-                anyhow::anyhow!(
-                    "--browser-backend browserbase requires ADLER_BROWSERBASE_API_KEY env var"
-                )
-            })?;
-            let project_id = std::env::var("ADLER_BROWSERBASE_PROJECT_ID").map_err(|_| {
-                anyhow::anyhow!(
-                    "--browser-backend browserbase requires ADLER_BROWSERBASE_PROJECT_ID env var"
-                )
-            })?;
-            let cfg = BrowserbaseConfig {
-                api_key: secrecy::SecretString::from(api_key),
-                project_id,
-            };
-            let backend = BrowserbaseBackend::connect(cfg)
-                .await
-                .context("opening Browserbase session")?;
-            // Cost reality check, on stderr so it survives stdout redirects.
-            // Stays terse so it doesn't drown the progress bar.
-            eprintln!(
-                "adler: opened Browserbase session (id={}) — sites tagged bot-protected will route through it, billed per session-minute. Budget: {}.",
-                backend.session_id(),
-                cli.browser_budget,
-            );
-            Ok(Some(Arc::new(backend) as Arc<dyn BrowserBackend>))
-        }
-        BrowserBackendChoice::Flaresolverr => {
-            let endpoint = cli
-                .flaresolverr
-                .clone()
-                .or_else(|| std::env::var("ADLER_FLARESOLVERR_URL").ok())
-                .ok_or_else(|| {
-                    anyhow::anyhow!(
-                        "--browser-backend flaresolverr requires --flaresolverr <URL> or ADLER_FLARESOLVERR_URL env var"
-                    )
-                })?;
-            let backend = adler_core::browser::FlareSolverrBackend::new(&endpoint)
-                .context("connecting to FlareSolverr")?;
-            eprintln!(
-                "adler: routing bot-protected sites through FlareSolverr at {endpoint} (budget: {})",
-                cli.browser_budget,
-            );
-            Ok(Some(Arc::new(backend) as Arc<dyn BrowserBackend>))
-        }
-    }
-}
-
 /// Derive a default site name from a URL: the registrable label of the host,
 /// title-cased (e.g. `https://www.example.com/{username}` → `Example`).
 fn derive_name(url: &str) -> String {
@@ -1689,53 +1510,8 @@ async fn run_add_site(cli: &Cli, client: &Client, url: &str) -> Result<ExitCode>
 #[cfg(test)]
 mod tests {
     use super::*;
-    use adler_core::{EgressKind, MatchKind};
+    use adler_core::MatchKind;
     use std::collections::BTreeMap;
-
-    #[test]
-    fn parses_proxy_pool_toml() {
-        let toml = r#"
-            [[egress]]
-            url = "socks5://pl.example:1080"
-            country = "PL"
-            kind = "residential"
-
-            [[egress]]
-            url = "http://dc.example:8080"
-        "#;
-        let specs = parse_proxy_pool(toml).expect("parses");
-        assert_eq!(specs.len(), 2);
-        assert_eq!(specs[0].country.as_ref().unwrap().as_str(), "pl");
-        assert!(matches!(specs[0].kind, EgressKind::Residential));
-        // Second entry omits country/kind → None + default Datacenter.
-        assert!(specs[1].country.is_none());
-        assert!(matches!(specs[1].kind, EgressKind::Datacenter));
-    }
-
-    #[test]
-    fn empty_proxy_pool_toml_is_ok() {
-        assert!(parse_proxy_pool("").expect("parses").is_empty());
-    }
-
-    #[test]
-    fn parses_sessions_toml() {
-        let toml = r#"
-            [ig]
-            Cookie = "sessionid=abc"
-            X-CSRF-Token = "tok"
-
-            [reddit]
-            Cookie = "reddit_session=xyz"
-        "#;
-        let store = parse_sessions(toml).expect("parses");
-        assert_eq!(store.len(), 2);
-        assert!(!store.is_empty());
-    }
-
-    #[test]
-    fn empty_sessions_toml_is_ok() {
-        assert!(parse_sessions("").expect("parses").is_empty());
-    }
 
     fn outcome(site: &str, kind: MatchKind) -> CheckOutcome {
         CheckOutcome {
