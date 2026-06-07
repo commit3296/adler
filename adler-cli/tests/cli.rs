@@ -1343,3 +1343,119 @@ fn mcp_stdio_tool_call_returns_structured_content() {
         "expected GitHub or GitLab in coding-tagged list_sites response: {names:?}",
     );
 }
+
+#[test]
+fn mcp_stdio_handles_adversarial_inputs() {
+    // Drive a single stdio session through five adversarial JSON-RPC
+    // calls and verify every one produces a well-formed error response
+    // (no server crash, no empty result, no malformed JSON). Each
+    // probe targets a different boundary check we don't otherwise
+    // exercise:
+    //   1. tools/call with an unknown tool name
+    //   2. prompts/get with a missing required argument
+    //   3. resources/read with a path-traversal `{id}` in the URI
+    //   4. prompts/get with an unknown prompt name
+    //   5. tools/call with a syntactically-valid but semantically-empty
+    //      filter that matches zero sites
+    let mut child = std::process::Command::cargo_bin("adler")
+        .expect("cargo bin adler")
+        .arg("--mcp")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("spawn adler --mcp");
+
+    let stdin = child.stdin.as_mut().expect("stdin piped");
+    for line in [
+        r#"{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"adv","version":"0.0"}},"id":1}"#,
+        r#"{"jsonrpc":"2.0","method":"notifications/initialized"}"#,
+        // 2. unknown tool
+        r#"{"jsonrpc":"2.0","method":"tools/call","params":{"name":"does_not_exist","arguments":{}},"id":2}"#,
+        // 3. prompts/get missing required arg
+        r#"{"jsonrpc":"2.0","method":"prompts/get","params":{"name":"investigate_username","arguments":{}},"id":3}"#,
+        // 4. resources/read with path traversal
+        r#"{"jsonrpc":"2.0","method":"resources/read","params":{"uri":"adler://scans/../../etc/passwd"},"id":4}"#,
+        // 5. prompts/get unknown name
+        r#"{"jsonrpc":"2.0","method":"prompts/get","params":{"name":"nope","arguments":{}},"id":5}"#,
+        // 6. tools/call list_sites with a tag filter that matches zero sites.
+        // Note: list_sites doesn't error on empty matches; it returns total=0.
+        // This verifies the "no error, just empty" contract.
+        r#"{"jsonrpc":"2.0","method":"tools/call","params":{"name":"list_sites","arguments":{"tag":["this-tag-matches-nothing-xyz-42"]}},"id":6}"#,
+    ] {
+        writeln!(stdin, "{line}").expect("write stdin");
+    }
+    drop(child.stdin.take());
+
+    let stdout = child.stdout.take().expect("stdout piped");
+    let reader = BufReader::new(stdout);
+    let mut responses: std::collections::HashMap<u64, serde_json::Value> =
+        std::collections::HashMap::new();
+    for line in reader.lines() {
+        let Ok(raw) = line else { break };
+        let trimmed = raw.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        let Ok(value): Result<serde_json::Value, _> = serde_json::from_str(trimmed) else {
+            continue;
+        };
+        if let Some(id) = value.get("id").and_then(serde_json::Value::as_u64) {
+            responses.insert(id, value);
+        }
+        if responses.contains_key(&1)
+            && responses.contains_key(&2)
+            && responses.contains_key(&3)
+            && responses.contains_key(&4)
+            && responses.contains_key(&5)
+            && responses.contains_key(&6)
+        {
+            break;
+        }
+    }
+    let _ = child.wait();
+
+    // 1 — initialize succeeded (covered by other tests, smoke-only here).
+    assert_eq!(responses[&1]["result"]["serverInfo"]["name"], "adler-mcp");
+
+    // 2 — unknown tool name. rmcp surfaces this as an error envelope.
+    let r2 = &responses[&2];
+    assert!(
+        r2.get("error").is_some() || r2["result"]["isError"].as_bool() == Some(true),
+        "expected error for unknown tool, got {r2}",
+    );
+
+    // 3 — missing required arg.
+    let r3 = &responses[&3];
+    let r3_msg = r3["error"]["message"].as_str().unwrap_or("");
+    assert!(
+        r3_msg.to_lowercase().contains("requires argument"),
+        "expected 'requires argument' error, got {r3_msg:?}",
+    );
+
+    // 4 — path traversal id rejected.
+    let r4 = &responses[&4];
+    let r4_msg = r4["error"]["message"].as_str().unwrap_or("");
+    assert!(
+        r4_msg.to_lowercase().contains("unknown resource"),
+        "expected 'unknown resource' error for path-traversal id, got {r4_msg:?}",
+    );
+
+    // 5 — unknown prompt name.
+    let r5 = &responses[&5];
+    let r5_msg = r5["error"]["message"].as_str().unwrap_or("");
+    assert!(
+        r5_msg.to_lowercase().contains("unknown prompt"),
+        "expected 'unknown prompt' error, got {r5_msg:?}",
+    );
+
+    // 6 — list_sites with empty match doesn't error; returns total=0.
+    let r6 = &responses[&6];
+    let total = r6["result"]["structuredContent"]["total"]
+        .as_u64()
+        .expect("total field on successful list_sites response");
+    assert_eq!(
+        total, 0,
+        "expected zero sites for nonsense tag, got {total}"
+    );
+}
