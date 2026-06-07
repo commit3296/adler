@@ -1,6 +1,7 @@
 //! Adler CLI entry point.
 
 mod doctor;
+mod output;
 mod report;
 
 use std::io::{self, IsTerminal as _, Write};
@@ -13,16 +14,19 @@ use std::time::{Duration, Instant};
 
 use adler_core::browser::{BrowserbaseBackend, BrowserbaseConfig, LocalBackend, LocalConfig};
 use adler_core::{
-    BrowserBackend, Cache, CheckOutcome, Client, CorrelationReport, EgressSpec, ExecutorOptions,
-    MatchKind, PermuteLevel, Registry, Session, SessionStore, Site, Username, correlate, executor,
-    permute,
+    BrowserBackend, Cache, CheckOutcome, Client, EgressSpec, ExecutorOptions, PermuteLevel,
+    Registry, Session, SessionStore, Site, Username, correlate, executor, permute,
 };
 
 use crate::doctor::{DoctorOpts, run_doctor};
+use crate::output::{
+    CSV_COLUMNS, DisplayOpts, OutputOpts, any_found, make_progress_bar, outcome_csv_fields,
+    print_correlation, print_hint, print_row, print_tally, should_show, stream_row, write_csv_row,
+    write_outputs,
+};
 use anyhow::{Context as _, Result};
 use clap::{CommandFactory as _, Parser, ValueEnum};
 use clap_complete::Shell;
-use indicatif::{ProgressBar, ProgressStyle};
 use tracing_subscriber::{EnvFilter, fmt};
 
 const DEFAULT_CONCURRENCY: NonZeroUsize = match NonZeroUsize::new(32) {
@@ -984,7 +988,7 @@ async fn run_scan(cli: &Cli, client: &Client, sites: &[Site]) -> Result<ExitCode
             if cli.correlate {
                 print_correlation(&mut out, &correlate(&outcomes))?;
             }
-            print_hint(&mut out, cli, display.color)?;
+            print_hint(&mut out, cli.enrich, cli.correlate, display.color)?;
         }
     } else {
         let opts = OutputOpts {
@@ -1376,41 +1380,6 @@ fn write_audit_log(
     Ok(())
 }
 
-/// Write the cross-account correlation summary (text format).
-fn print_correlation(out: &mut impl Write, report: &CorrelationReport) -> io::Result<()> {
-    writeln!(out, "\ncorrelation:")?;
-    if report.clusters.is_empty() {
-        writeln!(out, "  no cross-site links found")?;
-    }
-    for cluster in &report.clusters {
-        write!(
-            out,
-            "  • {} — {:.0}% confidence",
-            cluster.members.join(", "),
-            cluster.confidence * 100.0,
-        )?;
-        if let Some(name) = &cluster.shared_name {
-            write!(out, " (shared name: {name:?})")?;
-        }
-        writeln!(out)?;
-    }
-    if !report.unlinked.is_empty() {
-        writeln!(
-            out,
-            "  unlinked (profile data, no match): {}",
-            report.unlinked.join(", ")
-        )?;
-    }
-    if !report.without_profile.is_empty() {
-        writeln!(
-            out,
-            "  no profile data: {}",
-            report.without_profile.join(", ")
-        )?;
-    }
-    Ok(())
-}
-
 /// Scan `sites` for one `username`, consulting and updating the shared
 /// `cache` if one is provided.
 ///
@@ -1717,232 +1686,10 @@ async fn run_add_site(cli: &Cli, client: &Client, url: &str) -> Result<ExitCode>
     }
 }
 
-fn make_progress_bar(total: u64) -> ProgressBar {
-    let bar = ProgressBar::new(total);
-    let style = ProgressStyle::default_bar()
-        .template("{spinner:.cyan} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len}")
-        .unwrap_or_else(|_| ProgressStyle::default_bar());
-    bar.set_style(style.progress_chars("=> "));
-    bar
-}
-
-/// Whether any outcome is a positive hit. Drives the process exit code
-/// (0 when true, 1 when false). `ExitCode` isn't comparable, so the testable
-/// unit is this predicate.
-fn any_found(outcomes: &[CheckOutcome]) -> bool {
-    outcomes.iter().any(|o| o.kind.is_found())
-}
-
-/// What and how to print each text result row.
-// Display toggles are naturally bool-heavy; the pedantic lint doesn't apply.
-#[allow(clippy::struct_excessive_bools)]
-#[derive(Clone, Copy)]
-struct DisplayOpts {
-    /// Show `NotFound` rows too (default hides the bulk noise).
-    show_all: bool,
-    /// Print only found URLs, no chrome (`--quiet`).
-    quiet: bool,
-    /// Colorize rows.
-    color: bool,
-    /// Print the signal evidence under each row (`--explain`).
-    explain: bool,
-}
-
-/// Presentation options for [`write_outputs`].
-struct OutputOpts<'a> {
-    format: OutputFormat,
-    display: DisplayOpts,
-    username: &'a str,
-    elapsed: Duration,
-}
-
-/// Whether a verdict should appear in human output. `Found` and `Uncertain`
-/// are always shown; `NotFound` is the bulk noise, hidden unless `show_all`.
-fn should_show(kind: MatchKind, show_all: bool) -> bool {
-    show_all || kind != MatchKind::NotFound
-}
-
-/// Print one result row. In quiet mode only `Found` rows print, as a bare URL.
-fn print_row(out: &mut impl Write, o: &CheckOutcome, disp: DisplayOpts) -> io::Result<()> {
-    if disp.quiet {
-        if o.kind == MatchKind::Found {
-            writeln!(out, "{}", o.url)?;
-        }
-        return Ok(());
-    }
-    let (symbol, code) = match o.kind {
-        MatchKind::Found => ("[+]", "\x1b[32m"),
-        MatchKind::NotFound => ("[-]", "\x1b[2m"),
-        MatchKind::Uncertain => ("[?]", "\x1b[33m"),
-    };
-    if disp.color {
-        writeln!(out, "{code}{symbol}\x1b[0m {:<14} {}", o.site, o.url)?;
-    } else {
-        writeln!(out, "{symbol} {:<14} {}", o.site, o.url)?;
-    }
-    if let Some(reason) = &o.reason {
-        writeln!(out, "    note: {reason}")?;
-    }
-    if disp.explain {
-        for line in &o.evidence {
-            writeln!(out, "    why: {line}")?;
-        }
-    }
-    for (field, value) in &o.enrichment {
-        writeln!(out, "    {field}: {value}")?;
-    }
-    Ok(())
-}
-
-/// Print the final tally line, counted over *all* outcomes regardless of
-/// what was displayed.
-fn print_tally(
-    out: &mut impl Write,
-    outcomes: &[CheckOutcome],
-    elapsed: Duration,
-) -> io::Result<()> {
-    let mut found = 0_usize;
-    let mut not_found = 0_usize;
-    let mut uncertain = 0_usize;
-    for o in outcomes {
-        match o.kind {
-            MatchKind::Found => found += 1,
-            MatchKind::NotFound => not_found += 1,
-            MatchKind::Uncertain => uncertain += 1,
-        }
-    }
-    writeln!(out)?;
-    writeln!(
-        out,
-        "{found} found · {not_found} not found · {uncertain} uncertain · {:.2}s",
-        elapsed.as_secs_f64()
-    )
-}
-
-/// One-line suggestion of next steps, shown after an interactive text scan.
-fn print_hint(out: &mut impl Write, cli: &Cli, color: bool) -> io::Result<()> {
-    let mut tips: Vec<&str> = Vec::new();
-    if !cli.enrich && !cli.correlate {
-        tips.push("--enrich for profiles");
-    }
-    tips.push("--format json to script");
-    let line = format!("tip: {}", tips.join(" · "));
-    if color {
-        writeln!(out, "\x1b[2m{line}\x1b[0m")
-    } else {
-        writeln!(out, "{line}")
-    }
-}
-
-/// Print one result row to stdout (used by the live streaming callback).
-fn stream_row(o: &CheckOutcome, disp: DisplayOpts) {
-    if should_show(o.kind, disp.show_all) {
-        let mut out = io::stdout().lock();
-        let _ = print_row(&mut out, o, disp);
-    }
-}
-
-/// Stable lowercase label for a verdict (used in CSV; matches the JSON tag).
-fn kind_label(kind: MatchKind) -> &'static str {
-    match kind {
-        MatchKind::Found => "found",
-        MatchKind::NotFound => "not_found",
-        MatchKind::Uncertain => "uncertain",
-    }
-}
-
-/// Quote a CSV field per RFC 4180: wrap in double quotes and double any
-/// internal quote when it contains a comma, quote, or newline.
-fn csv_escape(field: &str) -> String {
-    if field.contains([',', '"', '\n', '\r']) {
-        format!("\"{}\"", field.replace('"', "\"\""))
-    } else {
-        field.to_owned()
-    }
-}
-
-/// Write one CSV record (escaped, comma-joined, CRLF-free fields).
-fn write_csv_row(out: &mut impl Write, fields: &[String]) -> io::Result<()> {
-    let escaped: Vec<String> = fields.iter().map(|f| csv_escape(f)).collect();
-    writeln!(out, "{}", escaped.join(","))
-}
-
-/// The per-outcome CSV columns (after any leading `username` in batch mode).
-fn outcome_csv_fields(o: &CheckOutcome) -> Vec<String> {
-    vec![
-        o.site.clone(),
-        o.url.clone(),
-        kind_label(o.kind).to_owned(),
-        o.reason
-            .as_ref()
-            .map_or_else(String::new, ToString::to_string),
-        o.elapsed_ms.to_string(),
-        o.evidence.join("; "),
-    ]
-}
-
-const CSV_COLUMNS: &str = "site,url,kind,reason,elapsed_ms,evidence";
-
-/// Render outcomes (and optional correlation) to `out` in the chosen format.
-///
-/// Pure in its inputs and the writer — no stdout locking or terminal probing
-/// here, so it's unit-testable against an in-memory buffer. This is the batch
-/// path (piped text, JSON, NDJSON, CSV, HTML); interactive text streams rows
-/// live during the scan instead (see `run_scan`).
-fn write_outputs(
-    out: &mut impl Write,
-    opts: &OutputOpts<'_>,
-    outcomes: &[CheckOutcome],
-    correlation: Option<&CorrelationReport>,
-) -> Result<()> {
-    match opts.format {
-        OutputFormat::Text => {
-            let mut sorted: Vec<&CheckOutcome> = outcomes.iter().collect();
-            sorted.sort_by(|a, b| a.site.cmp(&b.site));
-            for o in &sorted {
-                if should_show(o.kind, opts.display.show_all) {
-                    print_row(out, o, opts.display).context("writing text")?;
-                }
-            }
-            if !opts.display.quiet {
-                print_tally(out, outcomes, opts.elapsed).context("writing tally")?;
-                if let Some(report) = correlation {
-                    print_correlation(out, report).context("writing correlation")?;
-                }
-            }
-            Ok(())
-        }
-        OutputFormat::Json => {
-            serde_json::to_writer_pretty(&mut *out, outcomes).context("writing JSON")?;
-            writeln!(out).context("writing JSON newline")
-        }
-        OutputFormat::Ndjson => {
-            for outcome in outcomes {
-                serde_json::to_writer(&mut *out, outcome).context("writing NDJSON")?;
-                writeln!(out).context("writing NDJSON newline")?;
-            }
-            Ok(())
-        }
-        OutputFormat::Csv => {
-            writeln!(out, "{CSV_COLUMNS}").context("writing CSV header")?;
-            let mut sorted: Vec<&CheckOutcome> = outcomes.iter().collect();
-            sorted.sort_by(|a, b| a.site.cmp(&b.site));
-            for o in &sorted {
-                write_csv_row(out, &outcome_csv_fields(o)).context("writing CSV row")?;
-            }
-            Ok(())
-        }
-        OutputFormat::Html => {
-            let html = report::render_html(opts.username, outcomes, correlation, opts.elapsed);
-            out.write_all(html.as_bytes()).context("writing HTML")
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use adler_core::{CorrelationReport, EgressKind, UncertainReason};
+    use adler_core::{EgressKind, MatchKind};
     use std::collections::BTreeMap;
 
     #[test]
@@ -2004,27 +1751,6 @@ mod tests {
         }
     }
 
-    fn opts(format: OutputFormat, show_all: bool, quiet: bool) -> OutputOpts<'static> {
-        OutputOpts {
-            format,
-            display: DisplayOpts {
-                show_all,
-                quiet,
-                color: false,
-                explain: false,
-            },
-            username: "alice",
-            elapsed: Duration::from_secs(1),
-        }
-    }
-
-    /// Render to an in-memory buffer (no stdout / no colour).
-    fn render(format: OutputFormat, show_all: bool, outcomes: &[CheckOutcome]) -> String {
-        let mut buf: Vec<u8> = Vec::new();
-        write_outputs(&mut buf, &opts(format, show_all, false), outcomes, None).unwrap();
-        String::from_utf8(buf).unwrap()
-    }
-
     #[test]
     fn diff_found_reports_added_and_removed() {
         let prev = vec![
@@ -2055,38 +1781,11 @@ mod tests {
     }
 
     #[test]
-    fn any_found_reflects_a_positive_hit() {
-        assert!(any_found(&[outcome("A", MatchKind::Found)]));
-        assert!(!any_found(&[
-            outcome("A", MatchKind::NotFound),
-            outcome("B", MatchKind::Uncertain),
-        ]));
-        assert!(!any_found(&[]));
-    }
-
-    #[test]
     fn derive_name_titlecases_host_label() {
         assert_eq!(derive_name("https://www.example.com/{username}"), "Example");
         assert_eq!(derive_name("https://github.com/{username}"), "Github");
         assert_eq!(derive_name("http://sub.example.co.uk/u/{username}"), "Sub");
         assert_eq!(derive_name("not a url"), "Not a url");
-    }
-
-    #[test]
-    fn csv_escape_quotes_only_when_needed() {
-        assert_eq!(csv_escape("plain"), "plain");
-        assert_eq!(csv_escape("a,b"), "\"a,b\"");
-        assert_eq!(csv_escape("say \"hi\""), "\"say \"\"hi\"\"\"");
-        assert_eq!(csv_escape("line1\nline2"), "\"line1\nline2\"");
-        assert_eq!(csv_escape(""), "");
-    }
-
-    #[test]
-    fn should_show_hides_only_not_found_by_default() {
-        assert!(should_show(MatchKind::Found, false));
-        assert!(should_show(MatchKind::Uncertain, false));
-        assert!(!should_show(MatchKind::NotFound, false));
-        assert!(should_show(MatchKind::NotFound, true));
     }
 
     #[test]
@@ -2096,108 +1795,5 @@ mod tests {
         // Auto depends on TTY; NO_COLOR handling is covered by the env check
         // in `resolve` itself (not exercised here to avoid mutating env).
         assert!(!ColorChoice::Auto.resolve(false));
-    }
-
-    #[test]
-    fn text_default_shows_found_and_uncertain_hides_not_found() {
-        let outcomes = vec![
-            outcome("GitHub", MatchKind::Found),
-            outcome("GitLab", MatchKind::NotFound),
-            outcome("Reddit", MatchKind::Uncertain),
-        ];
-        let text = render(OutputFormat::Text, false, &outcomes);
-        assert!(text.contains("[+] GitHub"), "{text}");
-        assert!(text.contains("[?] Reddit"), "{text}");
-        assert!(!text.contains("[-] GitLab"), "not-found hidden by default");
-        // Tally still counts everything.
-        assert!(
-            text.contains("1 found · 1 not found · 1 uncertain"),
-            "{text}"
-        );
-    }
-
-    #[test]
-    fn text_all_shows_not_found_too() {
-        let outcomes = vec![
-            outcome("GitHub", MatchKind::Found),
-            outcome("GitLab", MatchKind::NotFound),
-        ];
-        let text = render(OutputFormat::Text, true, &outcomes);
-        assert!(text.contains("[+] GitHub"));
-        assert!(text.contains("[-] GitLab"), "{text}");
-    }
-
-    #[test]
-    fn quiet_prints_only_found_urls() {
-        let outcomes = vec![
-            outcome("GitHub", MatchKind::Found),
-            outcome("GitLab", MatchKind::NotFound),
-            outcome("Reddit", MatchKind::Uncertain),
-        ];
-        let mut buf: Vec<u8> = Vec::new();
-        write_outputs(
-            &mut buf,
-            &opts(OutputFormat::Text, false, true),
-            &outcomes,
-            None,
-        )
-        .unwrap();
-        let text = String::from_utf8(buf).unwrap();
-        assert_eq!(text, "https://GitHub.example/u\n", "{text:?}");
-    }
-
-    #[test]
-    fn text_renders_reason_note() {
-        let mut o = outcome("Site", MatchKind::Uncertain);
-        o.reason = Some(UncertainReason::RateLimited);
-        let text = render(OutputFormat::Text, false, &[o]);
-        assert!(text.contains("note: rate_limited"), "{text}");
-    }
-
-    #[test]
-    fn json_output_is_an_array() {
-        let outcomes = vec![outcome("GitHub", MatchKind::Found)];
-        let json = render(OutputFormat::Json, false, &outcomes);
-        let value: serde_json::Value = serde_json::from_str(&json).unwrap();
-        assert_eq!(value.as_array().unwrap().len(), 1);
-        assert_eq!(value[0]["kind"], "found");
-    }
-
-    #[test]
-    fn ndjson_output_is_one_object_per_line() {
-        let outcomes = vec![
-            outcome("A", MatchKind::Found),
-            outcome("B", MatchKind::NotFound),
-        ];
-        let ndjson = render(OutputFormat::Ndjson, false, &outcomes);
-        let lines: Vec<&str> = ndjson.lines().collect();
-        assert_eq!(lines.len(), 2);
-        for line in lines {
-            let _: serde_json::Value = serde_json::from_str(line).unwrap();
-        }
-    }
-
-    #[test]
-    fn html_output_is_a_document() {
-        let outcomes = vec![outcome("GitHub", MatchKind::Found)];
-        let html = render(OutputFormat::Html, false, &outcomes);
-        assert!(html.starts_with("<!DOCTYPE html>"));
-        assert!(html.trim_end().ends_with("</html>"));
-    }
-
-    #[test]
-    fn text_output_appends_correlation_when_present() {
-        let outcomes = vec![outcome("GitHub", MatchKind::Found)];
-        let report = CorrelationReport::default();
-        let mut buf: Vec<u8> = Vec::new();
-        write_outputs(
-            &mut buf,
-            &opts(OutputFormat::Text, false, false),
-            &outcomes,
-            Some(&report),
-        )
-        .unwrap();
-        let text = String::from_utf8(buf).unwrap();
-        assert!(text.contains("correlation:"), "{text}");
     }
 }
