@@ -100,7 +100,7 @@ pub async fn check_site(client: &Client, site: &Site) -> DoctorReport {
         {
             let summary = present_outcomes
                 .iter()
-                .map(|(n, o)| format!("{n}={:?}", o.kind))
+                .map(|(n, o)| format!("{n}={}", describe_outcome(o)))
                 .collect::<Vec<_>>()
                 .join(", ");
             issues.push(format!(
@@ -139,6 +139,13 @@ pub async fn check_site(client: &Client, site: &Site) -> DoctorReport {
             present: present_outcomes,
             absent: absent_outcome,
         }
+    }
+}
+
+fn describe_outcome(outcome: &CheckOutcome) -> String {
+    match (&outcome.kind, &outcome.reason) {
+        (MatchKind::Uncertain, Some(reason)) => format!("Uncertain({reason})"),
+        (kind, _) => format!("{kind:?}"),
     }
 }
 
@@ -718,6 +725,36 @@ mod tests {
                 let summary = summary.expect("present-check issue should be raised");
                 assert!(summary.contains("alpha"), "issue lacks alpha: {summary}");
                 assert!(summary.contains("beta"), "issue lacks beta: {summary}");
+            }
+            other @ DoctorReport::Healthy { .. } => {
+                panic!("expected Unhealthy, got {other:?}")
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn known_present_summary_includes_uncertain_reason() {
+        let server = MockServer::start().await;
+        Mock::given(any())
+            .respond_with(ResponseTemplate::new(404))
+            .mount(&server)
+            .await;
+
+        let mut s = site(&server, "Mock", None);
+        s.known_present = Some(KnownPresent::Single("alpha".into()));
+        s.access.session = Some("mock".into());
+
+        let report = check_site(&build_client(), &s).await;
+        match report {
+            DoctorReport::Unhealthy { issues, .. } => {
+                let summary = issues
+                    .iter()
+                    .find(|i| i.contains("known-present"))
+                    .expect("present-check issue should be raised");
+                assert!(
+                    summary.contains("alpha=Uncertain(session_required)"),
+                    "issue lacks uncertain reason: {summary}",
+                );
             }
             other @ DoctorReport::Healthy { .. } => {
                 panic!("expected Unhealthy, got {other:?}")

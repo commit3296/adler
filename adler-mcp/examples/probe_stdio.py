@@ -18,6 +18,9 @@ Usage:
     # override the binary location
     ADLER_BIN=/usr/local/bin/adler python3 .../probe_stdio.py
 
+    # CI-safe: exercise stdio transport without live network probes
+    ADLER_MCP_SKIP_LIVE=1 python3 .../probe_stdio.py
+
 This probe is independent of the in-repo `cargo test` integration
 suite (`adler-cli/tests/cli.rs::mcp_stdio_*`); it's intended for
 hand-running against a built binary, and for use as a reference
@@ -34,6 +37,7 @@ import time
 from queue import Empty, Queue
 
 BIN = os.environ.get("ADLER_BIN", "./target/release/adler")
+SKIP_LIVE = os.environ.get("ADLER_MCP_SKIP_LIVE", "").lower() in ("1", "true", "yes")
 
 # Test bookkeeping.
 _results: list[tuple[bool, str]] = []
@@ -153,18 +157,26 @@ def main() -> int:
         )
 
         resp = call("tools/call", {"name": "doctor_check", "arguments": {"site": "Reddit"}})
+        sc = resp.get("result", {}).get("structuredContent", {})
+        issues = [str(issue).lower() for issue in sc.get("issues", [])]
         ok(
-            "tools/call doctor_check(Reddit) → invalid_params (disabled)",
-            "error" in resp and "not found" in resp["error"]["message"].lower(),
+            "tools/call doctor_check(Reddit) → session-required verdict",
+            sc.get("site") == "Reddit"
+            and sc.get("verdict") == "unhealthy"
+            and any("session_required" in issue for issue in issues),
+            f"verdict={sc.get('verdict')}, issues={len(issues)}",
         )
 
-        resp = call("tools/call", {"name": "doctor_check", "arguments": {"site": "GitHub"}})
-        sc = resp.get("result", {}).get("structuredContent", {})
-        ok(
-            "tools/call doctor_check(GitHub) → live verdict",
-            sc.get("site") == "GitHub" and sc.get("verdict") in ("healthy", "unhealthy"),
-            f"verdict={sc.get('verdict')}, issues={len(sc.get('issues', []))}",
-        )
+        if SKIP_LIVE:
+            ok("tools/call doctor_check(GitHub) skipped (ADLER_MCP_SKIP_LIVE)")
+        else:
+            resp = call("tools/call", {"name": "doctor_check", "arguments": {"site": "GitHub"}})
+            sc = resp.get("result", {}).get("structuredContent", {})
+            ok(
+                "tools/call doctor_check(GitHub) → live verdict",
+                sc.get("site") == "GitHub" and sc.get("verdict") in ("healthy", "unhealthy"),
+                f"verdict={sc.get('verdict')}, issues={len(sc.get('issues', []))}",
+            )
 
         resp = call("tools/call", {"name": "get_scan_history", "arguments": {"limit": 5}})
         sc = resp["result"]["structuredContent"]
@@ -174,23 +186,26 @@ def main() -> int:
             f"total={sc['total']}",
         )
 
-        # Live network scan via MCP — top=2 keeps it fast.
-        resp = call(
-            "tools/call",
-            {
-                "name": "scan_username",
-                "arguments": {"username": "torvalds", "top": 2, "tag": ["coding"]},
-                "_meta": {"progressToken": "probe-stdio-1"},
-            },
-        )
-        sc = resp.get("result", {}).get("structuredContent", {})
-        ok(
-            "tools/call scan_username(torvalds, top=2, tag=coding)",
-            sc.get("total_probed", 0) >= 1,
-            f"probed={sc.get('total_probed')}, "
-            f"found={sc.get('summary', {}).get('found')}, "
-            f"sites={[o['site'] for o in sc.get('outcomes', [])]}",
-        )
+        if SKIP_LIVE:
+            ok("tools/call scan_username skipped (ADLER_MCP_SKIP_LIVE)")
+        else:
+            # Live network scan via MCP — top=2 keeps it fast.
+            resp = call(
+                "tools/call",
+                {
+                    "name": "scan_username",
+                    "arguments": {"username": "torvalds", "top": 2, "tag": ["coding"]},
+                    "_meta": {"progressToken": "probe-stdio-1"},
+                },
+            )
+            sc = resp.get("result", {}).get("structuredContent", {})
+            ok(
+                "tools/call scan_username(torvalds, top=2, tag=coding)",
+                sc.get("total_probed", 0) >= 1,
+                f"probed={sc.get('total_probed')}, "
+                f"found={sc.get('summary', {}).get('found')}, "
+                f"sites={[o['site'] for o in sc.get('outcomes', [])]}",
+            )
 
         # === resources ===
         print("\n== resources ==")

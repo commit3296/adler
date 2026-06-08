@@ -205,11 +205,15 @@ def main() -> int:
 
         resp = call("tools/call", {"name": "doctor_check", "arguments": {"site": "Reddit"}})
         body = parse_sse_response(resp, want_id=resp.req_id)  # type: ignore[attr-defined]
-        expect_error(
-            body,
-            resp.req_id,  # type: ignore[attr-defined]
-            "tools/call doctor_check(Reddit)",
-            "not found",
+        result = expect_result(body, resp.req_id, "tools/call doctor_check(Reddit)")  # type: ignore[attr-defined]
+        sc = result.get("structuredContent", {})
+        issues = [str(issue).lower() for issue in sc.get("issues", [])]
+        ok(
+            "tools/call doctor_check(Reddit) → session-required verdict",
+            sc.get("site") == "Reddit"
+            and sc.get("verdict") == "unhealthy"
+            and any("session_required" in issue for issue in issues),
+            f"verdict={sc.get('verdict')}, issues={len(issues)}",
         )
 
         if SKIP_LIVE:
