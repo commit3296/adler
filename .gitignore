@@ -26,6 +26,9 @@ Cargo.lock.bak
 # Logs
 *.log
 
+# Local benchmark output
+bench-results/
+
 # Claude working agreement (local only)
 CLAUDE.md
 .claude/

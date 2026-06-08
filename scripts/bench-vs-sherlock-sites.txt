@@ -1,0 +1,12 @@
+# Sites that usually exist in both Adler and Sherlock and cover common
+# OSINT surfaces. Sherlock names are passed via repeated `--site`.
+GitHub
+GitLab
+Reddit
+Pinterest
+YouTube
+Medium
+HackerNews
+Docker Hub
+Keybase
+Mastodon

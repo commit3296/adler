@@ -278,10 +278,10 @@ mod impersonate {
     use std::collections::BTreeMap;
 
     /// Chrome version we impersonate. Picked from
-    /// [`wreq_util::Emulation`]; bump as Chrome moves so the JA3/JA4
+    /// [`wreq_util::Profile`]; bump as Chrome moves so the JA3/JA4
     /// fingerprint stays "current Chrome" — old emulations get filtered
     /// out by WAFs over time.
-    const EMULATION: wreq_util::Emulation = wreq_util::Emulation::Chrome134;
+    const EMULATION: wreq_util::Profile = wreq_util::Profile::Chrome134;
 
     pub(crate) struct ImpersonateFetcher {
         inner: wreq::Client,
@@ -364,7 +364,7 @@ mod impersonate {
             };
 
             let status = response.status().as_u16();
-            let final_url = response.url().to_string();
+            let final_url = response.uri().to_string();
 
             if let Some(reason) = ban::detect_pre_body(status, response.headers()) {
                 tracing::warn!(url = %req.url, status, %reason, "ban-like response");

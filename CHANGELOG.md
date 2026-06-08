@@ -9,12 +9,17 @@ pre-1.0 bump rules.
 
 ## [Unreleased]
 
+### Added
+- *(bench)* add a real-network Adler vs Sherlock benchmark harness
+
 ### Changed
 - *(docs)* document web UI smoke checks and MCP `top` rank-ceiling semantics
 - *(docs)* add a cross-surface filter contract for CLI, web/API, and MCP
 - *(ci)* run Adler web unit tests alongside typecheck/build/smoke
+- *(core)* update optional impersonate transport to wreq 6
 
 ### Fixed
+- *(security)* remove RustSec-flagged lru 0.13 from the impersonate dependency graph
 - *(web)* clear stale per-site lookup state when refiltering a running scan
 
 ## [0.12.2](https://github.com/commit3296/adler/compare/adler-mcp-v0.12.1...adler-mcp-v0.12.2) - 2026-06-08
