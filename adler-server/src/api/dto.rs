@@ -32,6 +32,42 @@ impl From<&Site> for SiteSummary {
     }
 }
 
+/// Disabled/parked site row surfaced for diagnostics.
+#[derive(Clone, Debug, Serialize)]
+pub(super) struct DisabledSiteSummary {
+    pub(super) name: String,
+    pub(super) url: String,
+    pub(super) tags: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(super) popularity: Option<u32>,
+    pub(super) disabled_reason: String,
+}
+
+impl From<&Site> for DisabledSiteSummary {
+    fn from(s: &Site) -> Self {
+        Self {
+            name: s.name.clone(),
+            url: s.url.as_str().to_owned(),
+            tags: s.tags.clone(),
+            popularity: s.popularity,
+            disabled_reason: s
+                .disabled_reason
+                .clone()
+                .unwrap_or_else(|| "disabled in registry".to_owned()),
+        }
+    }
+}
+
+/// Site catalogue returned by `GET /api/sites`.
+#[derive(Serialize)]
+pub(super) struct SitesResponse {
+    /// Enabled entries available to scans.
+    pub(super) sites: Vec<SiteSummary>,
+    /// Parked entries that match the server startup filter but are not
+    /// scannable. The UI uses these for honest-limit hints.
+    pub(super) disabled: Vec<DisabledSiteSummary>,
+}
+
 /// Read-only view of the access engine's runtime config.
 #[derive(Serialize)]
 pub(super) struct AccessSummary {

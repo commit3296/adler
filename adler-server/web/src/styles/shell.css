@@ -210,6 +210,13 @@
         }
         .advanced-link:hover { color: var(--red); }
         .advanced-link::after { content: " →"; }
+        .parked-note {
+            max-width: min(34rem, 92vw);
+            margin: 0.35rem auto 0;
+            color: var(--fg-faint);
+            font-size: 0.82rem;
+            line-height: 1.4;
+        }
 
         /* ────────── scan view (active / done) ────────── */
         .scan-view {

@@ -9,6 +9,15 @@ export interface SiteSummary {
     popularity?: number;
 }
 
+export interface DisabledSiteSummary extends SiteSummary {
+    disabled_reason: string;
+}
+
+export interface SitesResponse {
+    sites: SiteSummary[];
+    disabled: DisabledSiteSummary[];
+}
+
 export type UncertainReason =
     | "rate_limited"
     | "cloudflare_challenge"
@@ -98,6 +107,7 @@ export interface StartScanResponse {
 export interface ApiError {
     error: string;
     message: string;
+    disabled_matches?: DisabledSiteSummary[];
 }
 
 export type EgressKind = "datacenter" | "residential" | "mobile" | "tor";

@@ -10,10 +10,16 @@ import type {
     UiState,
     ViewState,
 } from "../store";
-import type { AccessResponse, ScanListEntry, SiteSummary } from "../types";
+import type {
+    AccessResponse,
+    DisabledSiteSummary,
+    ScanListEntry,
+    SiteSummary,
+} from "../types";
 
 interface StoreOverrides {
     catalog?: SiteSummary[];
+    disabledCatalog?: DisabledSiteSummary[];
     tagsBySite?: Record<string, string[]>;
     categoryBySite?: Record<string, string>;
     tagCounts?: Record<string, number>;
@@ -33,6 +39,7 @@ interface StoreOverrides {
 export function createTestStore(overrides: StoreOverrides = {}) {
     return createStore<AppStore>({
         catalog: overrides.catalog ?? [],
+        disabledCatalog: overrides.disabledCatalog ?? [],
         tagsBySite: overrides.tagsBySite ?? {},
         categoryBySite: overrides.categoryBySite ?? {},
         tagCounts: overrides.tagCounts ?? {},

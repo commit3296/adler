@@ -44,6 +44,21 @@ pub struct SiteEntry {
     pub popularity: Option<u32>,
 }
 
+/// Disabled/parked row returned alongside enabled `list_sites` matches.
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct DisabledSiteEntry {
+    /// Display name.
+    pub name: String,
+    /// URL template with `{username}` placeholder.
+    pub url: String,
+    /// Tags attached to this site.
+    pub tags: Vec<String>,
+    /// Popularity rank (lower = more popular), if set.
+    pub popularity: Option<u32>,
+    /// Human-readable explanation for why this site is not scannable.
+    pub disabled_reason: String,
+}
+
 /// Envelope for the `list_sites` response.
 #[derive(Debug, Serialize, JsonSchema)]
 pub struct ListSitesOutput {
@@ -51,6 +66,9 @@ pub struct ListSitesOutput {
     pub total: usize,
     /// Matching site entries, in registry order.
     pub sites: Vec<SiteEntry>,
+    /// Disabled/parked entries that matched the same filter. These are
+    /// not scannable, but agents can use them to explain honest limits.
+    pub disabled_matches: Vec<DisabledSiteEntry>,
 }
 
 /// Filter parameters shared between `scan_username` and `scan_batch`.

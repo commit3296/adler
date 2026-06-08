@@ -1,7 +1,7 @@
 import type { SetStoreFunction } from "solid-js/store";
 
 import { categoryForTags } from "../constants";
-import type { AccessResponse, ScanListEntry, SiteSummary } from "../types";
+import type { AccessResponse, ScanListEntry, SitesResponse } from "../types";
 import type { AppStore } from "../store";
 
 interface Deps {
@@ -11,7 +11,8 @@ interface Deps {
 
 export function createCatalogActions({ set, store }: Deps) {
     return {
-        setCatalog(sites: SiteSummary[]) {
+        setCatalog(response: SitesResponse) {
+            const sites = response.sites;
             const tagsBySite: Record<string, string[]> = {};
             const categoryBySite: Record<string, string> = {};
             const tagCounts: Record<string, number> = {};
@@ -21,6 +22,7 @@ export function createCatalogActions({ set, store }: Deps) {
                 for (const t of s.tags) tagCounts[t] = (tagCounts[t] ?? 0) + 1;
             }
             set("catalog", sites);
+            set("disabledCatalog", response.disabled);
             set("tagsBySite", tagsBySite);
             set("categoryBySite", categoryBySite);
             set("tagCounts", tagCounts);

@@ -177,6 +177,14 @@ export const Hero: Component<Props> = (p) => {
                 <button class="advanced-link" onClick={() => actions.setFilters(true)}>
                     Advanced filters
                 </button>
+                <Show when={store.disabledCatalog.length > 0}>
+                    <p class="parked-note">
+                        {store.disabledCatalog.length.toLocaleString()} parked{" "}
+                        {store.disabledCatalog.length === 1 ? "site" : "sites"} excluded ·{" "}
+                        {store.disabledCatalog[0]?.name}:{" "}
+                        {store.disabledCatalog[0]?.disabled_reason}
+                    </p>
+                </Show>
             </div>
         </section>
     );

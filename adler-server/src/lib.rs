@@ -19,14 +19,16 @@
 //! // Use the caller's filtering rules — the CLI already exposes
 //! // --only/--tag/--exclude, so the server just runs whatever site
 //! // list it's handed.
-//! let sites = registry.filter(&[], &[], &[], &[], false);
+//! let filter = adler_core::SiteFilter::default();
+//! let sites = registry.filter_with(&filter);
+//! let catalog = registry.matches_with(&filter);
 //! let client = Client::builder().build()?;
 //! let config = AppConfig {
 //!     bind: "127.0.0.1:8765".parse::<SocketAddr>()?,
 //!     scan_capacity: 32,
 //!     scans_dir: None, // or Some(adler_server::default_scans_dir())
 //! };
-//! serve(sites, client, config).await?;
+//! serve(sites, catalog, client, config).await?;
 //! # Ok(())
 //! # }
 //! ```
@@ -104,12 +106,19 @@ impl Default for AppConfig {
 
 /// Run the server until the listener closes or a shutdown signal arrives.
 ///
-/// `sites` is the pre-filtered site list every scan dispatched through
-/// this server runs against. `client` is the pre-built HTTP client (so
-/// configuration like proxy, throttle, and browser backend flows from
-/// the CLI flags through here unchanged).
-pub async fn serve(sites: Vec<Site>, client: Client, config: AppConfig) -> Result<()> {
-    let mut state = AppState::new(sites, client, config.scan_capacity);
+/// `sites` is the pre-filtered enabled site list every scan dispatched
+/// through this server runs against. `catalog` is the same startup filter
+/// including disabled/parked entries so API/UI surfaces can explain why a
+/// site is unavailable. `client` is the pre-built HTTP client (so
+/// configuration like proxy, throttle, and browser backend flows from the
+/// CLI flags through here unchanged).
+pub async fn serve(
+    sites: Vec<Site>,
+    catalog: Vec<Site>,
+    client: Client,
+    config: AppConfig,
+) -> Result<()> {
+    let mut state = AppState::with_catalog(sites, catalog, client, config.scan_capacity);
     if let Some(dir) = config.scans_dir.clone() {
         state = state.with_scans_dir(dir);
     }

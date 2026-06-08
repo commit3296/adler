@@ -735,26 +735,14 @@ async fn run(cli: Cli) -> Result<ExitCode> {
         include_nsfw: cli.nsfw,
         top: cli.top,
     };
+    let catalog = registry.matches_with(&filter);
     let sites = registry.filter_with(&filter);
     if sites.is_empty() {
         let disabled = registry.disabled_matches_with(&filter);
-        if disabled.is_empty() {
-            eprintln!("adler: no sites match the filter");
-        } else {
-            eprintln!("adler: no enabled sites match the filter");
-            eprintln!("disabled matches:");
-            for site in disabled.iter().take(5) {
-                let reason = site
-                    .disabled_reason
-                    .as_deref()
-                    .unwrap_or("disabled in registry");
-                eprintln!("  - {}: {reason}", site.name);
-            }
-            if disabled.len() > 5 {
-                eprintln!("  ... and {} more", disabled.len() - 5);
-            }
+        if !cli.web {
+            print_empty_filter_diagnostic(&disabled);
+            return Ok(ExitCode::from(2));
         }
-        return Ok(ExitCode::from(2));
     }
 
     if cli.list_sites {
@@ -769,7 +757,7 @@ async fn run(cli: Cli) -> Result<ExitCode> {
     let client = build_client(&cli).await?;
 
     if cli.web {
-        return run_web(&cli, sites, client).await;
+        return run_web(&cli, sites, catalog, client).await;
     }
 
     if cli.mcp || cli.mcp_http.is_some() {
@@ -835,7 +823,12 @@ async fn run_mcp(http_bind: Option<SocketAddr>) -> Result<ExitCode> {
 /// The site list and HTTP client are pre-built so the server honors
 /// the same filtering / proxy / browser-backend flags the CLI exposes
 /// for one-shot scans.
-async fn run_web(cli: &Cli, sites: Vec<Site>, client: Client) -> Result<ExitCode> {
+async fn run_web(
+    cli: &Cli,
+    sites: Vec<Site>,
+    catalog: Vec<Site>,
+    client: Client,
+) -> Result<ExitCode> {
     let bind = cli
         .web_bind
         .unwrap_or_else(|| SocketAddr::from(([127, 0, 0, 1], 8765)));
@@ -846,10 +839,29 @@ async fn run_web(cli: &Cli, sites: Vec<Site>, client: Client) -> Result<ExitCode
         scans_dir: Some(scans_dir.clone()),
     };
     print_web_banner(bind, sites.len(), &scans_dir);
-    adler_server::serve(sites, client, config)
+    adler_server::serve(sites, catalog, client, config)
         .await
         .context("running web server")?;
     Ok(ExitCode::SUCCESS)
+}
+
+fn print_empty_filter_diagnostic(disabled: &[Site]) {
+    if disabled.is_empty() {
+        eprintln!("adler: no sites match the filter");
+    } else {
+        eprintln!("adler: no enabled sites match the filter");
+        eprintln!("disabled matches:");
+        for site in disabled.iter().take(5) {
+            let reason = site
+                .disabled_reason
+                .as_deref()
+                .unwrap_or("disabled in registry");
+            eprintln!("  - {}: {reason}", site.name);
+        }
+        if disabled.len() > 5 {
+            eprintln!("  ... and {} more", disabled.len() - 5);
+        }
+    }
 }
 
 /// Pretty boot banner. Falls back to plain ASCII when stderr isn't

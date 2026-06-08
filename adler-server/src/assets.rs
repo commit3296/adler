@@ -10,7 +10,7 @@
 //!
 //! Routes attached here:
 //!   - `GET /` and any SPA route → `web/dist/index.html`
-//!   - `GET /assets/*` (and any other embedded file) → matched 1:1
+//!   - `GET /assets/{*path}` (and any other embedded file) → matched 1:1
 //!   - `GET /favicon.ico` → 204 (favicon ships inline in index.html
 //!     as an SVG data URI; this stops browser noise without bundling
 //!     a separate icon file).
@@ -31,7 +31,7 @@ pub(crate) fn attach(router: Router) -> Router {
     router
         .route("/", get(index))
         .route("/favicon.ico", get(favicon))
-        .route("/*path", get(static_file_or_index))
+        .route("/{*path}", get(static_file_or_index))
 }
 
 async fn index() -> Response {
@@ -102,3 +102,13 @@ const SPA_MISSING_HTML: &str = r#"<!doctype html>
   cargo build -p adler-cli --release</pre>
 <p>API endpoints are still live — see <code>GET /api/health</code>.</p>
 </body></html>"#;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn attach_accepts_axum_wildcard_route() {
+        let _router = attach(Router::new());
+    }
+}
