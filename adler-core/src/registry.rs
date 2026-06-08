@@ -68,6 +68,10 @@ impl SiteFilter {
     /// Apply this filter to a site slice, returning cloned sites in scan order
     /// (or popularity order when [`top`](Self::top) is set).
     pub fn apply(&self, sites: &[Site]) -> Vec<Site> {
+        self.apply_inner(sites, DisabledMode::Exclude)
+    }
+
+    fn apply_inner(&self, sites: &[Site], disabled_mode: DisabledMode) -> Vec<Site> {
         let include: Vec<String> = self.include.iter().map(|s| s.to_lowercase()).collect();
         let exclude: Vec<String> = self.exclude.iter().map(|s| s.to_lowercase()).collect();
         let want_tags: Vec<String> = self.tags.iter().map(|s| s.to_lowercase()).collect();
@@ -85,12 +89,16 @@ impl SiteFilter {
         let mut filtered: Vec<Site> = sites
             .iter()
             .filter(|site| {
-                // Disabled sites are skipped unconditionally — the bool
-                // is meant for parking known-broken entries with a
-                // reason comment instead of deleting them, so they
-                // never get probed even with a fresh include filter.
-                if site.disabled {
-                    return false;
+                match disabled_mode {
+                    DisabledMode::Exclude if site.disabled => {
+                        // Disabled sites are skipped unconditionally in
+                        // the scan view — the bool is meant for parking
+                        // known-broken entries with a reason comment
+                        // instead of deleting them.
+                        return false;
+                    }
+                    DisabledMode::Only if !site.disabled => return false,
+                    DisabledMode::Exclude | DisabledMode::Only => {}
                 }
                 let name = site.name.to_lowercase();
                 let included = include.is_empty() || include.iter().any(|i| name.contains(i));
@@ -110,6 +118,12 @@ impl SiteFilter {
         }
         filtered
     }
+}
+
+#[derive(Debug, Clone, Copy)]
+enum DisabledMode {
+    Exclude,
+    Only,
 }
 
 impl Registry {
@@ -319,6 +333,14 @@ impl Registry {
     /// Apply a reusable [`SiteFilter`] to this registry.
     pub fn filter_with(&self, filter: &SiteFilter) -> Vec<Site> {
         filter.apply(&self.sites)
+    }
+
+    /// Apply a reusable [`SiteFilter`] but return only disabled/parked
+    /// entries. This is for diagnostics: scan surfaces still call
+    /// [`filter_with`](Self::filter_with), while CLIs and UIs can use this
+    /// to explain why an otherwise matching site is unavailable.
+    pub fn disabled_matches_with(&self, filter: &SiteFilter) -> Vec<Site> {
+        filter.apply_inner(&self.sites, DisabledMode::Only)
     }
 
     /// Distinct tags across all sites, sorted, with the count of sites
@@ -618,6 +640,36 @@ mod tests {
         let scanned = registry.filter(&[], &[], &[], &[], false);
         let names: Vec<&str> = scanned.iter().map(|s| s.name.as_str()).collect();
         assert_eq!(names, vec!["Alive"]);
+    }
+
+    #[test]
+    fn disabled_matches_with_explains_parked_filter_hits() {
+        let json = r#"{
+            "sites": [
+                { "name": "Alive", "url": "https://alive.example/{username}",
+                  "signals": [{ "kind": "status_found", "codes": [200] }] },
+                { "name": "TikTok", "url": "https://tiktok.example/@{username}",
+                  "signals": [{ "kind": "status_found", "codes": [200] }],
+                  "disabled": true,
+                  "disabled_reason": "Honest Limits: parked",
+                  "tags": ["social"] }
+            ]
+        }"#;
+        let registry = Registry::from_json_str(json).unwrap();
+        let filter = SiteFilter {
+            include: vec!["tiktok".into()],
+            tags: vec!["social".into()],
+            ..SiteFilter::default()
+        };
+
+        assert!(registry.filter_with(&filter).is_empty());
+        let disabled = registry.disabled_matches_with(&filter);
+        assert_eq!(disabled.len(), 1);
+        assert_eq!(disabled[0].name, "TikTok");
+        assert_eq!(
+            disabled[0].disabled_reason.as_deref(),
+            Some("Honest Limits: parked")
+        );
     }
 
     #[test]

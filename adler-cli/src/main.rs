@@ -727,16 +727,33 @@ async fn run(cli: Cli) -> Result<ExitCode> {
         return Ok(ExitCode::SUCCESS);
     }
 
-    let sites = registry.filter_with(&SiteFilter {
+    let filter = SiteFilter {
         include: cli.only.clone(),
         exclude: cli.exclude.clone(),
         tags: cli.tag.clone(),
         exclude_tags: cli.exclude_tag.clone(),
         include_nsfw: cli.nsfw,
         top: cli.top,
-    });
+    };
+    let sites = registry.filter_with(&filter);
     if sites.is_empty() {
-        eprintln!("adler: no sites match the filter");
+        let disabled = registry.disabled_matches_with(&filter);
+        if disabled.is_empty() {
+            eprintln!("adler: no sites match the filter");
+        } else {
+            eprintln!("adler: no enabled sites match the filter");
+            eprintln!("disabled matches:");
+            for site in disabled.iter().take(5) {
+                let reason = site
+                    .disabled_reason
+                    .as_deref()
+                    .unwrap_or("disabled in registry");
+                eprintln!("  - {}: {reason}", site.name);
+            }
+            if disabled.len() > 5 {
+                eprintln!("  ... and {} more", disabled.len() - 5);
+            }
+        }
         return Ok(ExitCode::from(2));
     }
 

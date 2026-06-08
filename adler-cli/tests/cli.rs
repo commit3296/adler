@@ -157,6 +157,28 @@ fn empty_filter_result_exits_2() {
 }
 
 #[test]
+fn disabled_only_filter_explains_parked_site() {
+    let sites = sites_file(
+        r#"{"sites":[
+            {"name":"TikTok","url":"https://www.tiktok.com/@{username}","signals":[{"kind":"status_found","codes":[200]}],"disabled":true,"disabled_reason":"Honest Limits: JS-only SPA never hydrates"}
+        ]}"#,
+    );
+    adler()
+        .args([
+            "--sites",
+            sites.path().to_str().unwrap(),
+            "--only",
+            "TikTok",
+            "--no-progress",
+            "alice",
+        ])
+        .assert()
+        .code(2)
+        .stderr(str::contains("no enabled sites match the filter"))
+        .stderr(str::contains("TikTok: Honest Limits"));
+}
+
+#[test]
 fn nothing_found_exits_1_and_emits_valid_json_array() {
     let sites = dead_local_sites();
     let assert = adler()
