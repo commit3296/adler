@@ -27886,6 +27886,9 @@
       "tags": [
         "social"
       ],
+      "protection": [
+        "captcha"
+      ],
       "popularity": 7,
       "disabled": true,
       "disabled_reason": "Honest Limits: JS-only SPA, profile data never hydrates into headless-browser DOM"
