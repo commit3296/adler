@@ -6,6 +6,7 @@
 //! independent of any other CLI subcommand; main.rs just calls
 //! `build_client(&cli)` once per run.
 
+use std::collections::BTreeMap;
 use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
@@ -15,6 +16,12 @@ use adler_core::{BrowserBackend, Client, EgressSpec, Session, SessionStore};
 use anyhow::{Context as _, Result};
 
 use crate::{BrowserBackendChoice, Cli};
+
+const REDDIT_SESSION_NAME: &str = "reddit";
+const REDDIT_TOKEN_URL: &str = "https://www.reddit.com/api/v1/access_token";
+const REDDIT_CLIENT_ID_ENV: &str = "REDDIT_CLIENT_ID";
+const REDDIT_CLIENT_SECRET_ENV: &str = "REDDIT_CLIENT_SECRET";
+const REDDIT_USER_AGENT: &str = "adler-osint/0.12 (+https://github.com/commit3296/adler)";
 
 pub(crate) const USER_AGENT_POOL: &[&str] = &[
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
@@ -86,8 +93,14 @@ pub(crate) async fn build_client(cli: &Cli) -> Result<Client> {
     if let Some(path) = &cli.proxy_pool {
         builder = builder.egress_pool(load_proxy_pool(path)?);
     }
-    if let Some(path) = &cli.sessions {
-        builder = builder.sessions(load_sessions(path)?);
+    let mut sessions = if let Some(path) = &cli.sessions {
+        load_sessions(path)?
+    } else {
+        SessionStore::new()
+    };
+    maybe_insert_reddit_oauth_session(&mut sessions).await?;
+    if !sessions.is_empty() {
+        builder = builder.sessions(sessions);
     }
     if cli.rotate_ua {
         builder =
@@ -109,6 +122,81 @@ pub(crate) async fn build_client(cli: &Cli) -> Result<Client> {
         .respect_robots(cli.respect_robots)
         .build()
         .context("building HTTP client")
+}
+
+async fn maybe_insert_reddit_oauth_session(store: &mut SessionStore) -> Result<()> {
+    if store.contains(REDDIT_SESSION_NAME) {
+        return Ok(());
+    }
+
+    let client_id = std::env::var(REDDIT_CLIENT_ID_ENV).ok();
+    let client_secret = std::env::var(REDDIT_CLIENT_SECRET_ENV).ok();
+    let (Some(client_id), Some(client_secret)) = (client_id, client_secret) else {
+        if std::env::var_os(REDDIT_CLIENT_ID_ENV).is_some()
+            || std::env::var_os(REDDIT_CLIENT_SECRET_ENV).is_some()
+        {
+            anyhow::bail!(
+                "{REDDIT_CLIENT_ID_ENV} and {REDDIT_CLIENT_SECRET_ENV} must both be set for Reddit OAuth"
+            );
+        }
+        return Ok(());
+    };
+
+    let token = fetch_reddit_app_token(&client_id, &client_secret, REDDIT_TOKEN_URL).await?;
+    store.insert(REDDIT_SESSION_NAME, reddit_session_from_token(&token));
+    Ok(())
+}
+
+async fn fetch_reddit_app_token(
+    client_id: &str,
+    client_secret: &str,
+    token_url: &str,
+) -> Result<String> {
+    #[derive(serde::Deserialize)]
+    struct TokenResponse {
+        access_token: String,
+        #[serde(default)]
+        token_type: String,
+    }
+
+    let http = reqwest::Client::builder()
+        .timeout(Duration::from_secs(10))
+        .user_agent(REDDIT_USER_AGENT)
+        .build()
+        .context("building Reddit OAuth client")?;
+    let resp = http
+        .post(token_url)
+        .basic_auth(client_id, Some(client_secret))
+        .header(
+            reqwest::header::CONTENT_TYPE,
+            "application/x-www-form-urlencoded",
+        )
+        .body("grant_type=client_credentials")
+        .send()
+        .await
+        .context("requesting Reddit OAuth token")?;
+    let status = resp.status();
+    if !status.is_success() {
+        anyhow::bail!("Reddit OAuth token request failed with HTTP {status}");
+    }
+
+    let token: TokenResponse = resp.json().await.context("parsing Reddit OAuth token")?;
+    if token.access_token.trim().is_empty() {
+        anyhow::bail!("Reddit OAuth token response did not include access_token");
+    }
+    if !token.token_type.is_empty() && !token.token_type.eq_ignore_ascii_case("bearer") {
+        anyhow::bail!(
+            "Reddit OAuth token response used unsupported token_type {:?}",
+            token.token_type
+        );
+    }
+    Ok(token.access_token)
+}
+
+fn reddit_session_from_token(token: &str) -> Session {
+    let mut headers = BTreeMap::new();
+    headers.insert("Authorization".to_owned(), format!("Bearer {token}"));
+    Session::from_headers(headers)
 }
 
 /// Construct the browser backend selected by CLI flags, or `None` when no
@@ -197,6 +285,8 @@ async fn build_browser_backend(
 mod tests {
     use super::*;
     use adler_core::EgressKind;
+    use wiremock::matchers::{body_string_contains, header, method, path};
+    use wiremock::{Mock, MockServer, ResponseTemplate};
 
     #[test]
     fn parses_proxy_pool_toml() {
@@ -241,5 +331,53 @@ mod tests {
     #[test]
     fn empty_sessions_toml_is_ok() {
         assert!(parse_sessions("").expect("parses").is_empty());
+    }
+
+    #[tokio::test]
+    async fn fetches_reddit_app_only_token() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/api/v1/access_token"))
+            .and(header("authorization", "Basic aWQ6c2VjcmV0"))
+            .and(body_string_contains("grant_type=client_credentials"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "access_token": "tok",
+                "token_type": "bearer",
+                "expires_in": 3600
+            })))
+            .mount(&server)
+            .await;
+
+        let token = fetch_reddit_app_token(
+            "id",
+            "secret",
+            &format!("{}/api/v1/access_token", server.uri()),
+        )
+        .await
+        .expect("token fetch succeeds");
+
+        assert_eq!(token, "tok");
+    }
+
+    #[tokio::test]
+    async fn reddit_oauth_token_requires_bearer_type() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "access_token": "tok",
+                "token_type": "mac"
+            })))
+            .mount(&server)
+            .await;
+
+        let err = fetch_reddit_app_token(
+            "id",
+            "secret",
+            &format!("{}/api/v1/access_token", server.uri()),
+        )
+        .await
+        .expect_err("non-bearer token should fail");
+
+        assert!(err.to_string().contains("unsupported token_type"));
     }
 }
