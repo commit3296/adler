@@ -56,3 +56,15 @@ workspace = true
 [[bench]]
 name = "scan"
 harness = false
+
+[[bench]]
+name = "registry"
+harness = false
+
+[[bench]]
+name = "permute"
+harness = false
+
+[[bench]]
+name = "correlate"
+harness = false
