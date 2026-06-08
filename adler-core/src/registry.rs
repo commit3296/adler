@@ -647,7 +647,7 @@ mod tests {
     }
 
     #[test]
-    fn reddit_stays_parked_until_oauth_path_exists() {
+    fn reddit_uses_oauth_endpoint_and_requires_session() {
         let registry = Registry::default_embedded_with_wmn().unwrap();
         let reddit_entries: Vec<&Site> = registry
             .sites()
@@ -661,7 +661,12 @@ mod tests {
             "WMN merge must not reintroduce a second Reddit probe"
         );
         let reddit = reddit_entries[0];
-        assert!(reddit.disabled, "Reddit must not be probed anonymously");
+        assert!(!reddit.disabled, "Reddit OAuth probe should remain enabled");
+        assert_eq!(
+            reddit.url.as_str(),
+            "https://oauth.reddit.com/user/{username}/about"
+        );
+        assert_eq!(reddit.access.session.as_deref(), Some("reddit"));
         assert!(
             reddit
                 .protection
@@ -669,21 +674,23 @@ mod tests {
                 .any(|p| matches!(p, super::super::site::ProtectionKind::UserAuth)),
             "Reddit should be classified as requiring user auth"
         );
-        let reason = reddit
-            .disabled_reason
-            .as_deref()
-            .expect("disabled Reddit entry should explain why it is parked");
         assert!(
-            reason.contains("Honest Limits")
-                && reason.contains("403s anonymous requests")
-                && reason.contains("OAuth"),
-            "unexpected Reddit disabled_reason: {reason}"
+            reddit.tags.iter().any(|t| t == "reddit-oauth"),
+            "Reddit should be discoverable as an OAuth-gated site"
+        );
+        assert!(
+            reddit
+                .tags
+                .iter()
+                .all(|t| !t.eq_ignore_ascii_case("bot-protected")),
+            "Reddit OAuth should use HTTP session headers, not browser routing"
         );
 
         let scanned = registry.filter(&["reddit".into()], &[], &[], &[], true);
-        assert!(
-            scanned.iter().all(|s| s.name != "Reddit"),
-            "disabled Reddit entry must not leak into scan filters"
+        assert_eq!(
+            scanned.iter().filter(|s| s.name == "Reddit").count(),
+            1,
+            "enabled Reddit OAuth entry should be scan-filterable"
         );
     }
 

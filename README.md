@@ -105,9 +105,10 @@ Reddit, Imgur, Patreon). The remaining ~26% breaks down roughly as:
   signal repair territory, not username repair. `--doctor --fix`
   diffs the responses and proposes a tighter signal.
 - **Sites that don't reliably distinguish found from not-found** for
-  unauthenticated requests at all — investigated and not added
-  rather than ship false-positive entries: Reddit, TikTok,
-  Pinterest, and Threads. See issues
+  unauthenticated requests at all — investigated rather than shipped
+  as false-positive entries: Reddit now requires an opt-in OAuth
+  session, Pinterest uses its public oEmbed endpoint, while TikTok and
+  Threads remain parked. See issues
   [#11–#14](https://github.com/commit3296/adler/issues?q=is%3Aissue+label%3A%22help+wanted%22)
   for the specific failure modes and what would unblock each.
 
@@ -331,7 +332,10 @@ hard subset of the registry:
   `Uncertain(GeoUnavailable)`.
 - **Sessions** (`--sessions <file>`) — operator-supplied cookies /
   tokens for login-walled sites. Per-site `[name]` tables; values
-  redacted from logs.
+  redacted from logs. Reddit is session-gated: provide
+  `[reddit] Authorization = "Bearer <token>"` to use the OAuth
+  endpoint; without it Adler reports `session_required` instead of
+  probing anonymously.
 - **Automatic escalation** (`--escalation-budget N` / `--no-escalation`)
   — when the cheap path returns `Uncertain(cloudflare_challenge |
   rate_limited)`, the router automatically retries through the browser

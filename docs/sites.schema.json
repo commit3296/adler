@@ -107,7 +107,7 @@
         },
         "protection": {
           "type": "array",
-          "description": "Specific anti-bot mechanisms the site is known to deploy. Sites with any entry here route through the browser backend even without the legacy `bot-protected` tag. Future router logic can pick a backend per-mechanism (cloudscraper vs. full browser vs. skip).",
+          "description": "Specific anti-bot mechanisms the site is known to deploy. Browser-like protections route through the browser backend even without the legacy `bot-protected` tag; `user-auth` documents an authenticated/session-gated endpoint and does not by itself imply browser routing.",
           "items": {
             "enum": [
               "cloudflare", "cloudfront", "ddos-guard",
@@ -133,8 +133,34 @@
           "type": "integer",
           "minimum": 1,
           "description": "Curated popularity rank (lower = more popular). `adler --top N` treats N as a rank ceiling (`popularity <= N`), then sorts by rank. Sites without a rank are excluded from `--top` queries."
+        },
+        "access": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Per-site access requirements. `session` names an operator-supplied `[name]` table from `--sessions`; geo / IP-type policies select a matching egress from `--proxy-pool`.",
+          "properties": {
+            "geo": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/country_code" }
+            },
+            "prefer_geo": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/country_code" }
+            },
+            "ip_type": {
+              "enum": ["datacenter", "residential", "mobile", "tor"]
+            },
+            "session": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
         }
       }
+    },
+    "country_code": {
+      "type": "string",
+      "pattern": "^[A-Za-z]{2}$"
     },
     "engine": {
       "type": "object",
