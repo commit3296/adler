@@ -57,10 +57,18 @@ jobs:
         working-directory: adler-server/web
         run: npm run unit
 
+      - name: Contract test adler-web frontend
+        working-directory: adler-server/web
+        run: npm run contract
+
       - name: Build adler-web frontend
         working-directory: adler-server/web
         run: |
           npm run build
+
+      - name: Audit adler-web frontend dependencies
+        working-directory: adler-server/web
+        run: npm audit --audit-level=moderate
 
       - name: Install Playwright browser
         working-directory: adler-server/web
