@@ -9,6 +9,13 @@ pre-1.0 bump rules.
 
 ## [Unreleased]
 
+## [0.12.3](https://github.com/commit3296/adler/compare/adler-mcp-v0.12.2...adler-mcp-v0.12.3) - 2026-06-08
+
+### Added
+- surface disabled site matches across web and MCP
+- *(cli)* derive Reddit session from OAuth credentials
+- *(registry)* enable Reddit OAuth session probe
+
 ### Added
 - *(bench)* add a real-network Adler vs Sherlock benchmark harness
 
