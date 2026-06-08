@@ -621,6 +621,32 @@ mod tests {
     }
 
     #[test]
+    fn threads_stays_parked_behind_login_wall() {
+        let registry = Registry::default_embedded().unwrap();
+        let threads = registry
+            .sites()
+            .iter()
+            .find(|s| s.name == "Threads")
+            .expect("Threads entry should document the login-wall limitation");
+
+        assert!(threads.disabled, "Threads must not be probed by default");
+        let reason = threads
+            .disabled_reason
+            .as_deref()
+            .expect("disabled Threads entry should explain why it is parked");
+        assert!(
+            reason.contains("Honest Limits") && reason.contains("indistinguishable"),
+            "unexpected Threads disabled_reason: {reason}"
+        );
+
+        let scanned = registry.filter(&["threads".into()], &[], &[], &[], true);
+        assert!(
+            scanned.is_empty(),
+            "disabled Threads entry must not leak into scan filters"
+        );
+    }
+
+    #[test]
     fn source_field_round_trips() {
         let json = r#"{
             "sites": [
