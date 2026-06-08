@@ -647,6 +647,47 @@ mod tests {
     }
 
     #[test]
+    fn reddit_stays_parked_until_oauth_path_exists() {
+        let registry = Registry::default_embedded_with_wmn().unwrap();
+        let reddit_entries: Vec<&Site> = registry
+            .sites()
+            .iter()
+            .filter(|s| s.name == "Reddit")
+            .collect();
+
+        assert_eq!(
+            reddit_entries.len(),
+            1,
+            "WMN merge must not reintroduce a second Reddit probe"
+        );
+        let reddit = reddit_entries[0];
+        assert!(reddit.disabled, "Reddit must not be probed anonymously");
+        assert!(
+            reddit
+                .protection
+                .iter()
+                .any(|p| matches!(p, super::super::site::ProtectionKind::UserAuth)),
+            "Reddit should be classified as requiring user auth"
+        );
+        let reason = reddit
+            .disabled_reason
+            .as_deref()
+            .expect("disabled Reddit entry should explain why it is parked");
+        assert!(
+            reason.contains("Honest Limits")
+                && reason.contains("403s anonymous requests")
+                && reason.contains("OAuth"),
+            "unexpected Reddit disabled_reason: {reason}"
+        );
+
+        let scanned = registry.filter(&["reddit".into()], &[], &[], &[], true);
+        assert!(
+            scanned.iter().all(|s| s.name != "Reddit"),
+            "disabled Reddit entry must not leak into scan filters"
+        );
+    }
+
+    #[test]
     fn source_field_round_trips() {
         let json = r#"{
             "sites": [
