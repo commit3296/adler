@@ -84,6 +84,14 @@ jobs:
       - name: cargo test --doc
         run: cargo test --workspace --doc
 
+      - name: MCP HTTP probe
+        env:
+          ADLER_BIN: target/debug/adler
+          ADLER_MCP_SKIP_LIVE: "1"
+        run: |
+          python3 -m pip install --user requests
+          python3 adler-mcp/examples/probe_http.py
+
       # `impersonate` is an optional feature (wreq + BoringSSL via cmake +
       # bindgen via libclang). Off by default in our other CI steps, so a
       # `#[cfg(feature = "impersonate")]` regression would slip through.

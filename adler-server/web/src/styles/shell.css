@@ -119,6 +119,7 @@
             display: grid;
             grid-template-columns: 1fr auto;
             width: 100%;
+            min-width: 0;
             border: 1px solid var(--line-strong);
             background: var(--bg-elev);
             border-radius: var(--r);
@@ -139,6 +140,7 @@
             outline: none;
             letter-spacing: 0.02em;
             color: var(--fg);
+            min-width: 0;
         }
         #username::placeholder { color: var(--fg-faint); font-weight: 400; }
         .scan-btn {
@@ -151,10 +153,12 @@
             font-weight: 600;
             letter-spacing: 0.01em;
             cursor: pointer;
-            transition: background 80ms;
+            transition: background 80ms,
+                        transform var(--motion-normal) var(--ease-out-expo);
             border-radius: 0;
         }
         .scan-btn:hover:not(:disabled) { background: #ff4040; }
+        .scan-btn:active:not(:disabled) { transform: scale(0.98); }
         .scan-btn:disabled { background: var(--red-soft); opacity: 0.55; cursor: not-allowed; }
 
         .preset-row {
@@ -174,9 +178,11 @@
             font-weight: 500;
             cursor: pointer;
             border-radius: var(--r);
-            transition: border-color 80ms, color 80ms, background 80ms;
+            transition: border-color 80ms, color 80ms, background 80ms,
+                        transform var(--motion-normal) var(--ease-out-expo);
         }
         .preset:hover { color: var(--fg); border-color: var(--fg-faint); }
+        .preset:active { transform: scale(0.98); }
         .preset.active {
             color: var(--fg);
             border-color: var(--red);
@@ -498,4 +504,3 @@
         }
         .icon-btn .icon { width: 15px; height: 15px; }
         .ghost-btn .icon, .copy-btn .icon { width: 12px; height: 12px; }
-

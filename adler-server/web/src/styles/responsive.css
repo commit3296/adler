@@ -42,6 +42,20 @@
             .hero-inner { transform: translateY(-0.5rem); }
             .hero-logo { font-size: 2rem; margin-bottom: 0.45rem; }
             .hero-tagline { font-size: 0.86rem; margin-bottom: 1.5rem; }
+            .search-form { grid-template-columns: 1fr; }
+            .scan-btn {
+                min-height: 2.85rem;
+                border-top: 1px solid var(--line-strong);
+            }
+            .preset-row {
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                width: 100%;
+            }
+            .preset {
+                width: 100%;
+                min-height: 2.45rem;
+            }
             .scan-username { font-size: 1.1rem; }
 
             /* Two-line result row: header + url. Meta sits next to

@@ -23,7 +23,8 @@
             border-bottom: 1px solid var(--line);
             font-family: var(--sans);
             font-size: 0.94rem;
-            transition: background 80ms;
+            transition: background 80ms,
+                        transform var(--motion-normal) var(--ease-out-expo);
             border-radius: var(--r);
             /* Whole row is clickable to toggle the evidence panel; cue
                that with a pointer on the row body. Links and buttons
@@ -31,6 +32,7 @@
             cursor: pointer;
         }
         .result-row a, .result-row button { cursor: pointer; }
+        .result-row:active { transform: scale(0.998); }
         /* Hover tint is mild — large jumps in row background cause a
            visible flicker when sort-during-scan moves a row out from
            under the cursor. A subtle shift reads as "you can interact
@@ -71,9 +73,11 @@
             border: 1px solid var(--line-strong);
             border-radius: var(--r);
             cursor: pointer;
-            transition: color 80ms, border-color 80ms;
+            transition: color 80ms, border-color 80ms,
+                        transform var(--motion-normal) var(--ease-out-expo);
         }
         .tag-pill:hover { color: var(--red-text); border-color: var(--red); }
+        .tag-pill:active { transform: scale(0.96); }
         .result-row .url-cell {
             display: flex;
             align-items: baseline;
@@ -104,13 +108,15 @@
                in and out when sorting reorders rows mid-scan and
                the row briefly loses `:hover`. */
             opacity: 0.55;
-            transition: opacity 140ms, color 80ms, border-color 80ms;
+            transition: opacity 140ms, color 80ms, border-color 80ms,
+                        transform var(--motion-normal) var(--ease-out-expo);
             flex-shrink: 0;
             align-self: center;
         }
         .result-row:hover .copy-btn,
         .copy-btn:hover { opacity: 1; }
         .copy-btn:hover { color: var(--red-text); border-color: var(--red); }
+        .copy-btn:active { transform: scale(0.94); }
         .copy-btn.copied { color: var(--green-text); border-color: var(--green); opacity: 1; }
         .meta-cell {
             color: var(--fg-dim);
@@ -142,4 +148,3 @@
             font-size: 1rem;
         }
         .empty-results strong { color: var(--fg); font-weight: 600; }
-
