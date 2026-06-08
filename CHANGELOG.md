@@ -9,6 +9,17 @@ pre-1.0 bump rules.
 
 ## [Unreleased]
 
+## [0.12.2](https://github.com/commit3296/adler/compare/adler-mcp-v0.12.1...adler-mcp-v0.12.2) - 2026-06-08
+
+### Added
+- *(mcp)* preserve error source chains in tool/resource responses
+
+### Changed
+- *(mcp)* hoist sites Arc out of scan_batch username loop
+
+### Fixed
+- *(mcp)* render_prompt single-pass substitution avoids re-entrant expansion
+
 ## [0.12.1](https://github.com/commit3296/adler/compare/adler-mcp-v0.12.0...adler-mcp-v0.12.1) - 2026-06-06
 
 ### Added
