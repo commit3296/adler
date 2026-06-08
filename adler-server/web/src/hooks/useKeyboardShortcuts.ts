@@ -7,13 +7,36 @@ import type { useScanLifecycle } from "./useScanLifecycle";
 
 type ScanLifecycle = ReturnType<typeof useScanLifecycle>;
 
-export function useKeyboardShortcuts(lifecycle: ScanLifecycle): void {
-    function activeRows(): HTMLElement[] {
-        return Array.from(document.querySelectorAll<HTMLElement>(".result-row"));
-    }
+interface KeyboardDeps {
+    actions: Pick<
+        typeof actions,
+        | "selectSite"
+        | "setAbout"
+        | "setDrawer"
+        | "setFilters"
+        | "setShortcuts"
+        | "toast"
+        | "toggleShowNotFound"
+    >;
+    clipboard: Pick<Clipboard, "writeText">;
+    getInput: () => HTMLInputElement | null;
+    getRows: () => HTMLElement[];
+    lifecycle: Pick<ScanLifecycle, "exitDiff" | "isStreaming" | "stopScan">;
+    openWindow: (url: string, target: string, features: string) => void;
+    store: typeof store;
+}
 
+export function createKeyboardHandler({
+    actions,
+    clipboard,
+    getInput,
+    getRows,
+    lifecycle,
+    openWindow,
+    store,
+}: KeyboardDeps): (e: KeyboardEvent) => void {
     function moveSelection(delta: number) {
-        const rows = activeRows();
+        const rows = getRows();
         if (rows.length === 0) return;
         const sites = rows.map((r) => r.dataset.site!);
         let idx = store.view.selectedSite ? sites.indexOf(store.view.selectedSite) : -1;
@@ -47,7 +70,7 @@ export function useKeyboardShortcuts(lifecycle: ScanLifecycle): void {
 
         if (e.key === "/") {
             e.preventDefault();
-            const el = document.getElementById("username") as HTMLInputElement | null;
+            const el = getInput();
             if (el) {
                 el.focus();
                 el.select();
@@ -82,18 +105,32 @@ export function useKeyboardShortcuts(lifecycle: ScanLifecycle): void {
         }
         if (e.key === "o") {
             const o = selectedOutcome();
-            if (o) window.open(displayUrl(o.url), "_blank", "noopener");
+            if (o) openWindow(displayUrl(o.url), "_blank", "noopener");
             return;
         }
         if (e.key === "c") {
             const o = selectedOutcome();
             if (!o) return;
-            navigator.clipboard
+            clipboard
                 .writeText(displayUrl(o.url))
                 .then(() => actions.toast("URL copied", "success"))
                 .catch(() => actions.toast("Copy blocked", "error"));
         }
     }
+
+    return handleKey;
+}
+
+export function useKeyboardShortcuts(lifecycle: ScanLifecycle): void {
+    const handleKey = createKeyboardHandler({
+        actions,
+        clipboard: navigator.clipboard,
+        getInput: () => document.getElementById("username") as HTMLInputElement | null,
+        getRows: () => Array.from(document.querySelectorAll<HTMLElement>(".result-row")),
+        lifecycle,
+        openWindow: (url, target, features) => window.open(url, target, features),
+        store,
+    });
 
     onMount(() => window.addEventListener("keydown", handleKey));
     onCleanup(() => window.removeEventListener("keydown", handleKey));

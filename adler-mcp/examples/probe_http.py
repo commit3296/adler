@@ -17,6 +17,9 @@ Usage:
     # override binary path / port
     ADLER_BIN=/usr/local/bin/adler ADLER_MCP_PORT=8888 python3 .../probe_http.py
 
+    # CI-safe: exercise HTTP transport without live network probes
+    ADLER_MCP_SKIP_LIVE=1 python3 .../probe_http.py
+
 Reference implementation note: a real MCP HTTP client must walk the
 SSE stream and filter by JSON-RPC `id`, because progress
 notifications (`method=notifications/progress`) interleave with
@@ -40,6 +43,7 @@ import requests
 BIN = os.environ.get("ADLER_BIN", "./target/release/adler")
 PORT = int(os.environ.get("ADLER_MCP_PORT", "8766"))
 URL = f"http://127.0.0.1:{PORT}/mcp"
+SKIP_LIVE = os.environ.get("ADLER_MCP_SKIP_LIVE", "").lower() in ("1", "true", "yes")
 
 _results: list[tuple[bool, str]] = []
 
@@ -176,14 +180,17 @@ def main() -> int:
             "error" in body and "not found" in body["error"]["message"].lower(),
         )
 
-        resp = call("tools/call", {"name": "doctor_check", "arguments": {"site": "GitHub"}})
-        body = parse_sse_response(resp, want_id=resp.req_id)  # type: ignore[attr-defined]
-        sc = body.get("result", {}).get("structuredContent", {})
-        ok(
-            "tools/call doctor_check(GitHub) → live verdict",
-            sc.get("site") == "GitHub" and sc.get("verdict") in ("healthy", "unhealthy"),
-            f"verdict={sc.get('verdict')}, issues={len(sc.get('issues', []))}",
-        )
+        if SKIP_LIVE:
+            ok("tools/call doctor_check(GitHub) skipped (ADLER_MCP_SKIP_LIVE)")
+        else:
+            resp = call("tools/call", {"name": "doctor_check", "arguments": {"site": "GitHub"}})
+            body = parse_sse_response(resp, want_id=resp.req_id)  # type: ignore[attr-defined]
+            sc = body.get("result", {}).get("structuredContent", {})
+            ok(
+                "tools/call doctor_check(GitHub) → live verdict",
+                sc.get("site") == "GitHub" and sc.get("verdict") in ("healthy", "unhealthy"),
+                f"verdict={sc.get('verdict')}, issues={len(sc.get('issues', []))}",
+            )
 
         resp = call("tools/call", {"name": "get_scan_history", "arguments": {"limit": 5}})
         body = parse_sse_response(resp, want_id=resp.req_id)  # type: ignore[attr-defined]
@@ -197,23 +204,26 @@ def main() -> int:
         # Live scan via HTTP/SSE — progress notifications interleave
         # with the final response on the same SSE stream; the parser
         # walks past them by matching on `want_id`.
-        resp = call(
-            "tools/call",
-            {
-                "name": "scan_username",
-                "arguments": {"username": "torvalds", "top": 2, "tag": ["coding"]},
-                "_meta": {"progressToken": "probe-http-1"},
-            },
-        )
-        body = parse_sse_response(resp, want_id=resp.req_id)  # type: ignore[attr-defined]
-        sc = body.get("result", {}).get("structuredContent", {})
-        ok(
-            "tools/call scan_username(torvalds, top=2, tag=coding)",
-            sc.get("total_probed", 0) >= 1,
-            f"probed={sc.get('total_probed')}, "
-            f"found={sc.get('summary', {}).get('found')}, "
-            f"sites={[o['site'] for o in sc.get('outcomes', [])]}",
-        )
+        if SKIP_LIVE:
+            ok("tools/call scan_username skipped (ADLER_MCP_SKIP_LIVE)")
+        else:
+            resp = call(
+                "tools/call",
+                {
+                    "name": "scan_username",
+                    "arguments": {"username": "torvalds", "top": 2, "tag": ["coding"]},
+                    "_meta": {"progressToken": "probe-http-1"},
+                },
+            )
+            body = parse_sse_response(resp, want_id=resp.req_id)  # type: ignore[attr-defined]
+            sc = body.get("result", {}).get("structuredContent", {})
+            ok(
+                "tools/call scan_username(torvalds, top=2, tag=coding)",
+                sc.get("total_probed", 0) >= 1,
+                f"probed={sc.get('total_probed')}, "
+                f"found={sc.get('summary', {}).get('found')}, "
+                f"sites={[o['site'] for o in sc.get('outcomes', [])]}",
+            )
 
         # === resources ===
         print("\n== resources ==")

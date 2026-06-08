@@ -115,10 +115,12 @@
     border: 1px solid transparent;
     border-radius: var(--radius);
     transition: background var(--motion-fast), color var(--motion-fast),
-                border-color var(--motion-fast);
+                border-color var(--motion-fast),
+                transform var(--motion-normal) var(--ease-out-expo);
     white-space: nowrap;
 }
 .ui-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.ui-btn:active:not(:disabled) { transform: scale(0.98); }
 .ui-btn:focus-visible {
     outline: 2px solid var(--color-accent);
     outline-offset: 1px;
@@ -179,8 +181,10 @@
     font-size: var(--font-size-sm);
     border-radius: var(--radius);
     transition: background var(--motion-fast), color var(--motion-fast),
-                border-color var(--motion-fast);
+                border-color var(--motion-fast),
+                transform var(--motion-normal) var(--ease-out-expo);
 }
+.ui-icon-btn:active { transform: scale(0.97); }
 .ui-icon-btn:hover { color: var(--color-fg); background: var(--color-bg-elev); }
 .ui-icon-btn[data-active="true"] {
     color: var(--color-accent);
@@ -278,8 +282,10 @@
     cursor: pointer;
     padding: 0 var(--space-1);
     user-select: none;
-    transition: color var(--motion-fast);
+    transition: color var(--motion-fast),
+                transform var(--motion-normal) var(--ease-out-expo);
 }
+.ui-chip__dismiss:active { transform: scale(0.92); }
 .ui-chip__dismiss:hover { color: var(--color-fg); }
 .ui-chip--disabled {
     opacity: 0.5;
@@ -308,8 +314,10 @@
     font-size: var(--font-size-sm);
     font-weight: 500;
     border-radius: var(--radius);
-    transition: background var(--motion-fast), color var(--motion-fast);
+    transition: background var(--motion-fast), color var(--motion-fast),
+                transform var(--motion-normal) var(--ease-out-expo);
 }
+.ui-tab:active { transform: scale(0.98); }
 .ui-tab:hover { color: var(--color-fg); }
 .ui-tab[aria-selected="true"] {
     background: var(--color-accent-bg);

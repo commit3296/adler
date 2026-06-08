@@ -11,18 +11,33 @@ import type { useScanLifecycle } from "./useScanLifecycle";
 
 type ScanLifecycle = ReturnType<typeof useScanLifecycle>;
 
-export function useHashRouting(lifecycle: ScanLifecycle) {
-    const [routeHash, setRouteHash] = createSignal(location.hash);
-    const urlHasView = createMemo(() => routeHasScanView(routeHash()));
+interface HashRoutingDeps {
+    actions: Pick<typeof actions, "clearBatch" | "clearScan" | "setNotFound">;
+    getHash: () => string;
+    lifecycle: Pick<
+        ScanLifecycle,
+        "closeStream" | "loadScan" | "startDiff" | "stopElapsedTimer"
+    >;
+    setRouteHash: (hash: string) => void;
+    store: Pick<typeof store, "diff">;
+}
 
-    function handleHash() {
-        setRouteHash(location.hash);
-        const scanId = scanIdFromHash(location.hash);
+export function createHashRouteHandler({
+    actions,
+    getHash,
+    lifecycle,
+    setRouteHash,
+    store,
+}: HashRoutingDeps): () => void {
+    return () => {
+        const hash = getHash();
+        setRouteHash(hash);
+        const scanId = scanIdFromHash(hash);
         if (scanId) {
             lifecycle.loadScan(scanId);
             return;
         }
-        const diffIds = diffIdsFromHash(location.hash);
+        const diffIds = diffIdsFromHash(hash);
         if (diffIds) {
             const cur = store.diff;
             if (cur && cur.a.id === diffIds[0] && cur.b.id === diffIds[1]) return;
@@ -31,13 +46,25 @@ export function useHashRouting(lifecycle: ScanLifecycle) {
         }
         lifecycle.closeStream();
         lifecycle.stopElapsedTimer();
-        if (isHomeHash(location.hash)) {
+        if (isHomeHash(hash)) {
             actions.clearBatch();
             actions.clearScan();
         } else {
-            actions.setNotFound({ kind: "route", detail: location.hash });
+            actions.setNotFound({ kind: "route", detail: hash });
         }
-    }
+    };
+}
+
+export function useHashRouting(lifecycle: ScanLifecycle) {
+    const [routeHash, setRouteHash] = createSignal(location.hash);
+    const urlHasView = createMemo(() => routeHasScanView(routeHash()));
+    const handleHash = createHashRouteHandler({
+        actions,
+        getHash: () => location.hash,
+        lifecycle,
+        setRouteHash,
+        store,
+    });
 
     onMount(() => {
         window.addEventListener("hashchange", handleHash);
