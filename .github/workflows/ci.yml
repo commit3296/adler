@@ -58,6 +58,14 @@ jobs:
         run: |
           npm run build
 
+      - name: Install Playwright browser
+        working-directory: adler-server/web
+        run: npx playwright install --with-deps chromium
+
+      - name: Smoke test adler-web frontend
+        working-directory: adler-server/web
+        run: npm run smoke
+
       - name: cargo fmt
         run: cargo fmt --all --check
 

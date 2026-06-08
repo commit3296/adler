@@ -1,0 +1,513 @@
+        /* ────────── hero: single / batch mode ────────── */
+        .hero-mode {
+            display: inline-flex;
+            gap: 0.15rem;
+            background: var(--bg-elev);
+            border: 1px solid var(--line-strong);
+            border-radius: var(--r);
+            padding: 0.15rem;
+            margin-bottom: 0.9rem;
+        }
+        .hm-tab {
+            background: transparent;
+            border: none;
+            color: var(--fg-dim);
+            font-family: var(--sans);
+            font-size: 0.9rem;
+            font-weight: 500;
+            padding: 0.35rem 1.2rem;
+            cursor: pointer;
+            border-radius: var(--r);
+            transition: background 80ms, color 80ms;
+        }
+        .hm-tab:hover { color: var(--fg); }
+        .hm-tab.active {
+            background: var(--red-bg);
+            color: var(--fg);
+            box-shadow: inset 0 -2px 0 var(--red);
+        }
+
+        .batch-form {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 0.6rem;
+        }
+        .batch-input {
+            width: 100%;
+            background: var(--bg-elev);
+            border: 1px solid var(--line-strong);
+            border-radius: var(--r);
+            color: var(--fg);
+            font-family: var(--mono);
+            font-size: 1rem;
+            line-height: 1.55;
+            padding: 0.9rem 1rem;
+            resize: vertical;
+            min-height: 7rem;
+            outline: none;
+            transition: border-color 100ms, box-shadow 100ms;
+        }
+        .batch-input::placeholder { color: var(--fg-faint); }
+        .batch-input:focus {
+            border-color: var(--red);
+            box-shadow: 0 0 0 3px var(--red-bg);
+        }
+        .batch-actions {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+        .batch-hint {
+            color: var(--fg-faint);
+            font-family: var(--sans);
+            font-size: 0.85rem;
+        }
+        .batch-actions .scan-btn {
+            border-radius: var(--r);
+            padding: 0.55rem 1.6rem;
+        }
+
+        /* ────────── batch progress strip ────────── */
+        .batch-strip {
+            display: flex;
+            align-items: center;
+            gap: 0.7rem;
+            padding: 0.5rem 0 0.85rem;
+            margin-bottom: 0.4rem;
+            border-bottom: 1px solid var(--line);
+            overflow-x: auto;
+        }
+        .batch-strip-label {
+            font-family: var(--sans);
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--fg-dim);
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+        .batch-strip-label .bs-count {
+            font-family: var(--mono);
+            color: var(--fg-faint);
+            font-weight: 500;
+        }
+        .batch-chips { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+        .batch-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            background: var(--bg-elev);
+            border: 1px solid var(--line-strong);
+            color: var(--fg-dim);
+            font-family: var(--mono);
+            font-size: 0.82rem;
+            padding: 0.25rem 0.6rem;
+            border-radius: var(--r);
+            cursor: default;
+            white-space: nowrap;
+            transition: border-color 80ms, color 80ms, background 80ms;
+        }
+        .batch-chip .bc-user { font-weight: 500; }
+        .batch-chip.queued { opacity: 0.55; }
+        .batch-chip.running { border-color: var(--red); color: var(--fg); }
+        .batch-chip.done { color: var(--fg); }
+        .batch-chip.done .bc-found { color: var(--green-text); font-weight: 700; }
+        .batch-chip.done .bc-found::before { content: "✓ "; color: var(--green); }
+        .batch-chip.error { border-color: var(--amber); color: var(--amber-text); }
+        .batch-chip.error .bc-err { color: var(--amber); font-weight: 700; }
+        .batch-chip.active {
+            border-color: var(--red);
+            background: var(--red-bg);
+            color: var(--fg);
+        }
+        .batch-chip:not(:disabled) { cursor: pointer; }
+        .batch-chip:not(:disabled):hover {
+            border-color: var(--fg-faint);
+            color: var(--fg);
+        }
+        .bc-spin {
+            width: 10px;
+            height: 10px;
+            border: 2px solid var(--line-strong);
+            border-top-color: var(--red);
+            border-radius: 50%;
+            animation: retry-spin 0.7s linear infinite;
+        }
+
+        /* ────────── view entrance transition ──────────
+           Each top-level view fades + lifts in on mount, so switching
+           Hero ↔ scan ↔ not-found reads as a transition rather than a
+           hard cut. The element stays mounted while its inner content
+           swaps (skeleton → results), so this plays once per view, not
+           on every data update. */
+        @keyframes view-in {
+            from { opacity: 0; transform: translateY(6px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        .hero, .scan-view, .not-found {
+            animation: view-in 0.18s ease-out;
+        }
+
+        /* ────────── skeleton (loading) ──────────
+           Shown in the scan-view shell while a scan/diff is in flight.
+           Mirrors the real row grid so the swap to content doesn't
+           shift layout. */
+        @keyframes sk-shimmer {
+            from { background-position: 100% 0; }
+            to   { background-position: 0 0; }
+        }
+        .sk-line, .count-skel {
+            background: linear-gradient(
+                90deg,
+                var(--bg-elev) 25%,
+                var(--bg-elev-2) 37%,
+                var(--bg-elev) 63%
+            );
+            background-size: 400% 100%;
+            animation: sk-shimmer 1.4s ease infinite;
+            border-radius: var(--r);
+        }
+        .scan-skeleton .sk-header {
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--line);
+            margin-bottom: 0.9rem;
+        }
+        .sk-line.sk-title { height: 1.25rem; width: 11rem; margin-bottom: 0.55rem; }
+        .sk-line.sk-sub { height: 0.75rem; width: 17rem; }
+        .sk-row {
+            display: grid;
+            grid-template-columns: auto minmax(8rem, 14rem) minmax(0, 1fr) auto;
+            gap: 0.9rem;
+            align-items: center;
+            padding: 0.85rem 0.95rem;
+            border-bottom: 1px solid var(--line);
+        }
+        .sk-row .sk-dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: var(--line-strong);
+        }
+        .sk-row .sk-name { height: 0.8rem; width: 65%; }
+        .sk-row .sk-url { height: 0.8rem; width: 90%; }
+        .sk-row .sk-meta { height: 0.8rem; width: 3rem; justify-self: end; }
+        .count-skel {
+            display: inline-block;
+            width: 3.2rem;
+            height: 0.9rem;
+            vertical-align: middle;
+        }
+
+        /* ────────── footer ────────── */
+        .app-footer {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 0.85rem 1.5rem;
+            border-top: 1px solid var(--line);
+            color: var(--fg-faint);
+            font-family: var(--sans);
+            font-size: 0.82rem;
+        }
+        .app-footer .f-brand {
+            font-family: var(--mono);
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            color: var(--fg-dim);
+        }
+        .app-footer .f-ver { font-family: var(--mono); color: var(--fg-faint); }
+        .app-footer .f-sep { color: var(--line-strong); }
+        .app-footer .f-link {
+            background: none;
+            border: none;
+            padding: 0;
+            color: var(--fg-dim);
+            font-family: var(--sans);
+            font-size: 0.82rem;
+            cursor: pointer;
+            text-decoration: none;
+            transition: color 80ms;
+        }
+        .app-footer .f-link:hover { color: var(--red); text-decoration: underline; }
+        .app-footer .f-api { color: var(--fg-faint); }
+        .app-footer .f-api code {
+            font-family: var(--mono);
+            color: var(--fg-dim);
+            background: var(--bg-elev);
+            padding: 0.05rem 0.35rem;
+            border-radius: var(--r);
+        }
+
+        /* ────────── not found ────────── */
+        .not-found {
+            min-height: 100%;
+            display: grid;
+            place-items: center;
+            padding: 2rem 1.5rem 4rem;
+            text-align: center;
+        }
+        .nf-inner {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.65rem;
+            max-width: 30rem;
+            transform: translateY(-2rem);
+        }
+        .nf-code {
+            font-family: var(--mono);
+            font-size: 3.5rem;
+            font-weight: 800;
+            line-height: 1;
+            letter-spacing: 0.05em;
+            color: var(--red);
+        }
+        .nf-heading {
+            font-family: var(--sans);
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: var(--fg);
+            margin: 0;
+        }
+        .nf-detail { color: var(--fg-dim); font-size: 0.94rem; margin: 0; }
+        .nf-ref {
+            font-family: var(--mono);
+            font-size: 0.84rem;
+            color: var(--fg-dim);
+            background: var(--bg-elev);
+            border: 1px solid var(--line);
+            padding: 0.3rem 0.6rem;
+            border-radius: var(--r);
+            word-break: break-all;
+            max-width: 100%;
+        }
+        .not-found .primary-btn { margin-top: 0.8rem; }
+
+        /* ────────── about modal body ────────── */
+        .about-body {
+            font-family: var(--sans);
+            color: var(--fg-dim);
+            font-size: 0.94rem;
+            line-height: 1.6;
+        }
+        .about-body p { margin: 0 0 0.9rem; }
+        .about-body h3 {
+            font-family: var(--sans);
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--fg);
+            margin: 1.2rem 0 0.5rem;
+        }
+        .about-body strong { color: var(--fg); }
+        .about-body code {
+            font-family: var(--mono);
+            font-size: 0.85rem;
+            background: var(--bg);
+            padding: 0.05rem 0.35rem;
+            border-radius: var(--r);
+            color: var(--fg-dim);
+        }
+        .about-found { color: var(--green-text); font-weight: 600; }
+        .about-nf { color: var(--fg); font-weight: 600; }
+        .about-unc { color: var(--amber-text); font-weight: 600; }
+        .about-links {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 1.2rem !important;
+        }
+        .about-links a { color: var(--red); }
+
+        /* ────────── access modal body ────────── */
+        .access-body {
+            font-family: var(--sans);
+            color: var(--fg-dim);
+            font-size: 0.94rem;
+            line-height: 1.6;
+        }
+        .access-intro { margin: 0 0 1.2rem; }
+        .access-intro code,
+        .access-empty code,
+        .access-sessions code {
+            font-family: var(--mono);
+            font-size: 0.85rem;
+            background: var(--bg);
+            padding: 0.05rem 0.35rem;
+            border-radius: var(--r);
+            color: var(--fg);
+        }
+        .access-section { margin: 0 0 1.2rem; }
+        .access-section h3 {
+            font-family: var(--sans);
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--fg);
+            margin: 0 0 0.5rem;
+        }
+        .access-loading,
+        .access-empty { margin: 0; font-style: italic; }
+        .access-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+        .access-table th,
+        .access-table td {
+            text-align: left;
+            padding: 0.3rem 0.6rem;
+            border-bottom: 1px solid var(--border);
+        }
+        .access-table th {
+            color: var(--fg);
+            font-weight: 600;
+        }
+        .access-kind {
+            font-family: var(--mono);
+            font-size: 0.78rem;
+            padding: 0.05rem 0.45rem;
+            border-radius: var(--r);
+            background: var(--bg);
+            color: var(--fg-dim);
+        }
+        .access-kind.kind-residential { color: var(--green-text); }
+        .access-kind.kind-mobile { color: var(--amber-text); }
+        .access-kind.kind-tor { color: var(--red); }
+        .access-sessions {
+            margin: 0;
+            padding: 0;
+            list-style: none;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.4rem;
+        }
+        .access-sessions li {
+            background: var(--bg);
+            padding: 0.15rem 0.5rem;
+            border-radius: var(--r);
+        }
+        .access-foot { margin: 1rem 0 0; }
+        .access-refresh {
+            font-family: var(--sans);
+            font-size: 0.85rem;
+            color: var(--fg-dim);
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: var(--r);
+            padding: 0.25rem 0.65rem;
+            cursor: pointer;
+        }
+        .access-refresh:hover { color: var(--fg); }
+
+        /* ────────── compare-with-previous picker ────────── */
+        .compare-picker {
+            font-family: var(--sans);
+            color: var(--fg-dim);
+        }
+        .compare-picker__intro {
+            margin: 0 0 1rem;
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+        .compare-picker__intro code {
+            font-family: var(--mono);
+            font-size: 0.85rem;
+            background: var(--bg);
+            padding: 0.05rem 0.35rem;
+            border-radius: var(--r);
+            color: var(--fg);
+        }
+        .compare-picker__list {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+            max-height: 24rem;
+            overflow-y: auto;
+        }
+        .compare-picker__row {
+            width: 100%;
+            text-align: left;
+            background: var(--bg-elev);
+            border: 1px solid var(--hairline);
+            border-radius: var(--r);
+            padding: 0.6rem 0.85rem;
+            display: grid;
+            grid-template-columns: 1fr auto;
+            grid-template-rows: auto auto;
+            grid-column-gap: 0.8rem;
+            grid-row-gap: 0.15rem;
+            cursor: pointer;
+            font-family: var(--mono);
+            color: var(--fg-dim);
+            transition: background 0.08s, border-color 0.08s, color 0.08s;
+        }
+        .compare-picker__row:hover,
+        .compare-picker__row:focus-visible {
+            background: var(--bg-row-hover);
+            border-color: var(--red);
+            color: var(--fg);
+            outline: none;
+        }
+        .compare-picker__row--default {
+            border-color: var(--red);
+        }
+        .compare-picker__when {
+            grid-column: 1;
+            grid-row: 1;
+            font-size: 0.92rem;
+            font-weight: 600;
+            color: var(--fg);
+        }
+        .compare-picker__meta {
+            grid-column: 1;
+            grid-row: 2;
+            font-size: 0.78rem;
+        }
+        .compare-picker__ts {
+            grid-column: 2;
+            grid-row: 1 / span 2;
+            align-self: center;
+            font-size: 0.78rem;
+            white-space: nowrap;
+        }
+        .compare-picker__empty {
+            margin: 0;
+            color: var(--fg-faint);
+            font-size: 0.9rem;
+        }
+
+        /* ────────── transport telemetry chip on ResultRow ────────── */
+        .transport-chip {
+            font-family: var(--mono);
+            font-size: 0.7rem;
+            padding: 0.05rem 0.4rem;
+            border-radius: var(--r);
+            background: var(--bg);
+            color: var(--fg-dim);
+            margin-right: 0.4rem;
+            cursor: help;
+        }
+        .transport-chip.transport-impersonate { color: var(--amber-text); }
+        .transport-chip.transport-browser { color: var(--green-text); }
+
+        /* ────────── form helper line ────────── */
+        .form-help {
+            font-family: var(--sans);
+            font-size: 0.82rem;
+            line-height: 1.5;
+            color: var(--fg-dim);
+            margin: 0 0 0.5rem;
+        }
+        .form-help code {
+            font-family: var(--mono);
+            font-size: 0.78rem;
+            background: var(--bg);
+            padding: 0.05rem 0.3rem;
+            border-radius: var(--r);
+        }
+

@@ -1,0 +1,145 @@
+        /* ────────── results ────────── */
+        .category-group { margin-bottom: 1rem; }
+        .category-head {
+            font-family: var(--sans);
+            color: var(--fg-dim);
+            padding: 1rem 0 0.55rem;
+            display: flex;
+            align-items: baseline;
+            gap: 0.8rem;
+            border-bottom: 1px solid var(--line);
+        }
+        .category-head .name { color: var(--fg); font-weight: 600; font-size: 1.05rem; }
+        .category-head .stat { color: var(--fg-dim); font-size: 0.86rem; }
+        .category-head .stat.found { color: var(--green-text); }
+        .category-head .stat.uncertain { color: var(--amber-text); }
+
+        .result-row {
+            display: grid;
+            grid-template-columns: auto minmax(8rem, 14rem) minmax(0, 1fr) auto;
+            gap: 0.9rem;
+            align-items: center;
+            padding: 0.8rem 0.95rem;
+            border-bottom: 1px solid var(--line);
+            font-family: var(--sans);
+            font-size: 0.94rem;
+            transition: background 80ms;
+            border-radius: var(--r);
+            /* Whole row is clickable to toggle the evidence panel; cue
+               that with a pointer on the row body. Links and buttons
+               inside reset to their own cursors. */
+            cursor: pointer;
+        }
+        .result-row a, .result-row button { cursor: pointer; }
+        /* Hover tint is mild — large jumps in row background cause a
+           visible flicker when sort-during-scan moves a row out from
+           under the cursor. A subtle shift reads as "you can interact
+           with this" without strobing. */
+        .result-row:hover { background: color-mix(in srgb, var(--bg-row-hover) 60%, transparent); }
+        .result-row.found {
+            background: linear-gradient(90deg, color-mix(in srgb, var(--green) 6%, transparent) 0, transparent 65%);
+        }
+        .result-row.found:hover {
+            background: linear-gradient(90deg, color-mix(in srgb, var(--green) 12%, transparent) 0, transparent 65%);
+        }
+        .result-row.uncertain { color: var(--fg-dim); }
+        .result-row .dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: var(--fg-faint);
+        }
+        .result-row.found .dot { background: var(--green); }
+        .result-row.uncertain .dot { background: var(--amber); }
+        .result-row .site {
+            display: flex;
+            align-items: baseline;
+            gap: 0.45rem;
+            min-width: 0;
+            flex-wrap: wrap;
+        }
+        .result-row .site-name {
+            font-weight: 600;
+            color: var(--fg);
+            word-break: break-word;
+        }
+        .result-row.uncertain .site-name { color: var(--fg-dim); }
+        .tag-pill {
+            font-family: var(--mono);
+            font-size: 0.72rem;
+            color: var(--fg-dim);
+            padding: 0.05rem 0.4rem;
+            border: 1px solid var(--line-strong);
+            border-radius: var(--r);
+            cursor: pointer;
+            transition: color 80ms, border-color 80ms;
+        }
+        .tag-pill:hover { color: var(--red-text); border-color: var(--red); }
+        .result-row .url-cell {
+            display: flex;
+            align-items: baseline;
+            gap: 0.55rem;
+            min-width: 0;
+        }
+        .result-row .url-cell a {
+            color: var(--fg-dim);
+            text-decoration: none;
+            font-family: var(--mono);
+            font-size: 0.86rem;
+            word-break: break-all;
+            min-width: 0;
+        }
+        .result-row .url-cell a:hover { color: var(--red); text-decoration: underline; }
+        .copy-btn {
+            background: transparent;
+            border: 1px solid var(--line-strong);
+            color: var(--fg-faint);
+            font-family: var(--sans);
+            font-size: 0.78rem;
+            font-weight: 500;
+            padding: 0.1rem 0.55rem;
+            cursor: pointer;
+            border-radius: var(--r);
+            /* Always partly visible — fade in on hover instead of
+               appearing/disappearing. This stops Copy from popping
+               in and out when sorting reorders rows mid-scan and
+               the row briefly loses `:hover`. */
+            opacity: 0.55;
+            transition: opacity 140ms, color 80ms, border-color 80ms;
+            flex-shrink: 0;
+            align-self: center;
+        }
+        .result-row:hover .copy-btn,
+        .copy-btn:hover { opacity: 1; }
+        .copy-btn:hover { color: var(--red-text); border-color: var(--red); }
+        .copy-btn.copied { color: var(--green-text); border-color: var(--green); opacity: 1; }
+        .meta-cell {
+            color: var(--fg-dim);
+            font-family: var(--mono);
+            font-size: 0.82rem;
+            white-space: nowrap;
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .nf-footer {
+            padding: 0.95rem 0;
+            text-align: center;
+            font-family: var(--sans);
+            font-size: 0.88rem;
+            color: var(--fg-dim);
+        }
+        .nf-footer a {
+            color: var(--fg-dim);
+            cursor: pointer;
+        }
+        .nf-footer a:hover { color: var(--red); text-decoration: underline; }
+
+        .empty-results {
+            padding: 4rem 1.5rem;
+            text-align: center;
+            font-family: var(--sans);
+            color: var(--fg-dim);
+            font-size: 1rem;
+        }
+        .empty-results strong { color: var(--fg); font-weight: 600; }
+

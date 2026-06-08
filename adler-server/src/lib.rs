@@ -44,7 +44,7 @@
 //! | `/api/scan/{id}/refilter`          | POST   | cancel and restart with new filters  |
 //! | `/api/scans`                       | GET    | recent scan history                  |
 //! | `/api/access`                      | GET    | read-only access-engine summary      |
-//! | `/`                                | GET    | embedded SolidJS SPA                 |
+//! | `/`                                | GET    | embedded `SolidJS` SPA               |
 //!
 //! ## Threading and shutdown
 //!

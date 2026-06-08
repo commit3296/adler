@@ -1,4 +1,4 @@
-import { Show, type Component, type JSX } from "solid-js";
+import { Show, createUniqueId, type Component, type JSX } from "solid-js";
 import { Icon } from "./Icon";
 
 export interface ModalProps {
@@ -32,37 +32,47 @@ export interface ModalProps {
 ///   <ModalFooter>...buttons...</ModalFooter>
 /// </Modal>
 /// ```
-export const Modal: Component<ModalProps> = (p) => (
-    <Show when={p.open}>
-        <div
-            class="ui-modal-backdrop"
-            onClick={(e) => {
-                if (e.target === e.currentTarget) p.onClose();
-            }}
-        >
+export const Modal: Component<ModalProps> = (p) => {
+    const titleId = createUniqueId();
+
+    return (
+        <Show when={p.open}>
             <div
-                class={["ui-modal", p.class ?? ""].filter(Boolean).join(" ")}
-                role="dialog"
-                aria-modal="true"
-                style={p.maxWidth ? { "max-width": p.maxWidth } : undefined}
+                class="ui-modal-backdrop"
+                onClick={(e) => {
+                    if (e.target === e.currentTarget) p.onClose();
+                }}
             >
-                <header class="ui-modal__header">
-                    <h2 class="ui-modal__title">{p.title}</h2>
-                    <button
-                        class="ui-modal__close"
-                        title={p.closeLabel ?? "Close (Esc)"}
-                        aria-label={p.closeLabel ?? "Close"}
-                        onClick={() => p.onClose()}
-                    >
-                        <Icon name="close" style={{ width: "14px", height: "14px" }} />
-                    </button>
-                </header>
-                <Show when={p.headerSlot}>{p.headerSlot}</Show>
-                <div class="ui-modal__body">{p.children}</div>
-                <Show when={p.footer}>
-                    <footer class="ui-modal__footer">{p.footer}</footer>
-                </Show>
+                <div
+                    class={["ui-modal", p.class ?? ""].filter(Boolean).join(" ")}
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby={titleId}
+                    style={p.maxWidth ? { "max-width": p.maxWidth } : undefined}
+                >
+                    <header class="ui-modal__header">
+                        <h2 id={titleId} class="ui-modal__title">
+                            {p.title}
+                        </h2>
+                        <button
+                            class="ui-modal__close"
+                            title={p.closeLabel ?? "Close (Esc)"}
+                            aria-label={p.closeLabel ?? "Close"}
+                            onClick={() => p.onClose()}
+                        >
+                            <Icon
+                                name="close"
+                                style={{ width: "14px", height: "14px" }}
+                            />
+                        </button>
+                    </header>
+                    <Show when={p.headerSlot}>{p.headerSlot}</Show>
+                    <div class="ui-modal__body">{p.children}</div>
+                    <Show when={p.footer}>
+                        <footer class="ui-modal__footer">{p.footer}</footer>
+                    </Show>
+                </div>
             </div>
-        </div>
-    </Show>
-);
+        </Show>
+    );
+};

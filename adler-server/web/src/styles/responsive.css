@@ -1,0 +1,83 @@
+        /* ────────── reduced motion ──────────
+           Honour the OS "reduce motion" setting globally: collapse all
+           animations/transitions (view-in, shimmer, modalin, pulse, …)
+           to near-instant. Kept last so it overrides everything above. */
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+                scroll-behavior: auto !important;
+            }
+        }
+
+        /* ────────── responsive ──────────
+           Breakpoints:
+             - 900 px: tablet — header stacks, toolbar starts wrapping
+             - 600 px: phone  — hero compacts, results rows go two-line,
+                                touch affordances become always-visible
+        */
+
+        @media (max-width: 900px) {
+            .scan-view { padding: 1rem; }
+            .scan-header {
+                grid-template-columns: 1fr;
+                gap: 0.85rem;
+            }
+            .scan-header .right { align-items: flex-start; }
+            .status-row { flex-wrap: wrap; gap: 0.7rem; }
+            .results-toolbar { flex-wrap: wrap; }
+            /* Search and Export stay on the second row, full-width  */
+            .results-toolbar .search-input,
+            .results-toolbar .ui-search { flex: 1 1 100%; }
+        }
+
+        @media (max-width: 600px) {
+            .top-bar { padding: 0.6rem 0.85rem; }
+            .scan-view { padding: 0.85rem; }
+            .hero {
+                padding: 1.5rem 1rem 2.5rem;
+                min-height: 100%;
+            }
+            .hero-inner { transform: translateY(-0.5rem); }
+            .hero-logo { font-size: 2rem; margin-bottom: 0.45rem; }
+            .hero-tagline { font-size: 0.86rem; margin-bottom: 1.5rem; }
+            .scan-username { font-size: 1.1rem; }
+
+            /* Two-line result row: header + url. Meta sits next to
+               site name on row 1; URL spans both columns on row 2. */
+            .result-row {
+                grid-template-columns: auto 1fr auto;
+                grid-template-rows: auto auto;
+                gap: 0.3rem 0.55rem;
+                padding: 0.65rem 0.75rem;
+            }
+            .result-row .dot { grid-row: 1; grid-column: 1; }
+            .result-row .site {
+                grid-row: 1;
+                grid-column: 2;
+                min-width: 0;
+            }
+            .result-row .meta-cell {
+                grid-row: 1;
+                grid-column: 3;
+                text-align: right;
+                font-size: 0.78rem;
+            }
+            .result-row .url-cell {
+                grid-row: 2;
+                grid-column: 1 / -1;
+                padding-left: 1.5rem;
+            }
+            .ui-modal { max-height: 90vh; }
+            .modal-search-area { padding: 0.5rem 0.85rem; }
+            .ui-modal__header { padding: 0.85rem 1rem; }
+            .ui-modal__body { padding: 0.85rem 1rem; }
+        }
+
+        /* Touch devices have no `:hover` — fade-in affordances would
+           never appear. Force-show them. */
+        @media (hover: none) {
+            .copy-btn,
+            .history-row .h-actions { opacity: 1; }
+        }

@@ -26,7 +26,7 @@ use std::time::Duration;
 
 use adler_core::doctor::{self, DoctorReport};
 use adler_core::executor;
-use adler_core::{CheckOutcome, Client, ExecutorOptions, Registry, Username};
+use adler_core::{CheckOutcome, Client, ExecutorOptions, Registry, SiteFilter, Username};
 use rmcp::Peer;
 use rmcp::RoleServer;
 use rmcp::ServerHandler;
@@ -216,13 +216,12 @@ impl AdlerMcp {
                        tags, and popularity rank for each match."
     )]
     pub fn list_sites(&self, Parameters(args): Parameters<ListSitesArgs>) -> Json<ListSitesOutput> {
-        let sites = self.registry.filter(
-            &[],
-            &[],
-            &args.tag.unwrap_or_default(),
-            &args.exclude_tag.unwrap_or_default(),
-            args.include_nsfw.unwrap_or(false),
-        );
+        let sites = self.registry.filter_with(&SiteFilter {
+            tags: args.tag.unwrap_or_default(),
+            exclude_tags: args.exclude_tag.unwrap_or_default(),
+            include_nsfw: args.include_nsfw.unwrap_or(false),
+            ..SiteFilter::default()
+        });
         let entries: Vec<SiteEntry> = sites
             .into_iter()
             .map(|s| SiteEntry {
@@ -430,23 +429,16 @@ impl AdlerMcp {
 }
 
 impl AdlerMcp {
-    /// Filter the registry by the shared `ScanFilter` parameters,
-    /// then optionally truncate to the top-N most popular.
+    /// Filter the registry by the shared `ScanFilter` parameters.
     fn filtered_sites(&self, filter: &ScanFilter) -> Vec<adler_core::Site> {
-        let mut sites = self.registry.filter(
-            &filter.only.clone().unwrap_or_default(),
-            &filter.exclude.clone().unwrap_or_default(),
-            &filter.tag.clone().unwrap_or_default(),
-            &filter.exclude_tag.clone().unwrap_or_default(),
-            filter.include_nsfw.unwrap_or(false),
-        );
-        if let Some(top) = filter.top {
-            let top = top as usize;
-            sites.retain(|s| s.popularity.is_some());
-            sites.sort_by_key(|s| s.popularity);
-            sites.truncate(top);
-        }
-        sites
+        self.registry.filter_with(&SiteFilter {
+            include: filter.only.clone().unwrap_or_default(),
+            exclude: filter.exclude.clone().unwrap_or_default(),
+            tags: filter.tag.clone().unwrap_or_default(),
+            exclude_tags: filter.exclude_tag.clone().unwrap_or_default(),
+            include_nsfw: filter.include_nsfw.unwrap_or(false),
+            top: filter.top,
+        })
     }
 
     /// Run a scan and bridge the synchronous progress callback into
@@ -699,19 +691,20 @@ mod tests {
     }
 
     #[test]
-    fn filtered_sites_respects_top_n_popularity() {
+    fn filtered_sites_respects_top_rank_ceiling() {
         let server = AdlerMcp::new().expect("embedded registry must load");
         let filter = ScanFilter {
             top: Some(5),
             ..Default::default()
         };
         let sites = server.filtered_sites(&filter);
-        assert_eq!(sites.len(), 5);
+        assert!(!sites.is_empty());
         // top is sorted ascending (lower rank = more popular), so all
-        // entries must have a popularity field and the first must rank
-        // at-most-equal to the last.
+        // entries must have a popularity field within the requested
+        // ceiling.
         for s in &sites {
-            assert!(s.popularity.is_some(), "top-N drops unranked sites");
+            let rank = s.popularity.expect("top drops unranked sites");
+            assert!(rank <= 5, "top keeps only ranks <= N");
         }
         assert!(sites[0].popularity <= sites[sites.len() - 1].popularity);
     }

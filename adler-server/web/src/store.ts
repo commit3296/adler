@@ -6,6 +6,8 @@ import { createEffect, createRoot } from "solid-js";
 import { createStore, produce } from "solid-js/store";
 import { ApiClientError, api } from "./api";
 import { CATEGORIES, categoryForTags, type Preset } from "./constants";
+import { createUiActions } from "./store/uiActions";
+import { createViewActions } from "./store/viewActions";
 import type {
     AccessResponse,
     CheckOutcome,
@@ -647,94 +649,6 @@ export const actions = {
         set("ui", "compareArmed", id);
     },
 
-    // View
-    setSort(s: Sort) {
-        set("view", "sort", s);
-    },
-    setGroupBy(g: GroupBy) {
-        set("view", "groupBy", g);
-    },
-    setResultsFilter(s: string) {
-        set("view", "resultsFilter", s);
-    },
-    toggleShowNotFound() {
-        set("view", "showNotFound", !store.view.showNotFound);
-    },
-    selectSite(s: string | null) {
-        set("view", "selectedSite", s);
-    },
-
-    // UI — only one overlay open at a time. Opening any of
-    // {drawer, filters, shortcuts} closes the others. The user
-    // never sees two stacked dialogs by accident.
-    setDrawer(open: boolean) {
-        if (open) {
-            set("ui", "filtersOpen", false);
-            set("ui", "shortcutsOpen", false);
-            set("ui", "aboutOpen", false);
-            set("ui", "accessOpen", false);
-            set("ui", "comparePickerOpen", false);
-        }
-        set("ui", "drawerOpen", open);
-    },
-    setFilters(open: boolean) {
-        if (open) {
-            set("ui", "drawerOpen", false);
-            set("ui", "shortcutsOpen", false);
-            set("ui", "aboutOpen", false);
-            set("ui", "accessOpen", false);
-            set("ui", "comparePickerOpen", false);
-        }
-        set("ui", "filtersOpen", open);
-    },
-    setShortcuts(open: boolean) {
-        if (open) {
-            set("ui", "drawerOpen", false);
-            set("ui", "filtersOpen", false);
-            set("ui", "aboutOpen", false);
-            set("ui", "accessOpen", false);
-            set("ui", "comparePickerOpen", false);
-        }
-        set("ui", "shortcutsOpen", open);
-    },
-    setAbout(open: boolean) {
-        if (open) {
-            set("ui", "drawerOpen", false);
-            set("ui", "filtersOpen", false);
-            set("ui", "shortcutsOpen", false);
-            set("ui", "accessOpen", false);
-            set("ui", "comparePickerOpen", false);
-        }
-        set("ui", "aboutOpen", open);
-    },
-    setAccess(open: boolean) {
-        if (open) {
-            set("ui", "drawerOpen", false);
-            set("ui", "filtersOpen", false);
-            set("ui", "shortcutsOpen", false);
-            set("ui", "aboutOpen", false);
-            set("ui", "comparePickerOpen", false);
-        }
-        set("ui", "accessOpen", open);
-    },
-    setComparePicker(open: boolean) {
-        if (open) {
-            set("ui", "drawerOpen", false);
-            set("ui", "filtersOpen", false);
-            set("ui", "shortcutsOpen", false);
-            set("ui", "aboutOpen", false);
-            set("ui", "accessOpen", false);
-        }
-        set("ui", "comparePickerOpen", open);
-    },
-    toast(text: string, kind: "success" | "error" | "info" = "info") {
-        set("ui", "toast", { text, kind });
-        setTimeout(() => {
-            if (store.ui.toast?.text === text) set("ui", "toast", null);
-        }, 2200);
-    },
-    /// Imperatively dismiss the current toast (e.g. on click).
-    setToast(t: { text: string; kind: "success" | "error" | "info" } | null) {
-        set("ui", "toast", t);
-    },
+    ...createViewActions({ set, store }),
+    ...createUiActions({ set, store }),
 };

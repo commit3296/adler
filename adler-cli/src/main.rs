@@ -6,7 +6,7 @@ mod report;
 mod scan;
 mod transport;
 
-use adler_core::{Cache, Client, PermuteLevel, Registry, Site};
+use adler_core::{Cache, Client, PermuteLevel, Registry, Site, SiteFilter};
 use std::io::{self, IsTerminal as _, Write};
 use std::net::SocketAddr;
 use std::num::{NonZeroU32, NonZeroUsize};
@@ -725,23 +725,14 @@ async fn run(cli: Cli) -> Result<ExitCode> {
         return Ok(ExitCode::SUCCESS);
     }
 
-    let mut sites = registry.filter(
-        &cli.only,
-        &cli.exclude,
-        &cli.tag,
-        &cli.exclude_tag,
-        cli.nsfw,
-    );
-    if let Some(n) = cli.top {
-        // Restrict to ranked sites within the top N, ordered by
-        // popularity (lower rank = more popular). Sites without a
-        // populated `popularity` field are dropped — they have no
-        // rank to compete with. Useful for fast checks: `adler
-        // --top 30 alice` runs against the ~30 most-known sites
-        // in seconds.
-        sites.retain(|s| s.popularity.is_some_and(|p| p <= n));
-        sites.sort_by_key(|s| s.popularity.unwrap_or(u32::MAX));
-    }
+    let sites = registry.filter_with(&SiteFilter {
+        include: cli.only.clone(),
+        exclude: cli.exclude.clone(),
+        tags: cli.tag.clone(),
+        exclude_tags: cli.exclude_tag.clone(),
+        include_nsfw: cli.nsfw,
+        top: cli.top,
+    });
     if sites.is_empty() {
         eprintln!("adler: no sites match the filter");
         return Ok(ExitCode::from(2));

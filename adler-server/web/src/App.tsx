@@ -1,7 +1,6 @@
 import {
     For,
     Show,
-    createEffect,
     createMemo,
     createSignal,
     onCleanup,
@@ -44,12 +43,14 @@ import { ScanSkeleton } from "./components/ScanSkeleton";
 import { ShortcutsOverlay } from "./components/ShortcutsOverlay";
 import { Toast } from "./components/Toast";
 import { TopBar } from "./components/TopBar";
+import { useDocumentTitle } from "./hooks/useDocumentTitle";
+import { useHistoryPolling } from "./hooks/useHistoryPolling";
+import { useOutcomeBuffer } from "./hooks/useOutcomeBuffer";
 
 export const App: Component = () => {
     // ─────────── transient (non-store) state ───────────
     let sseClose: (() => void) | null = null;
     let elapsedTimer: number | null = null;
-    let historyTimer: number | null = null;
     const [lastUsername, setLastUsername] = createSignal<string>("");
 
     // ─────────── helpers ───────────
@@ -80,19 +81,7 @@ export const App: Component = () => {
     const [routeHash, setRouteHash] = createSignal(location.hash);
     const urlHasView = createMemo(() => routeHasScanView(routeHash()));
 
-    let outcomeBuffer: ReturnType<typeof Object>[] = [];
-    let outcomeRafQueued = false;
-    function onOutcome(o: unknown) {
-        outcomeBuffer.push(o);
-        if (outcomeRafQueued) return;
-        outcomeRafQueued = true;
-        requestAnimationFrame(() => {
-            const batch = outcomeBuffer as Parameters<typeof actions.appendOutcomes>[0];
-            outcomeBuffer = [];
-            outcomeRafQueued = false;
-            actions.appendOutcomes(batch);
-        });
-    }
+    const onOutcome = useOutcomeBuffer();
 
     // ─────────── scan lifecycle ───────────
     /// Snapshot of the *server-side* filter slice — the fields that get
@@ -407,15 +396,7 @@ export const App: Component = () => {
         }
     }
 
-    // ─────────── history polling ───────────
-    async function refreshHistory() {
-        try {
-            const h = await api.scans();
-            actions.setHistory(h);
-        } catch {
-            /* swallow — UI just shows the last good list */
-        }
-    }
+    const refreshHistory = useHistoryPolling();
 
     // ─────────── boot ───────────
     onMount(() => {
@@ -434,9 +415,6 @@ export const App: Component = () => {
             .catch(() => {
                 // /api/access is a luxury, not a blocker — silent on fail.
             });
-        refreshHistory();
-        historyTimer = window.setInterval(refreshHistory, 8000);
-
         // Handle the initial route synchronously. `urlHasView()` is
         // already true at this point, so the scan-view shell renders
         // immediately; the real outcomes arrive moments later.
@@ -451,17 +429,13 @@ export const App: Component = () => {
         api.health()
             .then((h) => actions.setServerVersion(h.version))
             .catch(() => {});
-
-        // Keep the document title in sync with the current view.
-        createEffect(() => {
-            document.title = computeTitle();
-        });
     });
+
+    useDocumentTitle(computeTitle);
 
     onCleanup(() => {
         closeStream();
         stopElapsedTimer();
-        if (historyTimer !== null) window.clearInterval(historyTimer);
         window.removeEventListener("hashchange", handleHash);
         window.removeEventListener("keydown", handleKey);
     });

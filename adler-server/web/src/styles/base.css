@@ -1,0 +1,75 @@
+        /*
+         * Typography system
+         * ─────────────────
+         *  --sans  (system UI sans):  human-facing UI text.
+         *      Headings · buttons · labels · tabs · counters' labels ·
+         *      empty states · presets · category names · toasts · hints.
+         *
+         *  --mono  (system mono):  identifiers & technical data.
+         *      Logo · @username · URLs · site names · raw tag pills ·
+         *      numbers + units (elapsed_ms, "2m ago") · keyboard <kbd> ·
+         *      scan IDs · evidence strings · code / API references.
+         *
+         *  Weight is the primary emphasis tool (500 → 600 → 700).
+         *  Size for hierarchy (1rem body, 1.05rem subheads, 2.6rem hero).
+         *  No text-transform: uppercase anywhere.
+         *  Letter-spacing 0 by default; 0.01–0.02em only on display sans.
+         *
+         * Color tiers (all WCAG AA on var(--bg))
+         * ──────────────────────────────────────
+         *  --fg        primary text (≥ 16:1)
+         *  --fg-dim    secondary, sub-info (~7:1)
+         *  --fg-faint  tertiary, decorative only (~4.5:1)
+         *  --red       brand accent, primary CTA bg
+         *  --red-text  red for use on dark-red surfaces
+         *  --green/--amber + their -text variants: status colors
+         */
+        /* Design tokens (--bg, --fg, --red, --sans, …) come from
+           ui/tokens.css. App-level styles below consume them.
+           Long-form (--color-*) tokens are preferred for new code;
+           short aliases (--bg, --fg, …) stay valid via tokens.css. */
+        *, *::before, *::after { box-sizing: border-box; }
+        html {
+            /* Hardcoded fallback in case var() hasn't resolved by paint */
+            background: #000;
+            height: 100%;
+        }
+        html, body {
+            background: var(--bg);
+            color: var(--fg);
+            margin: 0;
+            font-family: var(--sans);
+            font-size: 16px;
+            line-height: 1.55;
+            -webkit-font-smoothing: antialiased;
+        }
+        body {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        #root {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            min-height: 0;
+        }
+        main { flex: 1; min-height: 0; }
+        a { color: var(--red); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        button, input {
+            font: inherit; color: inherit;
+            border-radius: var(--r);
+        }
+        /* Global keyboard-focus indicator.
+           Inputs are intentionally NOT included — they handle their
+           own focus indicator inside their wrapper component (`.ui-input`,
+           `.ui-search`). Stacking a global outline on top of those
+           wrappers' border + ring rendered as a 3-layer "border in
+           border" effect, most visible around the search icon. */
+        button:focus-visible, [tabindex]:focus-visible {
+            outline: 2px solid var(--red);
+            outline-offset: 1px;
+        }
+        ::selection { background: var(--red); color: #000; }
+

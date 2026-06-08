@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use adler_core::{Client, Registry, Site};
+use adler_core::{Client, Registry, Site, SiteFilter};
 use tokio::sync::RwLock;
 use tokio::task::JoinHandle;
 
@@ -66,7 +66,7 @@ impl AppState {
     /// non-NSFW set.
     #[must_use]
     pub fn from_registry(registry: &Registry, client: Client, scan_capacity: usize) -> Self {
-        let sites = registry.filter(&[], &[], &[], &[], false);
+        let sites = registry.filter_with(&SiteFilter::default());
         Self::new(sites, client, scan_capacity)
     }
 
