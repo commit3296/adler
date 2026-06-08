@@ -1,4 +1,4 @@
-import { produce, type SetStoreFunction } from "solid-js/store";
+import { produce, reconcile, type SetStoreFunction } from "solid-js/store";
 
 import { ApiClientError, api } from "../api";
 import type { CheckOutcome, Summary } from "../types";
@@ -106,8 +106,8 @@ export function createScanActions({
             set("scan", "id", id);
             set("scan", "siteCount", siteCount);
             set("scan", "outcomes", []);
-            set("scan", "outcomeSites", {});
-            set("scan", "bucketsByCategory", emptyBuckets());
+            set("scan", "outcomeSites", reconcile({}));
+            set("scan", "bucketsByCategory", reconcile(emptyBuckets()));
             set("scan", "summary", null);
             set("scan", "status", "running");
             set("scan", "startedAtMs", Date.now());

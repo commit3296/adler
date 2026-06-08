@@ -12,6 +12,10 @@ pre-1.0 bump rules.
 ### Changed
 - *(docs)* document web UI smoke checks and MCP `top` rank-ceiling semantics
 - *(docs)* add a cross-surface filter contract for CLI, web/API, and MCP
+- *(ci)* run Adler web unit tests alongside typecheck/build/smoke
+
+### Fixed
+- *(web)* clear stale per-site lookup state when refiltering a running scan
 
 ## [0.12.2](https://github.com/commit3296/adler/compare/adler-mcp-v0.12.1...adler-mcp-v0.12.2) - 2026-06-08
 

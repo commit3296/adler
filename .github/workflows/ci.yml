@@ -53,6 +53,10 @@ jobs:
           npm ci
           npm run typecheck
 
+      - name: Unit test adler-web frontend
+        working-directory: adler-server/web
+        run: npm run unit
+
       - name: Build adler-web frontend
         working-directory: adler-server/web
         run: |

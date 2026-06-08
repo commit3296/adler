@@ -1,4 +1,4 @@
-import { defineConfig } from "vite";
+import { defineConfig } from "vitest/config";
 import solid from "vite-plugin-solid";
 
 // Dev mode: the SolidJS bundle is served by Vite on :5173 while the
@@ -33,5 +33,9 @@ export default defineConfig({
                 manualChunks: undefined,
             },
         },
+    },
+    test: {
+        environment: "node",
+        include: ["src/**/*.test.ts"],
     },
 });
