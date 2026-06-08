@@ -279,7 +279,9 @@ pub(crate) struct Cli {
     /// table is a set of HTTP headers (e.g. `Cookie`, `Authorization`)
     /// applied to sites whose `access.session` names it — your own
     /// (sock-puppet) login, used to reach pages behind a login wall.
-    /// Header values are secret: never logged. See README → Sessions.
+    /// Header values are secret: never logged. Reddit also accepts
+    /// `REDDIT_CLIENT_ID` / `REDDIT_CLIENT_SECRET` for app-only OAuth
+    /// unless `[reddit]` is supplied here. See README → Sessions.
     #[arg(long, value_name = "FILE", help_heading = "Access engine")]
     pub(crate) sessions: Option<PathBuf>,
 

@@ -33,6 +33,7 @@ clap_mangen.workspace = true
 secrecy.workspace = true
 indicatif.workspace = true
 open.workspace = true
+reqwest.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 toml.workspace = true

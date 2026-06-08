@@ -115,13 +115,15 @@ network.
 ## Honest limits (investigated, deferred)
 
 Structurally unscrapable for anonymous OSINT until something changes
-upstream. All entries below carry `disabled: true` + per-site
-`disabled_reason` in `sites.json` so the doctor stops flagging them
-every night.
+upstream. Entries that still have no honest opt-in path stay parked
+with `disabled: true` + per-site `disabled_reason` in `sites.json` so
+the doctor stops flagging them every night.
 
 - **Reddit** — 403s anonymous requests since the 2023 API restriction.
   Adler now routes through `oauth.reddit.com` only when the operator
-  supplies a `reddit` session with an OAuth bearer token.
+  supplies a `reddit` session with an OAuth bearer token; CLI startup can
+  derive that session from `REDDIT_CLIENT_ID` / `REDDIT_CLIENT_SECRET`
+  via Reddit's app-only client-credentials flow.
 - **TikTok** — JS-rendered SPA; user data never hydrates into the
   headless DOM (verified with 15 s post-load wait through
   Browserbase). Needs full fingerprint spoofing + realistic

@@ -18,6 +18,7 @@ dependencies = [
  "insta",
  "open",
  "predicates",
+ "reqwest",
  "secrecy",
  "serde",
  "serde_json",

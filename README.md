@@ -332,9 +332,11 @@ hard subset of the registry:
   `Uncertain(GeoUnavailable)`.
 - **Sessions** (`--sessions <file>`) — operator-supplied cookies /
   tokens for login-walled sites. Per-site `[name]` tables; values
-  redacted from logs. Reddit is session-gated: provide
-  `[reddit] Authorization = "Bearer <token>"` to use the OAuth
-  endpoint; without it Adler reports `session_required` instead of
+  redacted from logs. Reddit is session-gated: either provide
+  `[reddit] Authorization = "Bearer <token>"` manually, or set
+  `REDDIT_CLIENT_ID` / `REDDIT_CLIENT_SECRET` and Adler will fetch an
+  app-only OAuth bearer token for the `reddit` session. Without one of
+  those opt-in credentials Adler reports `session_required` instead of
   probing anonymously.
 - **Automatic escalation** (`--escalation-budget N` / `--no-escalation`)
   — when the cheap path returns `Uncertain(cloudflare_challenge |

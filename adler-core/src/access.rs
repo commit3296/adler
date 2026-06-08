@@ -234,6 +234,12 @@ impl SessionStore {
         self.sessions.get(name)
     }
 
+    /// True when a named session is configured.
+    #[must_use]
+    pub fn contains(&self, name: &str) -> bool {
+        self.sessions.contains_key(name)
+    }
+
     /// Names of the configured sessions, sorted lexicographically for a
     /// stable display order. Values stay private — by design the public
     /// surface only ever leaks the keys an operator referenced via
@@ -611,7 +617,9 @@ mod tests {
         assert!(store.is_empty());
         store.insert("ig", Session::from_headers(BTreeMap::new()));
         assert!(!store.is_empty());
+        assert!(store.contains("ig"));
         assert!(store.get("ig").is_some());
+        assert!(!store.contains("missing"));
         assert!(store.get("missing").is_none());
     }
 }
