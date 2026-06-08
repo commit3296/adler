@@ -83,6 +83,33 @@ def parse_sse_response(resp: requests.Response, *, want_id: int | None = None):
     return None
 
 
+def expect_result(body, want_id: int | None, label: str):
+    ok(
+        f"{label} → JSON-RPC result envelope",
+        isinstance(body, dict)
+        and body.get("jsonrpc") == "2.0"
+        and body.get("id") == want_id
+        and "result" in body
+        and "error" not in body,
+    )
+    return body.get("result", {}) if isinstance(body, dict) else {}
+
+
+def expect_error(body, want_id: int | None, label: str, text: str):
+    error = body.get("error", {}) if isinstance(body, dict) else {}
+    message = str(error.get("message", "")).lower()
+    ok(
+        f"{label} → JSON-RPC error envelope",
+        isinstance(body, dict)
+        and body.get("jsonrpc") == "2.0"
+        and body.get("id") == want_id
+        and isinstance(error, dict)
+        and text.lower() in message,
+        f"message={message!r}",
+    )
+    return error
+
+
 def wait_for_listener(timeout: float = 6.0) -> None:
     deadline = time.time() + timeout
     while time.time() < deadline:
@@ -139,13 +166,14 @@ def main() -> int:
         ok("HTTP 200 on initialize", resp.status_code == 200, f"status={resp.status_code}")
         ok("mcp-session-id header present", session_id is not None, f"id={session_id}")
         body = parse_sse_response(resp, want_id=resp.req_id)  # type: ignore[attr-defined]
-        info = body["result"]["serverInfo"] if body else {}
+        result = expect_result(body, resp.req_id, "initialize")  # type: ignore[attr-defined]
+        info = result.get("serverInfo", {})
         ok(
             "initialize.serverInfo.name == adler-mcp",
             info.get("name") == "adler-mcp",
             f"server v{info.get('version', '?')}",
         )
-        caps = body["result"]["capabilities"] if body else {}
+        caps = result.get("capabilities", {})
         for cap in ("tools", "resources", "prompts"):
             ok(f"capability advertised: {cap}", cap in caps)
 
@@ -157,7 +185,8 @@ def main() -> int:
         print("\n== tools ==")
         resp = call("tools/list")
         body = parse_sse_response(resp, want_id=resp.req_id)  # type: ignore[attr-defined]
-        names = sorted(t["name"] for t in body["result"]["tools"])
+        result = expect_result(body, resp.req_id, "tools/list")  # type: ignore[attr-defined]
+        names = sorted(t["name"] for t in result.get("tools", []))
         expected = sorted([
             "list_sites", "scan_username", "scan_batch",
             "doctor_check", "get_scan_history",
@@ -166,7 +195,8 @@ def main() -> int:
 
         resp = call("tools/call", {"name": "list_sites", "arguments": {"tag": ["coding"]}})
         body = parse_sse_response(resp, want_id=resp.req_id)  # type: ignore[attr-defined]
-        sc = body["result"]["structuredContent"]
+        result = expect_result(body, resp.req_id, "tools/call list_sites")  # type: ignore[attr-defined]
+        sc = result.get("structuredContent", {})
         ok(
             "tools/call list_sites(tag=coding)",
             sc["total"] > 5,
@@ -175,9 +205,11 @@ def main() -> int:
 
         resp = call("tools/call", {"name": "doctor_check", "arguments": {"site": "Reddit"}})
         body = parse_sse_response(resp, want_id=resp.req_id)  # type: ignore[attr-defined]
-        ok(
-            "tools/call doctor_check(Reddit) → invalid_params (disabled)",
-            "error" in body and "not found" in body["error"]["message"].lower(),
+        expect_error(
+            body,
+            resp.req_id,  # type: ignore[attr-defined]
+            "tools/call doctor_check(Reddit)",
+            "not found",
         )
 
         if SKIP_LIVE:
@@ -185,7 +217,8 @@ def main() -> int:
         else:
             resp = call("tools/call", {"name": "doctor_check", "arguments": {"site": "GitHub"}})
             body = parse_sse_response(resp, want_id=resp.req_id)  # type: ignore[attr-defined]
-            sc = body.get("result", {}).get("structuredContent", {})
+            result = expect_result(body, resp.req_id, "tools/call doctor_check(GitHub)")  # type: ignore[attr-defined]
+            sc = result.get("structuredContent", {})
             ok(
                 "tools/call doctor_check(GitHub) → live verdict",
                 sc.get("site") == "GitHub" and sc.get("verdict") in ("healthy", "unhealthy"),
@@ -194,7 +227,8 @@ def main() -> int:
 
         resp = call("tools/call", {"name": "get_scan_history", "arguments": {"limit": 5}})
         body = parse_sse_response(resp, want_id=resp.req_id)  # type: ignore[attr-defined]
-        sc = body["result"]["structuredContent"]
+        result = expect_result(body, resp.req_id, "tools/call get_scan_history")  # type: ignore[attr-defined]
+        sc = result.get("structuredContent", {})
         ok(
             "tools/call get_scan_history",
             "total" in sc and "scans" in sc,
@@ -216,7 +250,8 @@ def main() -> int:
                 },
             )
             body = parse_sse_response(resp, want_id=resp.req_id)  # type: ignore[attr-defined]
-            sc = body.get("result", {}).get("structuredContent", {})
+            result = expect_result(body, resp.req_id, "tools/call scan_username")  # type: ignore[attr-defined]
+            sc = result.get("structuredContent", {})
             ok(
                 "tools/call scan_username(torvalds, top=2, tag=coding)",
                 sc.get("total_probed", 0) >= 1,
@@ -229,7 +264,8 @@ def main() -> int:
         print("\n== resources ==")
         resp = call("resources/list")
         body = parse_sse_response(resp, want_id=resp.req_id)  # type: ignore[attr-defined]
-        names = sorted(r["name"] for r in body["result"]["resources"])
+        result = expect_result(body, resp.req_id, "resources/list")  # type: ignore[attr-defined]
+        names = sorted(r["name"] for r in result.get("resources", []))
         ok(
             "resources/list returns 4 static",
             names == sorted([
@@ -241,7 +277,8 @@ def main() -> int:
 
         resp = call("resources/templates/list")
         body = parse_sse_response(resp, want_id=resp.req_id)  # type: ignore[attr-defined]
-        templates = body["result"]["resourceTemplates"]
+        result = expect_result(body, resp.req_id, "resources/templates/list")  # type: ignore[attr-defined]
+        templates = result.get("resourceTemplates", [])
         ok(
             "resources/templates/list returns scans/{id}",
             any(t["uriTemplate"] == "adler://scans/{id}" for t in templates),
@@ -255,27 +292,36 @@ def main() -> int:
         ]:
             resp = call("resources/read", {"uri": uri})
             body = parse_sse_response(resp, want_id=resp.req_id)  # type: ignore[attr-defined]
-            contents = body["result"]["contents"]
+            result = expect_result(body, resp.req_id, f"resources/read {uri}")  # type: ignore[attr-defined]
+            contents = result.get("contents", [])
             payload = json.loads(contents[0]["text"])
             total = payload.get("total", payload.get("total_tags", "?"))
             ok(f"resources/read {uri}", bool(contents) and "text" in contents[0], f"total={total}")
 
         resp = call("resources/read", {"uri": "adler://nope/x"})
         body = parse_sse_response(resp, want_id=resp.req_id)  # type: ignore[attr-defined]
-        ok(
-            "resources/read unknown URI → invalid_params",
-            "error" in body and "unknown resource" in body["error"]["message"].lower(),
+        expect_error(
+            body,
+            resp.req_id,  # type: ignore[attr-defined]
+            "resources/read unknown URI",
+            "unknown resource",
         )
 
         resp = call("resources/read", {"uri": "adler://scans/../etc/passwd"})
         body = parse_sse_response(resp, want_id=resp.req_id)  # type: ignore[attr-defined]
-        ok("resources/read path-traversal id → rejected", "error" in body)
+        expect_error(
+            body,
+            resp.req_id,  # type: ignore[attr-defined]
+            "resources/read path-traversal id",
+            "",
+        )
 
         # === prompts ===
         print("\n== prompts ==")
         resp = call("prompts/list")
         body = parse_sse_response(resp, want_id=resp.req_id)  # type: ignore[attr-defined]
-        pnames = sorted(p["name"] for p in body["result"]["prompts"])
+        result = expect_result(body, resp.req_id, "prompts/list")  # type: ignore[attr-defined]
+        pnames = sorted(p["name"] for p in result.get("prompts", []))
         ok(
             "prompts/list returns 3",
             pnames == sorted([
@@ -293,7 +339,8 @@ def main() -> int:
         ]:
             resp = call("prompts/get", {"name": name, "arguments": args})
             body = parse_sse_response(resp, want_id=resp.req_id)  # type: ignore[attr-defined]
-            msgs = body["result"]["messages"]
+            result = expect_result(body, resp.req_id, f"prompts/get {name}")  # type: ignore[attr-defined]
+            msgs = result.get("messages", [])
             text = msgs[0]["content"]["text"]
             has_arg = any(v in text for v in args.values()) if args else True
             ok(
@@ -304,16 +351,20 @@ def main() -> int:
 
         resp = call("prompts/get", {"name": "investigate_username", "arguments": {}})
         body = parse_sse_response(resp, want_id=resp.req_id)  # type: ignore[attr-defined]
-        ok(
-            "prompts/get missing required arg → invalid_params",
-            "error" in body and "requires argument" in body["error"]["message"].lower(),
+        expect_error(
+            body,
+            resp.req_id,  # type: ignore[attr-defined]
+            "prompts/get missing required arg",
+            "requires argument",
         )
 
         resp = call("prompts/get", {"name": "nope"})
         body = parse_sse_response(resp, want_id=resp.req_id)  # type: ignore[attr-defined]
-        ok(
-            "prompts/get unknown name → invalid_params",
-            "error" in body and "unknown prompt" in body["error"]["message"].lower(),
+        expect_error(
+            body,
+            resp.req_id,  # type: ignore[attr-defined]
+            "prompts/get unknown name",
+            "unknown prompt",
         )
 
         # === transport-specific ===
