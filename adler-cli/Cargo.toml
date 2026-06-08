@@ -23,9 +23,9 @@ bin-dir = "adler{ binary-ext }"
 pkg-fmt = "tgz"
 
 [dependencies]
-adler-core = { path = "../adler-core", version = "0.12.0" }
-adler-server = { path = "../adler-server", version = "0.12.1" }
-adler-mcp = { path = "../adler-mcp", version = "0.12.1" }
+adler-core = { path = "../adler-core", version = "0.12.2" }
+adler-server = { path = "../adler-server", version = "0.12.2" }
+adler-mcp = { path = "../adler-mcp", version = "0.12.2" }
 anyhow.workspace = true
 clap.workspace = true
 clap_complete.workspace = true
