@@ -132,7 +132,7 @@
         "popularity": {
           "type": "integer",
           "minimum": 1,
-          "description": "Curated popularity rank (lower = more popular). Used by `adler --top N` to scan only the N most-popular sites. Sites without a rank are excluded from `--top` queries."
+          "description": "Curated popularity rank (lower = more popular). `adler --top N` treats N as a rank ceiling (`popularity <= N`), then sorts by rank. Sites without a rank are excluded from `--top` queries."
         }
       }
     },

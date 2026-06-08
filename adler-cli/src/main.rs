@@ -129,11 +129,11 @@ pub(crate) struct Cli {
     #[arg(long, help_heading = "Filtering")]
     nsfw: bool,
 
-    /// Only scan the top N most-popular sites, ordered by curated
-    /// rank (lower number = more popular). Compatible with `--tag`
-    /// etc. for further narrowing. Sites without a `popularity`
-    /// rank are dropped — useful for fast checks of high-signal
-    /// targets without scanning every long-tail forum.
+    /// Only scan sites whose curated `popularity` rank is <= N
+    /// (lower number = more popular), ordered by rank. Compatible
+    /// with `--tag` etc. for further narrowing. Sites without a
+    /// `popularity` rank are dropped — useful for fast checks of
+    /// high-signal targets without scanning every long-tail forum.
     #[arg(long, value_name = "N", help_heading = "Filtering")]
     top: Option<u32>,
 

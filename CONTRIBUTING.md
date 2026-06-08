@@ -291,7 +291,11 @@ Surface conventions:
 - **Tools** (callable actions) live in the `#[tool_router] impl
   AdlerMcp` block. New tools should reuse the existing `ScanFilter`
   shape via `#[serde(flatten)]` when they take a filter — keeps the
-  agent's mental model consistent.
+  agent's mental model consistent. The canonical cross-surface filter
+  contract is documented in README's *Filter contract* table; MCP uses
+  `include_nsfw` where CLI/web say `--nsfw` / `nsfw`, and `top` is a
+  popularity-rank ceiling (`popularity <= top`), not a result-count
+  limit.
 - **Resources** (browsable data) live in the `ServerHandler` impl on
   the same struct. Static URIs go in the `STATIC_RESOURCES` table;
   parameterized URIs (e.g. `adler://scans/{id}`) go in

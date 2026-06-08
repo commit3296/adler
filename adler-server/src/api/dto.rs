@@ -83,8 +83,8 @@ pub(super) struct StartScanRequest {
     /// Skip sites carrying any of these tags.
     #[serde(default)]
     pub(super) exclude_tag: Vec<String>,
-    /// Restrict to ranked sites within the top N most-popular, sorted
-    /// by rank. Sites without a `popularity` rank are dropped.
+    /// Restrict to sites whose `popularity` rank is <= top, sorted by
+    /// rank. Sites without a `popularity` rank are dropped.
     #[serde(default)]
     pub(super) top: Option<u32>,
     /// Include sites tagged `nsfw`. Default false — matches the CLI.

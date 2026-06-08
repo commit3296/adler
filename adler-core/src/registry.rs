@@ -58,8 +58,9 @@ pub struct SiteFilter {
     pub exclude_tags: Vec<String>,
     /// Include sites tagged `nsfw`.
     pub include_nsfw: bool,
-    /// Optional popularity ceiling. Sites without a popularity rank are
-    /// dropped when this is set; returned sites are sorted by rank.
+    /// Optional popularity-rank ceiling (`popularity <= top`). Sites
+    /// without a popularity rank are dropped when this is set; returned
+    /// sites are sorted by rank.
     pub top: Option<u32>,
 }
 

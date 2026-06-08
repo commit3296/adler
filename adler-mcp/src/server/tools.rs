@@ -55,7 +55,8 @@ pub struct ListSitesOutput {
 
 /// Filter parameters shared between `scan_username` and `scan_batch`.
 /// Mirrors the CLI's `--only` / `--exclude` / `--tag` / `--exclude-tag`
-/// / `--include-nsfw` / `--top` flags.
+/// / `--include-nsfw` / `--top` flags. `top` is a popularity-rank
+/// ceiling (`popularity <= top`), not a result-count limit.
 #[derive(Debug, Default, Deserialize, JsonSchema)]
 pub struct ScanFilter {
     /// Keep only sites whose name contains at least one of these

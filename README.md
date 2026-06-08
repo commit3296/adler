@@ -211,6 +211,7 @@ A few of the most common knobs:
 
 ```bash
 adler --tag dev,social alice               # filter by tags
+adler --top 50 alice                       # popularity rank <= 50
 adler --format ndjson alice                # one JSON object per line
 adler --proxy socks5://host:1080 alice     # single proxy for everything
 adler --browser-backend local alice        # bot-protected sites via Chrome
@@ -223,6 +224,28 @@ network & sessions / browser & cache / batch & enrichment), is on the
 [**Usage**](https://adler-docs.pages.dev/usage/) page.
 `adler --help` lists every flag with its short doc; the docs page adds
 the bigger picture.
+
+### Filter contract
+
+All scan surfaces use the same registry filter semantics. The names
+differ slightly because CLI flags are kebab-case, HTTP JSON is
+snake_case, and MCP exposes agent-friendly JSON arguments:
+
+| Meaning | CLI | Web / HTTP API | MCP |
+| --- | --- | --- | --- |
+| Include site names containing any term, case-insensitive | `--only NAME` | `only: string[]` | `only: string[]` |
+| Exclude site names containing any term, case-insensitive | `--exclude NAME` | `exclude: string[]` | `exclude: string[]` |
+| Include sites carrying any tag, case-insensitive exact match | `--tag TAG` | `tag: string[]` | `tag: string[]` |
+| Exclude sites carrying any tag | `--exclude-tag TAG` | `exclude_tag: string[]` | `exclude_tag: string[]` |
+| Include adult-content sites | `--nsfw` | `nsfw: boolean` | `include_nsfw: boolean` |
+| Keep ranked sites with `popularity <= N`; drop unranked sites | `--top N` | `top: number` | `top: number` |
+| Restrict a web/server scan to named egresses from `--proxy-pool` | n/a | `egress_names: string[]` | n/a |
+
+Empty arrays / omitted values mean "no filter" for that dimension.
+Disabled sites are never scanned. `nsfw` sites are hidden by default,
+but asking for `--tag nsfw` / `tag: ["nsfw"]` is also an explicit
+opt-in. Multiple include dimensions compose with AND; within a single
+dimension, terms compose with OR.
 
 ## Web UI
 
