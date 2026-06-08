@@ -21,7 +21,7 @@ use std::time::Instant;
 use crate::access::EgressChoice;
 use crate::check::{CheckOutcome, MatchKind, UncertainReason};
 use crate::retry;
-use crate::site::{HttpMethod, Probe, Signal, SignalVerdict, Site, aggregate};
+use crate::site::{HttpMethod, Probe, ProtectionKind, Signal, SignalVerdict, Site, aggregate};
 use crate::transport::{
     BROWSER_TIMEOUT, BrowserFetcher, FetchError, FetchRequest, Fetcher, HttpFetcher,
 };
@@ -29,6 +29,16 @@ use crate::username::Username;
 
 use super::util::{host_of, origin_and_path, outcome, uncertain};
 use super::{BOT_PROTECTED_TAG, Client, GLOBAL_THROTTLE_KEY, RawResponse};
+
+fn routes_through_browser(site: &Site) -> bool {
+    site.tags
+        .iter()
+        .any(|t| t.eq_ignore_ascii_case(BOT_PROTECTED_TAG))
+        || site
+            .protection
+            .iter()
+            .any(|p| !matches!(p, ProtectionKind::UserAuth))
+}
 
 impl Client {
     /// Probe a single site for `username`, retrying on transient bans.
@@ -106,11 +116,7 @@ impl Client {
     /// callers get the same `Option<RawResponse>` shape either way.
     pub async fn fetch_for_doctor(&self, site: &Site, url: &str) -> Option<RawResponse> {
         if let Some(backend) = self.browser.as_deref() {
-            let has_tag = site
-                .tags
-                .iter()
-                .any(|t| t.eq_ignore_ascii_case(BOT_PROTECTED_TAG));
-            if has_tag || !site.protection.is_empty() {
+            if routes_through_browser(site) {
                 let parsed = url::Url::parse(url).ok()?;
                 match backend
                     .fetch(&parsed, &site.request_headers, BROWSER_TIMEOUT)
@@ -202,11 +208,7 @@ impl Client {
         // the legacy tag OR declares any specific protection mechanism
         // via the new `protection` field — either signal is enough.
         if let Some(backend) = &self.browser {
-            let has_tag = site
-                .tags
-                .iter()
-                .any(|t| t.eq_ignore_ascii_case(BOT_PROTECTED_TAG));
-            if has_tag || !site.protection.is_empty() {
+            if routes_through_browser(site) {
                 if self.browser_budget.try_consume() {
                     let started = Instant::now();
                     let req = FetchRequest {

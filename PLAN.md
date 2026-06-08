@@ -120,11 +120,15 @@ upstream. All entries below carry `disabled: true` + per-site
 every night.
 
 - **Reddit** — 403s anonymous requests since the 2023 API restriction.
-  Only path forward is OAuth, which defeats anonymous use.
-- **TikTok**, **Pinterest** — JS-rendered SPAs; user data never
-  hydrates into the headless DOM (verified with 15 s post-load wait
-  through Browserbase). Needs full fingerprint spoofing + realistic
+  Adler now routes through `oauth.reddit.com` only when the operator
+  supplies a `reddit` session with an OAuth bearer token.
+- **TikTok** — JS-rendered SPA; user data never hydrates into the
+  headless DOM (verified with 15 s post-load wait through
+  Browserbase). Needs full fingerprint spoofing + realistic
   interaction.
+- **Pinterest canonical pages** — JS-rendered shell has the same
+  hydration problem, but the public oEmbed endpoint distinguishes
+  present vs absent users and is the enabled registry path.
 - **Threads**, **Facebook** — public profile pages exist for a handful
   of Meta-special-cased accounts (`@zuck`); every normal username
   redirects to a login wall. Indistinguishable from a missing user.

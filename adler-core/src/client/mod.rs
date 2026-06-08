@@ -190,7 +190,7 @@ mod tests {
     use crate::browser::RenderedPage;
     use crate::check::{MatchKind, UncertainReason};
     use crate::error::{Error, Result};
-    use crate::site::{HttpMethod, Signal, Site, UrlTemplate};
+    use crate::site::{HttpMethod, ProtectionKind, Signal, Site, UrlTemplate};
     use crate::username::Username;
     use std::time::Instant;
     use wiremock::matchers::{any, method, path};
@@ -1256,6 +1256,41 @@ mod tests {
             0,
             "structured protection must skip the raw HTTP path"
         );
+    }
+
+    #[tokio::test]
+    async fn user_auth_protection_alone_uses_http_session_path() {
+        let server = MockServer::start().await;
+        Mock::given(any())
+            .and(path("/alice"))
+            .respond_with(ResponseTemplate::new(200))
+            .mount(&server)
+            .await;
+        let backend = Arc::new(RecordingBackend::with_page(RenderedPage {
+            status: 500,
+            final_url: url::Url::parse("https://x/").unwrap(),
+            body: String::new(),
+            elapsed_ms: 0,
+        }));
+        let client = Client::builder()
+            .min_request_interval(Duration::ZERO)
+            .max_retries(0)
+            .browser(backend.clone())
+            .build()
+            .unwrap();
+        let mut site = site_with(&server, vec![Signal::StatusFound { codes: vec![200] }]);
+        site.protection = vec![ProtectionKind::UserAuth];
+
+        let outcome = client.check(&site, &user()).await;
+
+        assert_eq!(outcome.kind, MatchKind::Found);
+        assert_eq!(
+            backend.call_count(),
+            0,
+            "user-auth alone must not invoke browser"
+        );
+        let recvd = server.received_requests().await.unwrap_or_default();
+        assert_eq!(recvd.len(), 1, "user-auth alone should use raw HTTP");
     }
 
     #[tokio::test]
