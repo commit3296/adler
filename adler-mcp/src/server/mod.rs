@@ -15,9 +15,9 @@ mod tools;
 use prompts::{PROMPT_SPECS, render_prompt};
 use resources::{JSON_MIME, ResourceError, STATIC_RESOURCES, json_resource_contents};
 use tools::{
-    BatchScanOutput, DoctorCheckArgs, DoctorCheckOutput, ListSitesArgs, ListSitesOutput,
-    OutcomeRow, ScanBatchArgs, ScanFilter, ScanHistoryArgs, ScanHistoryOutput, ScanOutput,
-    ScanSummary, ScanUsernameArgs, SiteEntry, read_scan_history,
+    BatchScanOutput, DisabledSiteEntry, DoctorCheckArgs, DoctorCheckOutput, ListSitesArgs,
+    ListSitesOutput, OutcomeRow, ScanBatchArgs, ScanFilter, ScanHistoryArgs, ScanHistoryOutput,
+    ScanOutput, ScanSummary, ScanUsernameArgs, SiteEntry, read_scan_history,
 };
 
 use std::num::NonZeroUsize;
@@ -205,10 +205,9 @@ impl AdlerMcp {
     /// List sites in the embedded registry, optionally filtered.
     ///
     /// Mirrors the CLI's `--list-sites` flag: respects `tag` /
-    /// `exclude_tag` / `include_nsfw`. Returns one entry per matching
-    /// enabled site (disabled entries are never surfaced — for a view
-    /// of disabled entries with their reasons, the planned
-    /// `adler://registry/disabled` resource is the right surface).
+    /// `exclude_tag` / `include_nsfw`. Returns enabled matches plus
+    /// disabled/parked entries that matched the same filter, so agents
+    /// can explain honest limits instead of treating them as absent.
     #[tool(
         name = "list_sites",
         description = "List enabled sites in the Adler registry, optionally filtered \
@@ -216,12 +215,13 @@ impl AdlerMcp {
                        tags, and popularity rank for each match."
     )]
     pub fn list_sites(&self, Parameters(args): Parameters<ListSitesArgs>) -> Json<ListSitesOutput> {
-        let sites = self.registry.filter_with(&SiteFilter {
+        let filter = SiteFilter {
             tags: args.tag.unwrap_or_default(),
             exclude_tags: args.exclude_tag.unwrap_or_default(),
             include_nsfw: args.include_nsfw.unwrap_or(false),
             ..SiteFilter::default()
-        });
+        };
+        let sites = self.registry.filter_with(&filter);
         let entries: Vec<SiteEntry> = sites
             .into_iter()
             .map(|s| SiteEntry {
@@ -231,10 +231,17 @@ impl AdlerMcp {
                 popularity: s.popularity,
             })
             .collect();
+        let disabled_matches = self
+            .registry
+            .disabled_matches_with(&filter)
+            .into_iter()
+            .map(disabled_site_entry)
+            .collect();
         let total = entries.len();
         Json(ListSitesOutput {
             total,
             sites: entries,
+            disabled_matches,
         })
     }
 
@@ -263,7 +270,7 @@ impl AdlerMcp {
         let sites = self.filtered_sites(&args.filter);
         if sites.is_empty() {
             return Err(rmcp::ErrorData::invalid_params(
-                "no sites match the supplied filter",
+                self.empty_filter_message(&args.filter),
                 None,
             ));
         }
@@ -312,7 +319,7 @@ impl AdlerMcp {
         let sites = self.filtered_sites(&args.filter);
         if sites.is_empty() {
             return Err(rmcp::ErrorData::invalid_params(
-                "no sites match the supplied filter",
+                self.empty_filter_message(&args.filter),
                 None,
             ));
         }
@@ -433,14 +440,39 @@ impl AdlerMcp {
 impl AdlerMcp {
     /// Filter the registry by the shared `ScanFilter` parameters.
     fn filtered_sites(&self, filter: &ScanFilter) -> Vec<adler_core::Site> {
-        self.registry.filter_with(&SiteFilter {
-            include: filter.only.clone().unwrap_or_default(),
-            exclude: filter.exclude.clone().unwrap_or_default(),
-            tags: filter.tag.clone().unwrap_or_default(),
-            exclude_tags: filter.exclude_tag.clone().unwrap_or_default(),
-            include_nsfw: filter.include_nsfw.unwrap_or(false),
-            top: filter.top,
-        })
+        self.registry.filter_with(&site_filter_from_scan(filter))
+    }
+
+    fn disabled_sites(&self, filter: &ScanFilter) -> Vec<adler_core::Site> {
+        self.registry
+            .disabled_matches_with(&site_filter_from_scan(filter))
+    }
+
+    fn empty_filter_message(&self, filter: &ScanFilter) -> String {
+        let disabled = self.disabled_sites(filter);
+        if disabled.is_empty() {
+            return "no sites match the supplied filter".to_owned();
+        }
+        let details = disabled
+            .iter()
+            .take(5)
+            .map(|s| {
+                let reason = s
+                    .disabled_reason
+                    .as_deref()
+                    .unwrap_or("disabled in registry");
+                format!("{}: {reason}", s.name)
+            })
+            .collect::<Vec<_>>()
+            .join("; ");
+        if disabled.len() > 5 {
+            format!(
+                "no enabled sites match the supplied filter; disabled matches: {details}; ... and {} more",
+                disabled.len() - 5
+            )
+        } else {
+            format!("no enabled sites match the supplied filter; disabled matches: {details}")
+        }
     }
 
     /// Run a scan and bridge the synchronous progress callback into
@@ -501,6 +533,29 @@ impl AdlerMcp {
         scan_handle
             .await
             .map_err(|e| internal_error_chain("scan task panicked", &e))
+    }
+}
+
+fn site_filter_from_scan(filter: &ScanFilter) -> SiteFilter {
+    SiteFilter {
+        include: filter.only.clone().unwrap_or_default(),
+        exclude: filter.exclude.clone().unwrap_or_default(),
+        tags: filter.tag.clone().unwrap_or_default(),
+        exclude_tags: filter.exclude_tag.clone().unwrap_or_default(),
+        include_nsfw: filter.include_nsfw.unwrap_or(false),
+        top: filter.top,
+    }
+}
+
+fn disabled_site_entry(s: adler_core::Site) -> DisabledSiteEntry {
+    DisabledSiteEntry {
+        name: s.name,
+        url: s.url.as_str().to_owned(),
+        tags: s.tags,
+        popularity: s.popularity,
+        disabled_reason: s
+            .disabled_reason
+            .unwrap_or_else(|| "disabled in registry".to_owned()),
     }
 }
 
@@ -682,6 +737,36 @@ mod tests {
             "GitHub should be in the dev-tagged set",
         );
         assert_eq!(output.sites.len(), output.total);
+    }
+
+    #[test]
+    fn list_sites_tool_returns_disabled_matches() {
+        let server = AdlerMcp::new().expect("embedded registry must load");
+        let args = ListSitesArgs {
+            tag: Some(vec!["social".to_owned()]),
+            exclude_tag: None,
+            include_nsfw: Some(false),
+        };
+        let Json(output) = server.list_sites(Parameters(args));
+        let tiktok = output
+            .disabled_matches
+            .iter()
+            .find(|s| s.name == "TikTok")
+            .expect("TikTok should be a disabled social match");
+        assert!(tiktok.disabled_reason.contains("Honest Limits"));
+    }
+
+    #[test]
+    fn empty_filter_message_mentions_disabled_matches() {
+        let server = AdlerMcp::new().expect("embedded registry must load");
+        let filter = ScanFilter {
+            only: Some(vec!["TikTok".to_owned()]),
+            ..Default::default()
+        };
+        let message = server.empty_filter_message(&filter);
+        assert!(message.contains("no enabled sites"));
+        assert!(message.contains("TikTok"));
+        assert!(message.contains("Honest Limits"));
     }
 
     #[test]

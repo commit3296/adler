@@ -148,9 +148,42 @@ mod tests {
         assert_eq!(resp.status(), StatusCode::OK);
         let body = to_bytes(resp.into_body(), 4096).await.unwrap();
         let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
-        assert_eq!(v.as_array().unwrap().len(), 2);
-        assert_eq!(v[0]["name"], "A");
-        assert!(v[0]["url"].as_str().unwrap().contains("{username}"));
+        assert_eq!(v["sites"].as_array().unwrap().len(), 2);
+        assert_eq!(v["disabled"].as_array().unwrap().len(), 0);
+        assert_eq!(v["sites"][0]["name"], "A");
+        assert!(
+            v["sites"][0]["url"]
+                .as_str()
+                .unwrap()
+                .contains("{username}")
+        );
+    }
+
+    #[tokio::test]
+    async fn list_sites_includes_disabled_catalog_entries() {
+        let mock = MockServer::start().await;
+        let enabled = site("A", &mock.uri(), "a");
+        let mut disabled = site("TikTok", &mock.uri(), "tiktok");
+        disabled.disabled = true;
+        disabled.disabled_reason = Some("Honest Limits: parked".to_owned());
+        let client = Client::builder().build().unwrap();
+        let state = AppState::with_catalog(vec![enabled], vec![disabled], client, 16);
+        let resp = router(state)
+            .oneshot(
+                Request::builder()
+                    .uri("/api/sites")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(resp.status(), StatusCode::OK);
+        let body = to_bytes(resp.into_body(), 4096).await.unwrap();
+        let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(v["sites"].as_array().unwrap().len(), 1);
+        assert_eq!(v["disabled"][0]["name"], "TikTok");
+        assert_eq!(v["disabled"][0]["disabled_reason"], "Honest Limits: parked");
     }
 
     #[tokio::test]
@@ -522,6 +555,51 @@ mod tests {
             .map(|s| s.name)
             .collect();
         assert_eq!(names, vec!["B", "C"]);
+    }
+
+    #[test]
+    fn filter_catalog_disabled_matches_use_same_filter() {
+        let mut disabled = tagged_site("TikTok", "http://x", "tiktok", &["social"]);
+        disabled.disabled = true;
+        disabled.disabled_reason = Some("Honest Limits".into());
+        let sites = vec![site("GitHub", "http://x", "gh"), disabled];
+        let req = StartScanRequest {
+            only: vec!["tik".into()],
+            tag: vec!["social".into()],
+            ..Default::default()
+        };
+
+        let disabled = super::filter::disabled_matches(&sites, &req);
+        assert_eq!(disabled.len(), 1);
+        assert_eq!(disabled[0].name, "TikTok");
+    }
+
+    #[tokio::test]
+    async fn start_scan_empty_filter_returns_disabled_matches() {
+        let mock = MockServer::start().await;
+        let mut disabled = site("TikTok", &mock.uri(), "tiktok");
+        disabled.disabled = true;
+        disabled.disabled_reason = Some("Honest Limits: parked".to_owned());
+        let client = Client::builder().build().unwrap();
+        let state = AppState::with_catalog(Vec::new(), vec![disabled], client, 16);
+        let resp = router(state)
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/scan")
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(r#"{"username":"alice","only":["TikTok"]}"#))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+        let body = to_bytes(resp.into_body(), 4096).await.unwrap();
+        let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(v["error"], "empty_site_filter");
+        assert_eq!(v["message"], "no enabled sites match the requested filter");
+        assert_eq!(v["disabled_matches"][0]["name"], "TikTok");
     }
 
     #[tokio::test]

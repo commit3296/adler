@@ -11,9 +11,9 @@ use axum::response::sse::{Event, KeepAlive, KeepAliveStream, Sse};
 use futures::Stream;
 
 use super::dto::{
-    AccessSummary, Health, RefilterRequest, RefilterResponse, RetryRequest, RetryResponse,
-    ScanListEntry, ScanSnapshot, SessionName, SiteSummary, StartEvent, StartScanRequest,
-    StartScanResponse,
+    AccessSummary, DisabledSiteSummary, Health, RefilterRequest, RefilterResponse, RetryRequest,
+    RetryResponse, ScanListEntry, ScanSnapshot, SessionName, SiteSummary, SitesResponse,
+    StartEvent, StartScanRequest, StartScanResponse,
 };
 use super::error::ApiError;
 use super::filter::filter_catalog;
@@ -27,8 +27,19 @@ pub(super) async fn health() -> Json<Health> {
     })
 }
 
-pub(super) async fn list_sites(State(state): State<AppState>) -> Json<Vec<SiteSummary>> {
-    Json(state.sites.iter().map(SiteSummary::from).collect())
+pub(super) async fn list_sites(State(state): State<AppState>) -> Json<SitesResponse> {
+    let sites = state
+        .sites
+        .iter()
+        .map(SiteSummary::from)
+        .collect::<Vec<_>>();
+    let disabled = state
+        .catalog
+        .iter()
+        .filter(|s| s.disabled)
+        .map(DisabledSiteSummary::from)
+        .collect::<Vec<_>>();
+    Json(SitesResponse { sites, disabled })
 }
 
 /// Read-only view of the access engine's runtime config — what's
@@ -117,10 +128,12 @@ pub(super) async fn start_scan(
 
     let sites = filter_catalog(&state.sites, &req);
     if sites.is_empty() {
+        let disabled = disabled_matches(&state.catalog, &req);
         return Err(ApiError::bad_request(
             "empty_site_filter",
-            "no sites match the requested filter",
-        ));
+            empty_filter_message(disabled.is_empty()),
+        )
+        .with_disabled_matches(disabled));
     }
 
     // Validate per-scan egress subset (if any) against the configured
@@ -242,10 +255,12 @@ pub(super) async fn refilter_scan(
     let start_shape = StartScanRequest::from(&req);
     let new_sites = filter_catalog(&state.sites, &start_shape);
     if new_sites.is_empty() {
+        let disabled = disabled_matches(&state.catalog, &start_shape);
         return Err(ApiError::bad_request(
             "empty_site_filter",
-            "no sites match the requested filter",
-        ));
+            empty_filter_message(disabled.is_empty()),
+        )
+        .with_disabled_matches(disabled));
     }
 
     // Snapshot the predecessor's outcomes; partition by whether the
@@ -327,6 +342,21 @@ pub(super) async fn refilter_scan(
         carried_outcomes: carried.len(),
         site_count,
     }))
+}
+
+fn disabled_matches(catalog: &[Site], req: &StartScanRequest) -> Vec<DisabledSiteSummary> {
+    super::filter::disabled_matches(catalog, req)
+        .iter()
+        .map(DisabledSiteSummary::from)
+        .collect()
+}
+
+fn empty_filter_message(disabled_empty: bool) -> &'static str {
+    if disabled_empty {
+        "no sites match the requested filter"
+    } else {
+        "no enabled sites match the requested filter"
+    }
 }
 
 pub(super) async fn get_scan(

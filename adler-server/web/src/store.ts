@@ -15,6 +15,7 @@ import { createViewActions } from "./store/viewActions";
 import type {
     AccessResponse,
     CheckOutcome,
+    DisabledSiteSummary,
     ScanListEntry,
     SiteSummary,
     Summary,
@@ -191,6 +192,7 @@ export interface UiState {
 
 export interface AppStore {
     catalog: SiteSummary[];
+    disabledCatalog: DisabledSiteSummary[];
     tagsBySite: Record<string, string[]>;
     /// Pre-computed `site → category.id` so the streaming render
     /// path doesn't re-evaluate `categoryForTags` on every outcome.
@@ -231,6 +233,7 @@ const persisted = loadPrefs();
 
 const [store, set] = createStore<AppStore>({
     catalog: [],
+    disabledCatalog: [],
     tagsBySite: {},
     categoryBySite: {},
     tagCounts: {},

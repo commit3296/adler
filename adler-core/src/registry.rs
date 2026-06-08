@@ -71,6 +71,13 @@ impl SiteFilter {
         self.apply_inner(sites, DisabledMode::Exclude)
     }
 
+    /// Apply this filter to a site slice without dropping disabled entries.
+    /// Useful for catalogue/diagnostic surfaces that need to explain parked
+    /// sites while scan paths continue to call [`apply`](Self::apply).
+    pub fn apply_including_disabled(&self, sites: &[Site]) -> Vec<Site> {
+        self.apply_inner(sites, DisabledMode::Include)
+    }
+
     fn apply_inner(&self, sites: &[Site], disabled_mode: DisabledMode) -> Vec<Site> {
         let include: Vec<String> = self.include.iter().map(|s| s.to_lowercase()).collect();
         let exclude: Vec<String> = self.exclude.iter().map(|s| s.to_lowercase()).collect();
@@ -98,7 +105,7 @@ impl SiteFilter {
                         return false;
                     }
                     DisabledMode::Only if !site.disabled => return false,
-                    DisabledMode::Exclude | DisabledMode::Only => {}
+                    DisabledMode::Exclude | DisabledMode::Only | DisabledMode::Include => {}
                 }
                 let name = site.name.to_lowercase();
                 let included = include.is_empty() || include.iter().any(|i| name.contains(i));
@@ -124,6 +131,7 @@ impl SiteFilter {
 enum DisabledMode {
     Exclude,
     Only,
+    Include,
 }
 
 impl Registry {
@@ -333,6 +341,14 @@ impl Registry {
     /// Apply a reusable [`SiteFilter`] to this registry.
     pub fn filter_with(&self, filter: &SiteFilter) -> Vec<Site> {
         filter.apply(&self.sites)
+    }
+
+    /// Apply a reusable [`SiteFilter`] without dropping disabled entries.
+    /// This is the catalogue view: scans still call
+    /// [`filter_with`](Self::filter_with), while UI/agent surfaces can keep
+    /// parked entries visible with their reasons.
+    pub fn matches_with(&self, filter: &SiteFilter) -> Vec<Site> {
+        filter.apply_including_disabled(&self.sites)
     }
 
     /// Apply a reusable [`SiteFilter`] but return only disabled/parked

@@ -40,7 +40,7 @@ describe("adler-server HTTP API contract", () => {
     it("maps read endpoints to the documented /api routes", async () => {
         fetchMock
             .mockResolvedValueOnce(okJson({ ok: true, version: "0.12.2" }))
-            .mockResolvedValueOnce(okJson([]))
+            .mockResolvedValueOnce(okJson({ sites: [], disabled: [] }))
             .mockResolvedValueOnce(okJson({ egress: [], sessions: [] }))
             .mockResolvedValueOnce(okJson([]))
             .mockResolvedValueOnce(
@@ -54,7 +54,7 @@ describe("adler-server HTTP API contract", () => {
             );
 
         await api.health();
-        await api.sites();
+        expect(await api.sites()).toEqual({ sites: [], disabled: [] });
         await api.access();
         await api.scans();
         await api.scan("scan_123");
@@ -69,6 +69,17 @@ describe("adler-server HTTP API contract", () => {
         expect(fetchMock.mock.calls.every(([, init]) => init === undefined)).toBe(
             true,
         );
+    });
+
+    it("accepts the legacy /api/sites array shape", async () => {
+        fetchMock.mockResolvedValueOnce(
+            okJson([{ name: "GitHub", url: "https://github.com/{username}", tags: [] }]),
+        );
+
+        await expect(api.sites()).resolves.toEqual({
+            sites: [{ name: "GitHub", url: "https://github.com/{username}", tags: [] }],
+            disabled: [],
+        });
     });
 
     it("serializes write endpoints with JSON bodies accepted by adler-server", async () => {
@@ -156,6 +167,33 @@ describe("adler-server HTTP API contract", () => {
             code: "scan_not_found",
             message: "scan does not exist",
         } satisfies Partial<ApiClientError>);
+    });
+
+    it("preserves disabled matches on API errors", async () => {
+        fetchMock.mockResolvedValueOnce(
+            failJson(400, {
+                error: "empty_site_filter",
+                message: "no enabled sites match the requested filter",
+                disabled_matches: [
+                    {
+                        name: "TikTok",
+                        url: "https://www.tiktok.com/@{username}",
+                        tags: ["social"],
+                        disabled_reason: "Honest Limits",
+                    },
+                ],
+            }),
+        );
+
+        const err = await api
+            .startScan({ username: "alice", only: ["TikTok"] })
+            .then(
+                () => null,
+                (e) => e,
+            );
+
+        expect(err).toBeInstanceOf(ApiClientError);
+        expect(err.disabledMatches[0].name).toBe("TikTok");
     });
 });
 

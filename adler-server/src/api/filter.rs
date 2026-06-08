@@ -8,6 +8,20 @@ use super::dto::StartScanRequest;
 /// `&[Site]` so it can compose with the catalog already filtered at
 /// server startup.
 pub(super) fn filter_catalog(catalog: &[Site], req: &StartScanRequest) -> Vec<Site> {
+    scan_filter(req).apply(catalog)
+}
+
+/// Apply the same request filter but return only disabled entries for
+/// diagnostics.
+pub(super) fn disabled_matches(catalog: &[Site], req: &StartScanRequest) -> Vec<Site> {
+    scan_filter(req)
+        .apply_including_disabled(catalog)
+        .into_iter()
+        .filter(|s| s.disabled)
+        .collect()
+}
+
+fn scan_filter(req: &StartScanRequest) -> SiteFilter {
     SiteFilter {
         include: req.only.clone(),
         exclude: req.exclude.clone(),
@@ -16,5 +30,4 @@ pub(super) fn filter_catalog(catalog: &[Site], req: &StartScanRequest) -> Vec<Si
         include_nsfw: req.nsfw,
         top: req.top,
     }
-    .apply(catalog)
 }

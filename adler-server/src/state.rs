@@ -20,6 +20,11 @@ pub struct AppState {
     /// startup). Held as an `Arc<[Site]>` to avoid re-cloning the
     /// 2.5k-entry vector on every scan dispatch.
     pub sites: Arc<[Site]>,
+    /// Startup-filtered catalogue including disabled/parked entries.
+    /// Scan handlers use [`Self::sites`]; catalogue and error-diagnostic
+    /// surfaces use this to explain why an otherwise matching site is not
+    /// currently scannable.
+    pub catalog: Arc<[Site]>,
     /// Shared HTTP client (connection pool, throttle, etc.).
     pub client: Arc<Client>,
     /// In-flight + recently-finished scans, keyed by ID.
@@ -50,8 +55,22 @@ impl AppState {
     /// chain [`Self::with_scans_dir`] to enable.
     #[must_use]
     pub fn new(sites: Vec<Site>, client: Client, scan_capacity: usize) -> Self {
+        Self::with_catalog(sites.clone(), sites, client, scan_capacity)
+    }
+
+    /// Build initial state with separate scan and catalogue views.
+    /// `sites` must contain enabled entries only; `catalog` may include
+    /// disabled entries for diagnostics.
+    #[must_use]
+    pub fn with_catalog(
+        sites: Vec<Site>,
+        catalog: Vec<Site>,
+        client: Client,
+        scan_capacity: usize,
+    ) -> Self {
         Self {
             sites: Arc::from(sites.into_boxed_slice()),
+            catalog: Arc::from(catalog.into_boxed_slice()),
             client: Arc::new(client),
             scans: Arc::new(RwLock::new(HashMap::new())),
             scan_tasks: Arc::new(RwLock::new(HashMap::new())),
@@ -66,8 +85,10 @@ impl AppState {
     /// non-NSFW set.
     #[must_use]
     pub fn from_registry(registry: &Registry, client: Client, scan_capacity: usize) -> Self {
-        let sites = registry.filter_with(&SiteFilter::default());
-        Self::new(sites, client, scan_capacity)
+        let filter = SiteFilter::default();
+        let sites = registry.filter_with(&filter);
+        let catalog = registry.matches_with(&filter);
+        Self::with_catalog(sites, catalog, client, scan_capacity)
     }
 
     /// Enable on-disk persistence of finished scans under `dir`. Files

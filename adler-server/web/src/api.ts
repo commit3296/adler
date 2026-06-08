@@ -7,6 +7,7 @@
 import type {
     AccessResponse,
     CheckOutcome,
+    DisabledSiteSummary,
     FinishedScan,
     RefilterBody,
     RefilterResponse,
@@ -14,15 +15,22 @@ import type {
     ScanListEntry,
     ScanSnapshot,
     SiteSummary,
+    SitesResponse,
     StartScanBody,
     StartScanResponse,
 } from "./types";
 
 export class ApiClientError extends Error {
     code: string;
-    constructor(code: string, message: string) {
+    disabledMatches: DisabledSiteSummary[];
+    constructor(
+        code: string,
+        message: string,
+        disabledMatches: DisabledSiteSummary[] = [],
+    ) {
         super(message);
         this.code = code;
+        this.disabledMatches = disabledMatches;
         this.name = "ApiClientError";
     }
 }
@@ -36,14 +44,26 @@ async function request<T>(input: string, init?: RequestInit): Promise<T> {
         throw new ApiClientError(
             body?.error ?? "http_error",
             body?.message ?? r.statusText,
+            Array.isArray((body as { disabled_matches?: unknown } | null)?.disabled_matches)
+                ? ((body as { disabled_matches: DisabledSiteSummary[] }).disabled_matches)
+                : [],
         );
     }
     return (await r.json()) as T;
 }
 
+async function sites(): Promise<SitesResponse> {
+    const payload = await request<SitesResponse | SiteSummary[]>("/api/sites");
+    if (Array.isArray(payload)) return { sites: payload, disabled: [] };
+    return {
+        sites: payload.sites ?? [],
+        disabled: payload.disabled ?? [],
+    };
+}
+
 export const api = {
     health: () => request<{ ok: boolean; version: string }>("/api/health"),
-    sites: () => request<SiteSummary[]>("/api/sites"),
+    sites,
     access: () => request<AccessResponse>("/api/access"),
     scans: () => request<ScanListEntry[]>("/api/scans"),
     scan: (id: string) => request<ScanSnapshot>(`/api/scan/${id}`),

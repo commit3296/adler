@@ -68,7 +68,7 @@ export function useScanLifecycle(
                 refreshHistory();
             });
         } catch (err) {
-            const msg = err instanceof ApiClientError ? err.message : String(err);
+            const msg = apiErrorMessage(err);
             actions.toast(`Scan failed: ${msg}`, "error");
             actions.setLoading(false);
             stopElapsedTimer();
@@ -137,7 +137,7 @@ export function useScanLifecycle(
             );
             refreshHistory();
         } catch (err) {
-            const msg = err instanceof ApiClientError ? err.message : String(err);
+            const msg = apiErrorMessage(err);
             actions.toast(`Refilter failed: ${msg}`, "error");
         }
     }
@@ -299,4 +299,15 @@ export function useScanLifecycle(
         stopScan,
         isStreaming: () => sseClose !== null,
     };
+}
+
+function apiErrorMessage(err: unknown): string {
+    if (!(err instanceof ApiClientError)) return String(err);
+    if (err.disabledMatches.length === 0) return err.message;
+    const first = err.disabledMatches[0]!;
+    const suffix =
+        err.disabledMatches.length > 1
+            ? ` and ${err.disabledMatches.length - 1} more`
+            : "";
+    return `${err.message}: ${first.name} is parked (${first.disabled_reason})${suffix}`;
 }
