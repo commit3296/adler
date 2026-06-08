@@ -688,6 +688,47 @@ mod tests {
     }
 
     #[test]
+    fn tiktok_stays_parked_behind_hydration_wall() {
+        let registry = Registry::default_embedded_with_wmn().unwrap();
+        let tiktok_entries: Vec<&Site> = registry
+            .sites()
+            .iter()
+            .filter(|s| s.name == "TikTok")
+            .collect();
+
+        assert_eq!(
+            tiktok_entries.len(),
+            1,
+            "WMN merge must not reintroduce TikTok's oEmbed probe"
+        );
+        let tiktok = tiktok_entries[0];
+        assert!(tiktok.disabled, "TikTok must not be probed by default");
+        assert!(
+            tiktok
+                .protection
+                .iter()
+                .any(|p| matches!(p, super::super::site::ProtectionKind::Captcha)),
+            "TikTok should be classified as captcha/headless protected"
+        );
+        let reason = tiktok
+            .disabled_reason
+            .as_deref()
+            .expect("disabled TikTok entry should explain why it is parked");
+        assert!(
+            reason.contains("Honest Limits")
+                && reason.contains("JS-only SPA")
+                && reason.contains("never hydrates"),
+            "unexpected TikTok disabled_reason: {reason}"
+        );
+
+        let scanned = registry.filter(&["tiktok".into()], &[], &[], &[], true);
+        assert!(
+            scanned.iter().all(|s| s.name != "TikTok"),
+            "disabled TikTok entry must not leak into scan filters"
+        );
+    }
+
+    #[test]
     fn source_field_round_trips() {
         let json = r#"{
             "sites": [
