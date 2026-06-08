@@ -270,6 +270,9 @@ adler --mcp-http 127.0.0.1:8766          # HTTP+SSE: remote agents, mounted at /
 The HTTP transport inherits `rmcp`'s loopback `allowed_hosts`
 DNS-rebind guard out of the box; non-loopback binds expose the API
 without authentication, so only do it on a trusted network. The
+`top` filter on MCP scan tools is a popularity-rank ceiling
+(`popularity <= top`), not "return at most N results"; unranked sites
+are excluded when it is set. The
 `instructions` block sent on `initialize` restates the project's
 ethical bound (authorised security testing / OSINT research /
 defensive work only; no harassment, doxxing, or unauthorised

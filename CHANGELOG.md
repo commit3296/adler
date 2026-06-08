@@ -9,6 +9,9 @@ pre-1.0 bump rules.
 
 ## [Unreleased]
 
+### Changed
+- *(docs)* document web UI smoke checks and MCP `top` rank-ceiling semantics
+
 ## [0.12.2](https://github.com/commit3296/adler/compare/adler-mcp-v0.12.1...adler-mcp-v0.12.2) - 2026-06-08
 
 ### Added

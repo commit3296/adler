@@ -74,8 +74,9 @@ pub struct ScanFilter {
     /// Include `nsfw`-tagged sites. Defaults to `false`.
     #[serde(default)]
     pub include_nsfw: Option<bool>,
-    /// Keep only the top-N most popular sites (by `popularity` rank).
-    /// Sites without a rank are excluded when `top` is set.
+    /// Keep only sites whose `popularity` rank is `<= top`
+    /// (lower rank = more popular). Sites without a rank are excluded
+    /// when `top` is set.
     #[serde(default)]
     pub top: Option<u32>,
 }

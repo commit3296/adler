@@ -11,6 +11,20 @@ cargo fmt --all --check
 
 All four must pass; CI enforces them on every push.
 
+If you touch the embedded web UI, run its local checks too:
+
+```bash
+cd adler-server/web
+npm run typecheck
+npm run build
+npm run smoke
+```
+
+`npm run smoke` starts the Vite dev server through Playwright and covers
+the home/catalog path plus a cold `#/scan/:id` snapshot route. Use it for
+SPA routing, store/action, and component changes; use the Rust workspace
+checks above for server/API changes.
+
 ## Quality bar
 
 - **No `unwrap` / `expect` / `panic!` in non-test code** unless the invariant

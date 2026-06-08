@@ -246,6 +246,8 @@ impl AdlerMcp {
         name = "scan_username",
         description = "Scan a single username across Adler's site registry, optionally \
                        filtered by only / exclude / tag / exclude_tag / include_nsfw / top. \
+                       top is a popularity-rank ceiling (keep sites with rank <= top), \
+                       not a result-count limit. \
                        Emits MCP progress notifications per site outcome; returns the \
                        aggregated verdict array plus counts (found, not_found, uncertain) \
                        once every probe completes."
