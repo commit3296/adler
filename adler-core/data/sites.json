@@ -22287,6 +22287,9 @@
         "bot-protected",
         "social"
       ],
+      "protection": [
+        "user-auth"
+      ],
       "popularity": 6,
       "disabled": true,
       "disabled_reason": "Honest Limits: 403s anonymous requests since the 2023 API restriction; only OAuth path forward defeats anonymous OSINT"
