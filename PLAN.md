@@ -17,11 +17,12 @@ modern terminal UX, AI-agent-ready surface.
 
 ## Now
 
-Adler is a 4-crate Rust workspace on `main` at v0.11.7:
+Adler is a 4-crate Rust workspace on `main` at v0.12.1:
 
 - **`adler-core`** — the OSINT engine. 1834 enabled sites + 66
-  disabled-with-reason in the main tranche, plus the opt-in
-  WhatsMyName supplement (`--no-wmn` to drop it); 11 inheritable
+  disabled-with-reason in the main tranche, plus 674 enabled sites + 1
+  disabled-with-reason in the default-on WhatsMyName supplement
+  (`--no-wmn` to drop it); 11 inheritable
   engine signatures
   (uCoz / vBulletin / phpBB / phpBB-Search / XenForo / Flarum /
   Discourse / op.gg / Wordpress-Author / engine404 / engine404get).
@@ -68,7 +69,7 @@ consecutive nights.
 
 **Honest about measurement.** The last apples-to-apples detection-rate
 number is from the v0.3.x 411-site registry (67.9% datacenter,
-72.3% US residential). The current 1900-site mix has not been
+72.3% US residential). The current ~2600-entry mix has not been
 re-benchmarked end-to-end; the `bench/` harness exists for it but
 results are gitignored on purpose (per-operator variance is too high
 for a single "official" number).
@@ -80,7 +81,7 @@ material progress — the tooling for each is shipped, the work that
 remains is content the doctor can only discover from a non-datacenter
 network.
 
-- **Refresh stale `known_present` entries.** ~179 entries still carry
+- **Refresh stale `known_present` entries.** 185 entries still carry
   Sherlock's `"blue"` placeholder. Tooling shipped:
   `adler --doctor --suggest-known-present --apply --sites <path>
   --yes`. First batch refreshed 10 from a datacenter IP — recall capped
@@ -90,8 +91,9 @@ network.
   in v0.11.7 (probe a nonsense user first; abort if the site responds
   Found to it) means brand-name catch-alls can't yield false-positive
   discoveries.
-- **Hand out `extract` rules across the long tail.** The registry
-  ships with extraction rules on a single site (GitHub) out of ~1900.
+- **Hand out `extract` rules across the long tail.** The main registry
+  ships with extraction rules on a single site (GitHub) out of 1900
+  entries, and the WhatsMyName supplement currently has none.
   Tooling shipped: `adler --doctor --suggest-extract --apply --sites
   <path> --yes` mines OpenGraph + Twitter Card meta tags from each
   healthy site's `known_present` profile page. Same network constraint

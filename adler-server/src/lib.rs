@@ -1,10 +1,10 @@
 //! HTTP server for the [Adler](https://github.com/commit3296/adler)
 //! OSINT username-search engine.
 //!
-//! This crate hosts the JSON API that the upcoming `SolidJS` web UI
-//! talks to. It is a thin shell around [`adler_core`]: scans run
-//! through the same [`adler_core::executor`] the CLI uses, and the
-//! same [`adler_core::Client`] is shared across all in-process scans.
+//! This crate hosts the JSON API and embedded `SolidJS` web UI for
+//! Adler. It is a thin shell around [`adler_core`]: scans run through
+//! the same [`adler_core::executor`] the CLI uses, and the same
+//! [`adler_core::Client`] is shared across all in-process scans.
 //!
 //! ## Quick start
 //!
@@ -40,7 +40,11 @@
 //! | `/api/scan`                        | POST   | start a scan, returns a `scan_id`    |
 //! | `/api/scan/{id}`                   | GET    | poll status / final aggregate        |
 //! | `/api/scan/{id}/stream`            | GET    | Server-Sent Events                   |
-//! | `/`                                | GET    | placeholder HTML (SPA TBD)           |
+//! | `/api/scan/{id}/retry`             | POST   | retry one site in a scan             |
+//! | `/api/scan/{id}/refilter`          | POST   | cancel and restart with new filters  |
+//! | `/api/scans`                       | GET    | recent scan history                  |
+//! | `/api/access`                      | GET    | read-only access-engine summary      |
+//! | `/`                                | GET    | embedded SolidJS SPA                 |
 //!
 //! ## Threading and shutdown
 //!

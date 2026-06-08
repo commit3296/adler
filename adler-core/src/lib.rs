@@ -9,7 +9,7 @@
 //!
 //! ## Quick start
 //!
-//! Scan the embedded ~439-site registry for one username and print
+//! Scan the embedded 1,900-entry main registry for one username and print
 //! the hits:
 //!
 //! ```no_run
@@ -169,7 +169,7 @@ pub use error::{Error, Result};
 pub use escalation::{EscalationBudget, TransportTier};
 pub use executor::ExecutorOptions;
 pub use permute::{MAX_VARIANTS, PermuteLevel, permute};
-pub use registry::Registry;
+pub use registry::{Registry, SiteFilter};
 pub use site::{
     Engine, Extractor, HttpMethod, KnownPresent, ProtectionKind, Signal, Site, UrlTemplate,
 };

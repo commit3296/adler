@@ -34,6 +34,9 @@ Metrics:
 - A raw-HTTP-throughput shootout. Tools differ in concurrency models and
   per-host throttling; wall-clock alone is only meaningful within the same
   network conditions.
+- A replacement for the Criterion microbenchmarks under
+  `adler-core/benches/`. Those measure CPU hot paths inside Adler itself;
+  this harness measures live OSINT outcomes across tools and networks.
 - A claim of "N× faster" or "X % more accurate" without measurement — both
   numbers come from running this harness on your network.
 - A drop-in replacement for `--doctor`. This harness compares *tools*;
@@ -52,6 +55,25 @@ cd bench/
 
 Re-running is idempotent: each `(tool, user)` pair is only re-run if its
 `results/<tool>/<user>.json` is missing.
+
+## Adler microbenchmarks
+
+The Rust crate also carries Criterion benches for regressions that are too
+small to show up in the field harness but run on every scan:
+
+```bash
+cargo bench -p adler-core --benches
+cargo bench -p adler-core --bench registry
+cargo bench -p adler-core --bench permute
+cargo bench -p adler-core --bench correlate
+```
+
+Use them before and after a change to registry loading/filtering,
+username permutation, correlation, or executor throughput. Criterion writes
+HTML reports under `target/criterion/`; the manual GitHub Actions
+`bench` workflow runs the same suite and uploads those reports as an
+artifact. Treat hosted-runner numbers as advisory: compare runs from the
+same runner class or, for serious tuning, from the same local machine.
 
 Dependencies:
 

@@ -47,10 +47,15 @@ jobs:
           cache: npm
           cache-dependency-path: adler-server/web/package-lock.json
 
-      - name: Build adler-web frontend
+      - name: Typecheck adler-web frontend
         working-directory: adler-server/web
         run: |
           npm ci
+          npm run typecheck
+
+      - name: Build adler-web frontend
+        working-directory: adler-server/web
+        run: |
           npm run build
 
       - name: cargo fmt

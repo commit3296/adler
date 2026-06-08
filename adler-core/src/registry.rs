@@ -37,6 +37,80 @@ pub struct Registry {
     sites: Vec<Site>,
 }
 
+/// Reusable site-filter specification shared by CLI, server, and MCP surfaces.
+///
+/// Filtering semantics match [`Registry::filter`]: name include/exclude terms
+/// are case-insensitive substrings, tag filters are case-insensitive exact
+/// matches, disabled sites are always skipped, and `nsfw` sites are hidden
+/// unless [`include_nsfw`](Self::include_nsfw) is true or the `nsfw` tag is
+/// requested explicitly.
+#[derive(Debug, Clone, Default)]
+pub struct SiteFilter {
+    /// Only keep sites whose name contains at least one term. Empty = no
+    /// include filter.
+    pub include: Vec<String>,
+    /// Drop sites whose name contains any term.
+    pub exclude: Vec<String>,
+    /// Only keep sites carrying at least one requested tag. Empty = no tag
+    /// include filter.
+    pub tags: Vec<String>,
+    /// Drop sites carrying any of these tags.
+    pub exclude_tags: Vec<String>,
+    /// Include sites tagged `nsfw`.
+    pub include_nsfw: bool,
+    /// Optional popularity ceiling. Sites without a popularity rank are
+    /// dropped when this is set; returned sites are sorted by rank.
+    pub top: Option<u32>,
+}
+
+impl SiteFilter {
+    /// Apply this filter to a site slice, returning cloned sites in scan order
+    /// (or popularity order when [`top`](Self::top) is set).
+    pub fn apply(&self, sites: &[Site]) -> Vec<Site> {
+        let include: Vec<String> = self.include.iter().map(|s| s.to_lowercase()).collect();
+        let exclude: Vec<String> = self.exclude.iter().map(|s| s.to_lowercase()).collect();
+        let want_tags: Vec<String> = self.tags.iter().map(|s| s.to_lowercase()).collect();
+        let mut drop_tags: Vec<String> =
+            self.exclude_tags.iter().map(|s| s.to_lowercase()).collect();
+
+        // NSFW gate: auto-exclude unless the caller explicitly opted in,
+        // either via `include_nsfw` or by asking for the `nsfw` tag.
+        let nsfw_tag = "nsfw".to_owned();
+        let asking_for_nsfw = want_tags.contains(&nsfw_tag);
+        if !self.include_nsfw && !asking_for_nsfw && !drop_tags.contains(&nsfw_tag) {
+            drop_tags.push(nsfw_tag);
+        }
+
+        let mut filtered: Vec<Site> = sites
+            .iter()
+            .filter(|site| {
+                // Disabled sites are skipped unconditionally — the bool
+                // is meant for parking known-broken entries with a
+                // reason comment instead of deleting them, so they
+                // never get probed even with a fresh include filter.
+                if site.disabled {
+                    return false;
+                }
+                let name = site.name.to_lowercase();
+                let included = include.is_empty() || include.iter().any(|i| name.contains(i));
+                let excluded = exclude.iter().any(|x| name.contains(x));
+                let lower_tags: Vec<String> = site.tags.iter().map(|t| t.to_lowercase()).collect();
+                let tagged =
+                    want_tags.is_empty() || lower_tags.iter().any(|t| want_tags.contains(t));
+                let tag_excluded = lower_tags.iter().any(|t| drop_tags.contains(t));
+                included && !excluded && tagged && !tag_excluded
+            })
+            .cloned()
+            .collect();
+
+        if let Some(n) = self.top {
+            filtered.retain(|s| s.popularity.is_some_and(|p| p <= n));
+            filtered.sort_by_key(|s| s.popularity.unwrap_or(u32::MAX));
+        }
+        filtered
+    }
+}
+
 impl Registry {
     /// Load the default site list embedded into the crate at build time.
     pub fn default_embedded() -> Result<Self> {
@@ -231,40 +305,19 @@ impl Registry {
         exclude_tags: &[String],
         include_nsfw: bool,
     ) -> Vec<Site> {
-        let include: Vec<String> = include.iter().map(|s| s.to_lowercase()).collect();
-        let exclude: Vec<String> = exclude.iter().map(|s| s.to_lowercase()).collect();
-        let want_tags: Vec<String> = tags.iter().map(|s| s.to_lowercase()).collect();
-        let mut drop_tags: Vec<String> = exclude_tags.iter().map(|s| s.to_lowercase()).collect();
+        self.filter_with(&SiteFilter {
+            include: include.to_vec(),
+            exclude: exclude.to_vec(),
+            tags: tags.to_vec(),
+            exclude_tags: exclude_tags.to_vec(),
+            include_nsfw,
+            top: None,
+        })
+    }
 
-        // NSFW gate: auto-exclude unless the caller explicitly opted in,
-        // either via `include_nsfw` or by asking for the `nsfw` tag.
-        let nsfw_tag = "nsfw".to_owned();
-        let asking_for_nsfw = want_tags.contains(&nsfw_tag);
-        if !include_nsfw && !asking_for_nsfw && !drop_tags.contains(&nsfw_tag) {
-            drop_tags.push(nsfw_tag);
-        }
-
-        self.sites
-            .iter()
-            .filter(|site| {
-                // Disabled sites are skipped unconditionally — the bool
-                // is meant for parking known-broken entries with a
-                // reason comment instead of deleting them, so they
-                // never get probed even with a fresh include filter.
-                if site.disabled {
-                    return false;
-                }
-                let name = site.name.to_lowercase();
-                let included = include.is_empty() || include.iter().any(|i| name.contains(i));
-                let excluded = exclude.iter().any(|x| name.contains(x));
-                let lower_tags: Vec<String> = site.tags.iter().map(|t| t.to_lowercase()).collect();
-                let tagged =
-                    want_tags.is_empty() || lower_tags.iter().any(|t| want_tags.contains(t));
-                let tag_excluded = lower_tags.iter().any(|t| drop_tags.contains(t));
-                included && !excluded && tagged && !tag_excluded
-            })
-            .cloned()
-            .collect()
+    /// Apply a reusable [`SiteFilter`] to this registry.
+    pub fn filter_with(&self, filter: &SiteFilter) -> Vec<Site> {
+        filter.apply(&self.sites)
     }
 
     /// Distinct tags across all sites, sorted, with the count of sites

@@ -9,20 +9,21 @@ import {
     type Component,
 } from "solid-js";
 
-/// Match the URL patterns that should render the scan-view shell
-/// (even before the actual data has loaded). Used to suppress the
-/// Hero flash on cold-load of `#/scan/xxx` or `#/diff/a/b`.
-const ROUTE_VIEW_RE = /^#\/(scan|diff)\//;
-
-/// The empty / root hash — anything else that matches no known route
-/// is a genuine "page not found", not a silent bounce home.
-function isHomeHash(h: string): boolean {
-    return h === "" || h === "#" || h === "#/";
-}
 import { ApiClientError, api, streamScan } from "./api";
 import { CATEGORIES, categoryForTags } from "./constants";
 import { actions, store } from "./store";
 import { displayUrl } from "./lib/format";
+import {
+    diffIdsFromHash,
+    isHomeHash,
+    routeHasScanView,
+    scanIdFromHash,
+} from "./lib/routes";
+import {
+    filterSnapshot,
+    refilterRequestBody,
+    scanRequestBody,
+} from "./lib/scanRequest";
 import type { CheckOutcome } from "./types";
 
 import { About } from "./components/About";
@@ -77,7 +78,7 @@ export const App: Component = () => {
     // (e.g. "should we show the scan-view shell yet?") update on
     // hashchange without polling.
     const [routeHash, setRouteHash] = createSignal(location.hash);
-    const urlHasView = createMemo(() => ROUTE_VIEW_RE.test(routeHash()));
+    const urlHasView = createMemo(() => routeHasScanView(routeHash()));
 
     let outcomeBuffer: ReturnType<typeof Object>[] = [];
     let outcomeRafQueued = false;
@@ -99,13 +100,7 @@ export const App: Component = () => {
     /// stamp a scan when it starts (so divergence detection later
     /// works) and to construct the request body for both endpoints.
     function currentFilterSnapshot() {
-        return {
-            tag: [...store.filter.tag],
-            excludeTag: [...store.filter.excludeTag],
-            top: store.filter.top,
-            nsfw: store.filter.nsfw,
-            egressNames: [...store.filter.egressNames],
-        };
+        return filterSnapshot(store.filter);
     }
 
     /// Start a scan and resolve with its id when it *finishes* (or
@@ -121,17 +116,9 @@ export const App: Component = () => {
         // Hero doesn't linger during the create-scan round-trip.
         actions.setLoading(true);
 
-        const body: any = { username };
-        if (store.filter.tag.length) body.tag = store.filter.tag;
-        if (store.filter.excludeTag.length) body.exclude_tag = store.filter.excludeTag;
-        if (store.filter.top != null) body.top = store.filter.top;
-        if (store.filter.nsfw) body.nsfw = true;
-        if (store.filter.egressNames.length)
-            body.egress_names = store.filter.egressNames;
-
         try {
             const filterAtStart = currentFilterSnapshot();
-            const r = await api.startScan(body);
+            const r = await api.startScan(scanRequestBody(username, store.filter));
             actions.beginScan(r.scan_id, r.username, r.site_count, filterAtStart);
             history.replaceState(null, "", `#/scan/${r.scan_id}`);
             elapsedTimer = window.setInterval(() => actions.tickElapsed(), 100);
@@ -204,15 +191,9 @@ export const App: Component = () => {
     async function refilterRunningScan() {
         const cur = store.scan;
         if (!cur || cur.status !== "running") return;
-        const body: any = {};
-        if (store.filter.tag.length) body.tag = store.filter.tag;
-        if (store.filter.excludeTag.length) body.exclude_tag = store.filter.excludeTag;
-        if (store.filter.top != null) body.top = store.filter.top;
-        if (store.filter.nsfw) body.nsfw = true;
-        if (store.filter.egressNames.length) body.egress_names = store.filter.egressNames;
         try {
             const filterAtStart = currentFilterSnapshot();
-            const r = await api.refilterScan(cur.id, body);
+            const r = await api.refilterScan(cur.id, refilterRequestBody(store.filter));
             // Close the predecessor stream cleanly before opening the
             // successor — overlapping EventSource lifetimes would
             // double-process carried-over outcomes for a moment.
@@ -459,10 +440,10 @@ export const App: Component = () => {
         // Handle the initial route synchronously. `urlHasView()` is
         // already true at this point, so the scan-view shell renders
         // immediately; the real outcomes arrive moments later.
-        const initScan = location.hash.match(/^#\/scan\/([a-z0-9]+)/);
-        const initDiff = location.hash.match(/^#\/diff\/([a-z0-9]+)\/([a-z0-9]+)/);
-        if (initScan) loadScan(initScan[1]!);
-        else if (initDiff) startDiff(initDiff[1]!, initDiff[2]!, { fromUrl: true });
+        const initScan = scanIdFromHash(location.hash);
+        const initDiff = diffIdsFromHash(location.hash);
+        if (initScan) loadScan(initScan);
+        else if (initDiff) startDiff(initDiff[0], initDiff[1], { fromUrl: true });
         else if (!isHomeHash(location.hash))
             actions.setNotFound({ kind: "route", detail: location.hash });
 
@@ -487,17 +468,17 @@ export const App: Component = () => {
 
     function handleHash() {
         setRouteHash(location.hash);
-        const sm = location.hash.match(/^#\/scan\/([a-z0-9]+)/);
-        if (sm) {
-            loadScan(sm[1]!);
+        const scanId = scanIdFromHash(location.hash);
+        if (scanId) {
+            loadScan(scanId);
             return;
         }
-        const dm = location.hash.match(/^#\/diff\/([a-z0-9]+)\/([a-z0-9]+)/);
-        if (dm) {
+        const diffIds = diffIdsFromHash(location.hash);
+        if (diffIds) {
             // Don't restart if we're already showing this exact diff.
             const cur = store.diff;
-            if (cur && cur.a.id === dm[1] && cur.b.id === dm[2]) return;
-            startDiff(dm[1]!, dm[2]!, { fromUrl: true });
+            if (cur && cur.a.id === diffIds[0] && cur.b.id === diffIds[1]) return;
+            startDiff(diffIds[0], diffIds[1], { fromUrl: true });
             return;
         }
         closeStream();

@@ -22,7 +22,7 @@
 > *Named for Irene Adler — "the Woman", the one who outwitted Sherlock Holmes.
 > Where Sherlock searched, Adler outsmarts.*
 
-OSINT username search across ~3,000 sites, in Rust. Honest verdicts and built
+OSINT username search across ~2,600 bundled site entries, in Rust. Honest verdicts and built
 to reach the hard ones — Cloudflare-walled, TLS-fingerprinted, geo-restricted,
 login-walled.
 
@@ -45,7 +45,7 @@ the dimensions that matter when sites push back:
 
 |                              | [Sherlock][cmp-s] | [Maigret][cmp-m] | [Blackbird][cmp-b] | [Snoop][cmp-sn] | **Adler** |
 | ---------------------------- | :---: | :---: | :---: | :---: | :---: |
-| Approx. sites                | 400 | 3,000 | 600 | 5,400 | 3,000 [^cmp-1] |
+| Approx. sites                | 400 | 3,000 | 600 | 5,400 | 2,600 [^cmp-1] |
 | Verdict model                | Found / NotFound | Found / NotFound | Found / NotFound | Found / NotFound | **Found / NotFound / Uncertain(reason)** |
 | Bot-protected sites (Instagram, X, …) | — | — | — | — | **headless Chrome via `--browser-backend`** |
 | TLS-fingerprint blocking     | — | — | — | — | **Chrome 134 handshake via `--features impersonate`** |
@@ -57,7 +57,7 @@ the dimensions that matter when sites push back:
 | Embeddable library           | — | yes (Python async) | — | — | `adler-core` on crates.io (Rust) |
 | Runtime / packaging          | Python | Python | Python | Python | **Rust — single static binary, `cargo binstall`** |
 
-[^cmp-1]: Sherlock + Maigret + WhatsMyName lineages combined; see [*Site registry*](#site-registry).
+[^cmp-1]: 1,900 entries in the main registry plus 675 in the default-on WhatsMyName supplement; see [*Site registry*](#site-registry).
 
 [cmp-s]: https://github.com/sherlock-project/sherlock
 [cmp-m]: https://github.com/soxoj/maigret
@@ -75,8 +75,9 @@ supplied sessions. We do not solve CAPTCHAs or evade human-verification (see
 
 ## Detection rate
 
-Recall depends on where you scan from. A `--doctor` pass on 2026-05-26
-against the bundled registry (411 sites):
+Recall depends on where you scan from. The last apples-to-apples published
+measurement is from a `--doctor` pass on 2026-05-26 against the v0.3.x
+registry (411 sites):
 
 | Scan source | Sites where a known-existing account is found | Recall |
 | --- | ---: | ---: |
