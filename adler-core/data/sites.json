@@ -20069,9 +20069,7 @@
         "images",
         "photo"
       ],
-      "popularity": 10,
-      "disabled": true,
-      "disabled_reason": "Honest Limits: JS-only SPA, profile data never hydrates into headless-browser DOM"
+      "popularity": 10
     },
     {
       "name": "pio-bets.ucoz.ru",

@@ -729,6 +729,43 @@ mod tests {
     }
 
     #[test]
+    fn pinterest_uses_oembed_instead_of_js_shell() {
+        let registry = Registry::default_embedded_with_wmn().unwrap();
+        let pinterest_entries: Vec<&Site> = registry
+            .sites()
+            .iter()
+            .filter(|s| s.name == "Pinterest")
+            .collect();
+
+        assert_eq!(
+            pinterest_entries.len(),
+            1,
+            "WMN merge must not reintroduce Pinterest's canonical JS shell"
+        );
+        let pinterest = pinterest_entries[0];
+        assert!(
+            !pinterest.disabled,
+            "Pinterest oEmbed probe should remain enabled"
+        );
+        assert!(
+            pinterest.url.as_str().contains("/oembed.json"),
+            "Pinterest should use the oEmbed endpoint, got {}",
+            pinterest.url.as_str()
+        );
+        assert!(
+            pinterest.url.as_str() != "https://www.pinterest.com/{username}/",
+            "Pinterest must not fall back to the canonical JS shell"
+        );
+
+        let scanned = registry.filter(&["pinterest".into()], &[], &[], &[], true);
+        assert_eq!(
+            scanned.iter().filter(|s| s.name == "Pinterest").count(),
+            1,
+            "enabled Pinterest oEmbed entry should be scan-filterable"
+        );
+    }
+
+    #[test]
     fn source_field_round_trips() {
         let json = r#"{
             "sites": [
