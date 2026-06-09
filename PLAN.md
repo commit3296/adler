@@ -112,6 +112,16 @@ network.
   absent pages actually differ from the operator's IP. Both
   clean-IP-bound.
 
+## Long-term product bet
+
+The next large product direction is the Identity Graph / Investigation
+Layer: normalized profile evidence, confidence scoring, account
+correlation, timelines, watchlists, and reports built on top of the
+existing registry, access engine, scan history, Web UI, and MCP server.
+
+Track the implementation as a living checklist in
+[docs/identity-graph-roadmap.md](docs/identity-graph-roadmap.md).
+
 ## Honest limits (investigated, deferred)
 
 Structurally unscrapable for anonymous OSINT until something changes
