@@ -256,7 +256,10 @@ side-by-side diff against an earlier run with a picker for *which*
 historical scan to diff against, a read-only access-engine panel,
 per-scan egress subset selection when a `--proxy-pool` is loaded, and
 a single/batch tab pair so you can paste a list of usernames into the
-hero and watch them queue through one at a time.
+hero and watch them queue through one at a time. The server persistence
+layer also builds timeline events for first-seen, disappeared,
+reappeared, and evidence-changed profiles; Web/MCP surfaces can expose
+that model in later slices.
 
 ```bash
 adler --web                          # http://127.0.0.1:8080

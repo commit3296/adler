@@ -212,6 +212,83 @@ pub struct EvidenceChange {
     pub after_profile_evidence: Vec<ProfileEvidence>,
 }
 
+/// Historical view derived from a sequence of persisted scans.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ScanTimeline {
+    /// Username shared by the scans used to build this timeline.
+    pub username: String,
+    /// Number of scans considered.
+    pub scan_count: usize,
+    /// Oldest scan timestamp, when at least one scan was supplied.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub from_ms: Option<u64>,
+    /// Newest scan timestamp, when at least one scan was supplied.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub to_ms: Option<u64>,
+    /// Per-site lifecycle summary.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub profiles: Vec<TimelineProfile>,
+    /// Chronological lifecycle events.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub events: Vec<TimelineEvent>,
+}
+
+/// Per-site lifecycle state in a scan timeline.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TimelineProfile {
+    /// Site name.
+    pub site: String,
+    /// Last known profile URL for the site.
+    pub url: String,
+    /// First scan timestamp where the profile was Found.
+    pub first_seen_ms: u64,
+    /// Most recent scan timestamp where the profile was Found.
+    pub last_seen_ms: u64,
+    /// Whether the profile is Found in the newest scan that mentioned it.
+    pub present_in_latest: bool,
+    /// Last verdict observed for this site, if the newest scan mentioned it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_verdict: Option<MatchKind>,
+}
+
+/// Timeline event category.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TimelineEventKind {
+    /// Site was Found for the first time in the supplied scan sequence.
+    FirstSeen,
+    /// Site was Found before, then no longer Found.
+    Disappeared,
+    /// Site was absent/not found after a previous hit, then Found again.
+    Reappeared,
+    /// Site stayed Found but normalized profile evidence changed.
+    EvidenceChanged,
+}
+
+/// One lifecycle event for a profile across scans.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TimelineEvent {
+    /// Scan id where the event was observed.
+    pub scan_id: ScanId,
+    /// Scan start timestamp.
+    pub at_ms: u64,
+    /// Site name.
+    pub site: String,
+    /// Best URL known for the site at this point in the timeline.
+    pub url: String,
+    /// Event category.
+    pub kind: TimelineEventKind,
+    /// Previous verdict, when known.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub before: Option<MatchKind>,
+    /// Current verdict, when the current scan mentioned the site.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub after: Option<MatchKind>,
+    /// Evidence transition for [`TimelineEventKind::EvidenceChanged`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub evidence_change: Option<EvidenceChange>,
+}
+
 /// Compare two persisted scans.
 ///
 /// The diff is intentionally conservative: `added_found` and
@@ -275,6 +352,252 @@ pub fn diff_scans(previous: &PersistedScan, current: &PersistedScan) -> ScanDiff
         removed_found,
         verdict_changes,
         evidence_changes,
+    }
+}
+
+/// Build a chronological timeline from persisted scans.
+///
+/// Scans may be supplied in any order; the builder sorts them oldest-first.
+/// Only `Found` outcomes create profiles. A later non-Found or missing site
+/// creates a disappearance event if the profile was previously present.
+#[must_use]
+pub fn build_scan_timeline(scans: &[PersistedScan]) -> ScanTimeline {
+    let mut ordered: Vec<&PersistedScan> = scans.iter().collect();
+    ordered.sort_by(|left, right| {
+        left.created_at_ms
+            .cmp(&right.created_at_ms)
+            .then_with(|| left.scan_id.as_str().cmp(right.scan_id.as_str()))
+    });
+
+    let username = ordered
+        .first()
+        .map(|scan| scan.username.clone())
+        .unwrap_or_default();
+    let from_ms = ordered.first().map(|scan| scan.created_at_ms);
+    let to_ms = ordered.last().map(|scan| scan.created_at_ms);
+    let mut states: BTreeMap<String, TimelineProfileState> = BTreeMap::new();
+    let mut events = Vec::new();
+
+    for scan in &ordered {
+        let current_by_site = outcomes_by_site(&scan.outcomes);
+        let sites = timeline_site_names(&states, &current_by_site);
+
+        for site in sites {
+            apply_timeline_site(
+                scan,
+                &site,
+                current_by_site.get(&site).copied(),
+                &mut states,
+                &mut events,
+            );
+        }
+    }
+
+    let profiles = states
+        .into_iter()
+        .map(|(site, state)| TimelineProfile {
+            site,
+            url: state.url,
+            first_seen_ms: state.first_seen_ms,
+            last_seen_ms: state.last_seen_ms,
+            present_in_latest: state.present_in_latest,
+            last_verdict: state.last_verdict,
+        })
+        .collect();
+
+    ScanTimeline {
+        username,
+        scan_count: ordered.len(),
+        from_ms,
+        to_ms,
+        profiles,
+        events,
+    }
+}
+
+fn timeline_site_names(
+    states: &BTreeMap<String, TimelineProfileState>,
+    current_by_site: &BTreeMap<String, &CheckOutcome>,
+) -> Vec<String> {
+    let mut sites: Vec<String> = states.keys().cloned().collect();
+    for site in current_by_site.keys() {
+        if !states.contains_key(site.as_str()) {
+            sites.push((*site).clone());
+        }
+    }
+    sites.sort();
+    sites.dedup();
+    sites
+}
+
+fn apply_timeline_site(
+    scan: &PersistedScan,
+    site: &str,
+    current: Option<&CheckOutcome>,
+    states: &mut BTreeMap<String, TimelineProfileState>,
+    events: &mut Vec<TimelineEvent>,
+) {
+    let current_kind = current.map(|outcome| outcome.kind);
+    let was_present = states
+        .get(site)
+        .is_some_and(|state| state.present_in_latest);
+
+    if current_kind == Some(MatchKind::Found) {
+        apply_found_timeline_site(scan, site, current.expect("found outcome"), states, events);
+    } else if was_present {
+        apply_disappeared_timeline_site(scan, site, current, current_kind, states, events);
+    } else if let (Some(state), Some(outcome)) = (states.get_mut(site), current) {
+        state.last_verdict = Some(outcome.kind);
+        state.url.clone_from(&outcome.url);
+    }
+}
+
+fn apply_found_timeline_site(
+    scan: &PersistedScan,
+    site: &str,
+    outcome: &CheckOutcome,
+    states: &mut BTreeMap<String, TimelineProfileState>,
+    events: &mut Vec<TimelineEvent>,
+) {
+    let current_kind = Some(outcome.kind);
+    let had_state = states.contains_key(site);
+    let was_present = states
+        .get(site)
+        .is_some_and(|state| state.present_in_latest);
+    let state = states
+        .entry(site.to_owned())
+        .or_insert_with(|| TimelineProfileState::new(outcome, scan.created_at_ms));
+
+    if !had_state {
+        events.push(timeline_event(
+            scan,
+            site,
+            &outcome.url,
+            TimelineEventKind::FirstSeen,
+            None,
+            current_kind,
+            None,
+        ));
+    } else if !was_present {
+        events.push(timeline_event(
+            scan,
+            site,
+            &outcome.url,
+            TimelineEventKind::Reappeared,
+            state.last_verdict,
+            current_kind,
+            None,
+        ));
+    } else if state.profile_evidence_changed(outcome) {
+        events.push(timeline_event(
+            scan,
+            site,
+            &outcome.url,
+            TimelineEventKind::EvidenceChanged,
+            Some(MatchKind::Found),
+            current_kind,
+            Some(EvidenceChange {
+                site: site.to_owned(),
+                before_enrichment: state.last_found_enrichment.clone(),
+                after_enrichment: outcome.enrichment.clone(),
+                before_profile_evidence: state.last_found_profile_evidence.clone(),
+                after_profile_evidence: outcome.profile_evidence.clone(),
+            }),
+        ));
+    }
+
+    states
+        .get_mut(site)
+        .expect("state inserted before found update")
+        .update_found(outcome, scan.created_at_ms);
+}
+
+fn apply_disappeared_timeline_site(
+    scan: &PersistedScan,
+    site: &str,
+    current: Option<&CheckOutcome>,
+    current_kind: Option<MatchKind>,
+    states: &mut BTreeMap<String, TimelineProfileState>,
+    events: &mut Vec<TimelineEvent>,
+) {
+    let state = states
+        .get_mut(site)
+        .expect("present state exists before disappearance");
+    let url = current.map_or_else(|| state.url.clone(), |outcome| outcome.url.clone());
+    events.push(timeline_event(
+        scan,
+        site,
+        &url,
+        TimelineEventKind::Disappeared,
+        state.last_verdict,
+        current_kind,
+        None,
+    ));
+    state.present_in_latest = false;
+    state.last_verdict = current_kind;
+    if let Some(outcome) = current {
+        state.url.clone_from(&outcome.url);
+    }
+}
+
+fn timeline_event(
+    scan: &PersistedScan,
+    site: &str,
+    url: &str,
+    kind: TimelineEventKind,
+    before: Option<MatchKind>,
+    after: Option<MatchKind>,
+    evidence_change: Option<EvidenceChange>,
+) -> TimelineEvent {
+    TimelineEvent {
+        scan_id: scan.scan_id.clone(),
+        at_ms: scan.created_at_ms,
+        site: site.to_owned(),
+        url: url.to_owned(),
+        kind,
+        before,
+        after,
+        evidence_change,
+    }
+}
+
+#[derive(Debug, Clone)]
+struct TimelineProfileState {
+    url: String,
+    first_seen_ms: u64,
+    last_seen_ms: u64,
+    present_in_latest: bool,
+    last_verdict: Option<MatchKind>,
+    last_found_enrichment: BTreeMap<String, String>,
+    last_found_profile_evidence: Vec<ProfileEvidence>,
+}
+
+impl TimelineProfileState {
+    fn new(outcome: &CheckOutcome, at_ms: u64) -> Self {
+        Self {
+            url: outcome.url.clone(),
+            first_seen_ms: at_ms,
+            last_seen_ms: at_ms,
+            present_in_latest: true,
+            last_verdict: Some(outcome.kind),
+            last_found_enrichment: outcome.enrichment.clone(),
+            last_found_profile_evidence: outcome.profile_evidence.clone(),
+        }
+    }
+
+    fn update_found(&mut self, outcome: &CheckOutcome, at_ms: u64) {
+        self.url.clone_from(&outcome.url);
+        self.last_seen_ms = at_ms;
+        self.present_in_latest = true;
+        self.last_verdict = Some(outcome.kind);
+        self.last_found_enrichment = outcome.enrichment.clone();
+        self.last_found_profile_evidence
+            .clone_from(&outcome.profile_evidence);
+    }
+
+    fn profile_evidence_changed(&self, outcome: &CheckOutcome) -> bool {
+        self.last_found_enrichment != outcome.enrichment
+            || self.last_found_profile_evidence != outcome.profile_evidence
     }
 }
 
@@ -596,6 +919,113 @@ mod tests {
                 .after_enrichment
                 .get("name")
                 .unwrap(),
+            "Alice Liddell"
+        );
+    }
+
+    #[test]
+    fn timeline_tracks_first_seen_disappeared_and_reappeared() {
+        let mut first = sample("first", 1_000);
+        first.outcomes = vec![outcome("GitHub", MatchKind::Found)];
+        let mut second = sample("second", 2_000);
+        second.outcomes = vec![outcome("GitHub", MatchKind::NotFound)];
+        let mut third = sample("third", 3_000);
+        third.outcomes = vec![outcome("GitHub", MatchKind::Found)];
+
+        let timeline = build_scan_timeline(&[third, first, second]);
+
+        assert_eq!(timeline.username, "alice");
+        assert_eq!(timeline.scan_count, 3);
+        assert_eq!(timeline.from_ms, Some(1_000));
+        assert_eq!(timeline.to_ms, Some(3_000));
+        assert_eq!(timeline.profiles.len(), 1);
+        assert_eq!(timeline.profiles[0].site, "GitHub");
+        assert_eq!(timeline.profiles[0].first_seen_ms, 1_000);
+        assert_eq!(timeline.profiles[0].last_seen_ms, 3_000);
+        assert!(timeline.profiles[0].present_in_latest);
+        assert_eq!(
+            timeline
+                .events
+                .iter()
+                .map(|event| event.kind)
+                .collect::<Vec<_>>(),
+            [
+                TimelineEventKind::FirstSeen,
+                TimelineEventKind::Disappeared,
+                TimelineEventKind::Reappeared
+            ]
+        );
+        assert_eq!(timeline.events[1].before, Some(MatchKind::Found));
+        assert_eq!(timeline.events[1].after, Some(MatchKind::NotFound));
+    }
+
+    #[test]
+    fn timeline_treats_missing_site_as_disappeared() {
+        let mut first = sample("first", 1_000);
+        first.outcomes = vec![outcome("GitHub", MatchKind::Found)];
+        let mut second = sample("second", 2_000);
+        second.outcomes = vec![outcome("GitLab", MatchKind::NotFound)];
+
+        let timeline = build_scan_timeline(&[first, second]);
+
+        assert_eq!(timeline.profiles.len(), 1);
+        assert!(!timeline.profiles[0].present_in_latest);
+        assert_eq!(timeline.events.len(), 2);
+        assert_eq!(timeline.events[1].kind, TimelineEventKind::Disappeared);
+        assert_eq!(timeline.events[1].site, "GitHub");
+        assert_eq!(timeline.events[1].after, None);
+    }
+
+    #[test]
+    fn timeline_tracks_evidence_changes_for_still_found_profile() {
+        let mut first = sample("first", 1_000);
+        let mut old_github = outcome("GitHub", MatchKind::Found);
+        old_github.enrichment.insert("name".into(), "Alice".into());
+        old_github
+            .profile_evidence
+            .push(adler_core::ProfileEvidence::from_enrichment(
+                "GitHub",
+                "https://github.example/alice",
+                "name",
+                "Alice",
+            ));
+        first.outcomes = vec![old_github];
+
+        let mut second = sample("second", 2_000);
+        let mut new_github = outcome("GitHub", MatchKind::Found);
+        new_github
+            .enrichment
+            .insert("name".into(), "Alice Liddell".into());
+        new_github
+            .profile_evidence
+            .push(adler_core::ProfileEvidence::from_enrichment(
+                "GitHub",
+                "https://github.example/alice",
+                "name",
+                "Alice Liddell",
+            ));
+        second.outcomes = vec![new_github];
+
+        let timeline = build_scan_timeline(&[first, second]);
+
+        assert_eq!(
+            timeline
+                .events
+                .iter()
+                .map(|event| event.kind)
+                .collect::<Vec<_>>(),
+            [
+                TimelineEventKind::FirstSeen,
+                TimelineEventKind::EvidenceChanged
+            ]
+        );
+        let evidence_change = timeline.events[1].evidence_change.as_ref().unwrap();
+        assert_eq!(
+            evidence_change.before_enrichment.get("name").unwrap(),
+            "Alice"
+        );
+        assert_eq!(
+            evidence_change.after_enrichment.get("name").unwrap(),
             "Alice Liddell"
         );
     }

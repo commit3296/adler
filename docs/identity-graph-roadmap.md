@@ -147,7 +147,7 @@ that already exists.
   site/tag scopes.
 - [x] Support scheduled or repeated scans without coupling scheduling to
   the core engine.
-- [ ] Track first seen, last seen, disappeared, reappeared, and changed
+- [x] Track first seen, last seen, disappeared, reappeared, and changed
   evidence.
 - [x] Show scan-to-scan diffs in Web UI.
 - [ ] Expose watchlist/timeline summaries through MCP resources.
