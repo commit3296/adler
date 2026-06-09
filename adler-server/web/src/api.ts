@@ -12,6 +12,7 @@ import type {
     RefilterBody,
     RefilterResponse,
     RetryResponse,
+    ScanDiff,
     ScanListEntry,
     ScanSnapshot,
     SiteSummary,
@@ -66,6 +67,8 @@ export const api = {
     sites,
     access: () => request<AccessResponse>("/api/access"),
     scans: () => request<ScanListEntry[]>("/api/scans"),
+    scanDiff: (from: string, to: string) =>
+        request<ScanDiff>(`/api/scans/${from}/diff/${to}`),
     scan: (id: string) => request<ScanSnapshot>(`/api/scan/${id}`),
     startScan: (body: StartScanBody) =>
         request<StartScanResponse>("/api/scan", {

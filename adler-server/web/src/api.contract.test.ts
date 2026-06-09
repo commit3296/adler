@@ -45,6 +45,16 @@ describe("adler-server HTTP API contract", () => {
             .mockResolvedValueOnce(okJson([]))
             .mockResolvedValueOnce(
                 okJson({
+                    from_scan_id: "old",
+                    to_scan_id: "new",
+                    added_found: [],
+                    removed_found: [],
+                    verdict_changes: [],
+                    evidence_changes: [],
+                }),
+            )
+            .mockResolvedValueOnce(
+                okJson({
                     status: "running",
                     username: "alice",
                     site_count: 1,
@@ -57,6 +67,7 @@ describe("adler-server HTTP API contract", () => {
         expect(await api.sites()).toEqual({ sites: [], disabled: [] });
         await api.access();
         await api.scans();
+        await api.scanDiff("old", "new");
         await api.scan("scan_123");
 
         expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
@@ -64,6 +75,7 @@ describe("adler-server HTTP API contract", () => {
             "/api/sites",
             "/api/access",
             "/api/scans",
+            "/api/scans/old/diff/new",
             "/api/scan/scan_123",
         ]);
         expect(fetchMock.mock.calls.every(([, init]) => init === undefined)).toBe(

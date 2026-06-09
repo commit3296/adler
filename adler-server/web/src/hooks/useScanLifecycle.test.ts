@@ -4,6 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { FinishedScan, StartScanBody } from "../types";
 
 const mocks = vi.hoisted(() => ({
+    scan: vi.fn(),
+    scanDiff: vi.fn(),
     startScan: vi.fn(),
     streamScan: vi.fn(),
 }));
@@ -13,6 +15,8 @@ vi.mock("../api", async () => {
     return {
         ...actual,
         api: {
+            scan: mocks.scan,
+            scanDiff: mocks.scanDiff,
             startScan: mocks.startScan,
         },
         streamScan: mocks.streamScan,
@@ -36,6 +40,8 @@ describe("useScanLifecycle", () => {
         actions.clearScan();
         actions.setLoading(false);
         mocks.startScan.mockReset();
+        mocks.scan.mockReset();
+        mocks.scanDiff.mockReset();
         mocks.streamScan.mockReset();
     });
 
@@ -90,5 +96,61 @@ describe("useScanLifecycle", () => {
         expect(store.scan?.status).toBe("finished");
         expect(store.scan?.summary).toEqual(finished.summary);
         expect(refreshHistory).toHaveBeenCalled();
+    });
+
+    it("loads server scan diff into diff state", async () => {
+        mocks.scanDiff.mockResolvedValue({
+            from_scan_id: "old",
+            to_scan_id: "new",
+            added_found: [
+                {
+                    site: "Mastodon",
+                    url: "https://mastodon.example/@alice",
+                    kind: "found",
+                    elapsed_ms: 10,
+                },
+            ],
+            removed_found: [],
+            verdict_changes: [
+                { site: "Mastodon", before: "not_found", after: "found" },
+            ],
+            evidence_changes: [],
+        });
+        mocks.scan
+            .mockResolvedValueOnce({
+                status: "finished",
+                username: "alice",
+                site_count: 1,
+                summary: { found: 0, not_found: 1, uncertain: 0 },
+                outcomes: [],
+                elapsed_ms: 20,
+            })
+            .mockResolvedValueOnce({
+                status: "finished",
+                username: "alice",
+                site_count: 1,
+                summary: { found: 1, not_found: 0, uncertain: 0 },
+                outcomes: [
+                    {
+                        site: "Mastodon",
+                        url: "https://mastodon.example/@alice",
+                        kind: "found",
+                        elapsed_ms: 10,
+                    },
+                ],
+                elapsed_ms: 25,
+            });
+
+        await createRoot(async (dispose) => {
+            const lifecycle = useScanLifecycle(vi.fn(), vi.fn());
+            await lifecycle.startDiff("old", "new", { fromUrl: true });
+            dispose();
+        });
+
+        expect(mocks.scanDiff).toHaveBeenCalledWith("old", "new");
+        expect(mocks.scan).toHaveBeenCalledWith("old");
+        expect(mocks.scan).toHaveBeenCalledWith("new");
+        expect(store.diff?.scanDiff?.added_found?.[0]?.site).toBe("Mastodon");
+        expect(store.diff?.scanDiff?.verdict_changes?.[0]?.after).toBe("found");
     });
 });

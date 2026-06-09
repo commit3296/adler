@@ -15,6 +15,7 @@ import { createViewActions } from "./store/viewActions";
 import type {
     AccessResponse,
     CheckOutcome,
+    ScanDiff,
     DisabledSiteSummary,
     ScanListEntry,
     SiteSummary,
@@ -124,6 +125,7 @@ function bucketsFrom(
 export interface DiffState {
     a: { id: string; username: string; outcomes: CheckOutcome[] };
     b: { id: string; username: string; outcomes: CheckOutcome[] };
+    scanDiff?: ScanDiff;
 }
 
 /// A view explicitly representing "the thing this URL points at does
