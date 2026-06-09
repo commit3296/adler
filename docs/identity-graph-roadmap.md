@@ -103,13 +103,14 @@ that already exists.
 
 ## Phase 3: Versioned scan artifact
 
-- [ ] Introduce or extend a versioned persisted scan schema.
-- [ ] Store result-level evidence and confidence without breaking older
+- [x] Introduce or extend a versioned persisted scan schema.
+- [x] Store result-level evidence and confidence without breaking older
   scan history.
-- [ ] Preserve access telemetry and disabled/session-required states in
+- [x] Preserve access telemetry and session-required states in
   the same artifact.
-- [ ] Add migration or tolerant-read behavior for older scan records.
-- [ ] Add snapshot tests for serialized scan history.
+- [ ] Preserve disabled/parked filter context alongside scan artifacts.
+- [x] Add migration or tolerant-read behavior for older scan records.
+- [x] Add serialization tests for persisted scan history.
 
 ## Phase 4: CLI, Web, and MCP surfaces
 

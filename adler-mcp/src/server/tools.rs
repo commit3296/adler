@@ -245,6 +245,8 @@ pub struct DoctorCheckOutput {
 pub struct ScanHistoryRow {
     /// Scan id (filename stem).
     pub id: String,
+    /// Persisted scan artifact schema version, when present.
+    pub schema_version: Option<u16>,
     /// Username scanned.
     pub username: String,
     /// ISO-8601 timestamp when the scan started.
@@ -284,6 +286,7 @@ pub(super) fn read_scan_history(
     #[derive(Deserialize)]
     struct PersistedScanLite {
         id: Option<String>,
+        schema_version: Option<u16>,
         username: Option<String>,
         started_at: Option<String>,
         #[serde(default)]
@@ -333,6 +336,7 @@ pub(super) fn read_scan_history(
         let summary = ScanSummary::from_outcomes(&lite.outcomes);
         rows.push(ScanHistoryRow {
             id,
+            schema_version: lite.schema_version,
             username,
             started_at: lite.started_at,
             total: lite.outcomes.len(),
