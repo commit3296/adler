@@ -359,6 +359,9 @@ published separately on [crates.io](https://crates.io/crates/adler-core)
 for embedding in your own Rust tools — a Discord bot that checks
 usernames, a security tool that flags exposed identities across a
 watchlist, a CI gate that asserts a name isn't claimed elsewhere.
+The core crate also exposes `WatchlistConfig` for modelling watched
+usernames, aliases, and site/tag scopes without coupling that model to
+CLI loops, web state, or a scheduler.
 
 ```toml
 [dependencies]

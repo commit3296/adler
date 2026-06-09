@@ -73,6 +73,8 @@
 //! - [`permute`] — generate username variants
 //!   (alice → alice1, alice.dev, …) via [`MAX_VARIANTS`] /
 //!   [`PermuteLevel`].
+//! - [`WatchlistConfig`] — serde-compatible watchlist configuration
+//!   for usernames, aliases, and optional site/tag scopes.
 //! - [`doctor`] — registry health check
 //!   ([`check_site`](crate::doctor::check_site)), signature
 //!   derivation ([`suggest_fix`](crate::doctor::suggest_fix)),
@@ -152,6 +154,7 @@ mod test_fixtures;
 mod throttle;
 mod transport;
 mod username;
+mod watchlist;
 
 pub mod browser;
 
@@ -178,3 +181,7 @@ pub use site::{
     Engine, Extractor, HttpMethod, KnownPresent, ProtectionKind, Signal, Site, UrlTemplate,
 };
 pub use username::Username;
+pub use watchlist::{
+    WATCHLIST_CONFIG_SCHEMA_VERSION, WatchScanTarget, WatchScope, WatchTarget, WatchlistConfig,
+    WatchlistError,
+};
