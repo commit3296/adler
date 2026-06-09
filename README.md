@@ -361,7 +361,9 @@ usernames, a security tool that flags exposed identities across a
 watchlist, a CI gate that asserts a name isn't claimed elsewhere.
 The core crate also exposes `WatchlistConfig` for modelling watched
 usernames, aliases, and site/tag scopes without coupling that model to
-CLI loops, web state, or a scheduler.
+CLI loops, web state, or a scheduler. Add `ScanSchedule` when a caller
+needs a repeated-scan policy while keeping timers and task queues in its
+own runtime.
 
 ```toml
 [dependencies]

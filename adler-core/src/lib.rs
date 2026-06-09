@@ -182,6 +182,6 @@ pub use site::{
 };
 pub use username::Username;
 pub use watchlist::{
-    WATCHLIST_CONFIG_SCHEMA_VERSION, WatchScanTarget, WatchScope, WatchTarget, WatchlistConfig,
-    WatchlistError,
+    ScanSchedule, WATCHLIST_CONFIG_SCHEMA_VERSION, WatchScanTarget, WatchScope, WatchTarget,
+    WatchlistConfig, WatchlistError,
 };

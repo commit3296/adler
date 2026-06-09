@@ -145,7 +145,7 @@ that already exists.
 - [x] Expose scan-to-scan diffs through MCP tools and resources.
 - [x] Add watchlist configuration for usernames, aliases, and optional
   site/tag scopes.
-- [ ] Support scheduled or repeated scans without coupling scheduling to
+- [x] Support scheduled or repeated scans without coupling scheduling to
   the core engine.
 - [ ] Track first seen, last seen, disappeared, reappeared, and changed
   evidence.
