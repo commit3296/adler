@@ -149,6 +149,7 @@ that already exists.
   the core engine.
 - [x] Track first seen, last seen, disappeared, reappeared, and changed
   evidence.
+- [x] Expose scan timelines through the Web API.
 - [x] Show scan-to-scan diffs in Web UI.
 - [ ] Expose watchlist/timeline summaries through MCP resources.
 - [ ] Keep operator privacy and local-storage expectations explicit.

@@ -120,6 +120,20 @@ pub(super) async fn list_scans(State(state): State<AppState>) -> Json<Vec<ScanLi
     Json(entries)
 }
 
+pub(super) async fn list_scan_timeline(
+    State(state): State<AppState>,
+    AxumPath(username): AxumPath<String>,
+) -> Result<Json<crate::persist::ScanTimeline>, ApiError> {
+    let username = Username::new(username)
+        .map_err(|e| ApiError::bad_request("invalid_username", e.to_string()))?;
+    let scans = load_finished_scans_for_username(&state, username.as_str()).await;
+    let mut timeline = crate::persist::build_scan_timeline(&scans);
+    if timeline.username.is_empty() {
+        username.as_str().clone_into(&mut timeline.username);
+    }
+    Ok(Json(timeline))
+}
+
 pub(super) async fn start_scan(
     State(state): State<AppState>,
     Json(req): Json<StartScanRequest>,
@@ -436,6 +450,45 @@ pub(super) async fn diff_scans(
     let previous = load_finished_scan(&state, &from_id).await?;
     let current = load_finished_scan(&state, &to_id).await?;
     Ok(Json(crate::persist::diff_scans(&previous, &current)))
+}
+
+async fn load_finished_scans_for_username(state: &AppState, username: &str) -> Vec<PersistedScan> {
+    let handles: Vec<(ScanId, ScanHandle)> = {
+        let scans = state.scans.read().await;
+        scans
+            .iter()
+            .map(|(id, handle)| (id.clone(), handle.clone()))
+            .collect()
+    };
+    let mut by_id: HashMap<ScanId, PersistedScan> = HashMap::with_capacity(handles.len());
+
+    for (id, handle) in handles {
+        if handle.username() != username {
+            continue;
+        }
+        if let Some(finished) = handle.finished().await {
+            by_id.insert(
+                id.clone(),
+                PersistedScan::from_finished(
+                    id,
+                    handle.username().to_owned(),
+                    handle.site_count(),
+                    handle.created_at_ms(),
+                    finished,
+                ),
+            );
+        }
+    }
+
+    if let Some(dir) = &state.scans_dir {
+        for scan in crate::persist::load_all(dir).await {
+            if scan.username == username {
+                by_id.entry(scan.scan_id.clone()).or_insert(scan);
+            }
+        }
+    }
+
+    by_id.into_values().collect()
 }
 
 async fn load_finished_scan(state: &AppState, scan_id: &ScanId) -> Result<PersistedScan, ApiError> {
