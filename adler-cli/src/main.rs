@@ -486,9 +486,10 @@ pub(crate) struct Cli {
     /// Claude Desktop / Cursor / any agent that speaks MCP. The
     /// server exposes six tools (`list_sites`, `scan_username`
     /// with streaming progress, `scan_batch`, `doctor_check`,
-    /// `get_scan_history`, `diff_scans`), seven resources/templates
+    /// `get_scan_history`, `diff_scans`), eight resources/templates
     /// (`adler://registry/{sites,tags,disabled}`,
-    /// `adler://scans/recent`, `adler://scans/{id}`,
+    /// `adler://scans/recent`, `adler://watchlists/default`,
+    /// `adler://scans/{id}`,
     /// `adler://scans/{from}/diff/{to}`,
     /// `adler://timelines/{username}`), and
     /// three prompts (`investigate_username`,

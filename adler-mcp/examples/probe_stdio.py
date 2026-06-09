@@ -212,10 +212,10 @@ def main() -> int:
         resp = call("resources/list")
         names = sorted(r["name"] for r in resp["result"]["resources"])
         ok(
-            "resources/list returns 4 static",
+            "resources/list returns 5 static",
             names == sorted([
                 "registry_sites", "registry_tags",
-                "registry_disabled", "scans_recent",
+                "registry_disabled", "scans_recent", "watchlist_default",
             ]),
             f"got {names}",
         )
@@ -240,11 +240,15 @@ def main() -> int:
             "adler://registry/tags",
             "adler://registry/disabled",
             "adler://scans/recent",
+            "adler://watchlists/default",
         ]:
             resp = call("resources/read", {"uri": uri})
             contents = resp["result"]["contents"]
             payload = json.loads(contents[0]["text"])
-            total = payload.get("total", payload.get("total_tags", "?"))
+            total = payload.get(
+                "total",
+                payload.get("total_tags", payload.get("target_count", "?")),
+            )
             ok(
                 f"resources/read {uri}",
                 bool(contents) and "text" in contents[0],

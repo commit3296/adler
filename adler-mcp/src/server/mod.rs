@@ -13,7 +13,9 @@ mod resources;
 mod tools;
 
 use prompts::{PROMPT_SPECS, render_prompt};
-use resources::{JSON_MIME, ResourceError, STATIC_RESOURCES, json_resource_contents};
+use resources::{
+    JSON_MIME, ResourceError, STATIC_RESOURCES, WatchlistResourceError, json_resource_contents,
+};
 use tools::{
     BatchScanOutput, DisabledSiteEntry, DoctorCheckArgs, DoctorCheckOutput, ListSitesArgs,
     ListSitesOutput, OutcomeRow, ScanBatchArgs, ScanDiffArgs, ScanDiffError, ScanDiffOutput,
@@ -72,6 +74,7 @@ pub struct AdlerMcp {
     registry: Arc<Registry>,
     client: Arc<Client>,
     scans_dir: Arc<std::path::PathBuf>,
+    watchlist_path: Option<Arc<std::path::PathBuf>>,
     // The `#[tool_handler]` macro reads `self.tool_router` to dispatch
     // tool calls; the field would otherwise look unused to the
     // compiler.
@@ -109,8 +112,19 @@ impl AdlerMcp {
             registry,
             client,
             scans_dir: Arc::new(scans_dir),
+            watchlist_path: None,
             tool_router: Self::tool_router(),
         }
+    }
+
+    /// Override the default watchlist config path used by the
+    /// `adler://watchlists/default` resource. Hosts may use this to
+    /// bind MCP to a known config file; tests use it to avoid mutating
+    /// process-wide environment variables.
+    #[must_use]
+    pub fn with_watchlist_path(mut self, path: impl Into<std::path::PathBuf>) -> Self {
+        self.watchlist_path = Some(Arc::new(path.into()));
+        self
     }
 
     /// Build a server backed by an explicit registry. Useful when the
@@ -607,6 +621,19 @@ fn scan_timeline_error(err: ScanTimelineError) -> rmcp::ErrorData {
     }
 }
 
+fn watchlist_resource_error(err: &WatchlistResourceError) -> rmcp::ErrorData {
+    match err {
+        WatchlistResourceError::Io { .. } => {
+            internal_error_chain("reading watchlist resource", err)
+        }
+        WatchlistResourceError::Json { .. }
+        | WatchlistResourceError::Toml { .. }
+        | WatchlistResourceError::Validation { .. } => {
+            invalid_params_chain("reading watchlist resource", err)
+        }
+    }
+}
+
 #[tool_handler]
 impl ServerHandler for AdlerMcp {
     fn get_info(&self) -> InitializeResult {
@@ -753,6 +780,7 @@ impl ServerHandler for AdlerMcp {
             }
             ResourceError::Diff(err) => scan_diff_error(err),
             ResourceError::Timeline(err) => scan_timeline_error(err),
+            ResourceError::Watchlist(err) => watchlist_resource_error(&err),
         })?;
         let contents = json_resource_contents(payload, &req.uri);
         Ok(ReadResourceResult::new(vec![contents]))
@@ -770,7 +798,8 @@ const ADLER_MCP_INSTRUCTIONS: &str = concat!(
     "Resources: `adler://registry/sites` (full enabled registry), ",
     "`adler://registry/tags` (tags with site counts), `adler://registry/disabled` ",
     "(disabled entries + reasons — audit surface), `adler://scans/recent` (recent ",
-    "history), `adler://scans/{id}` (one scan by id), ",
+    "history), `adler://watchlists/default` (local watchlist summary), ",
+    "`adler://scans/{id}` (one scan by id), ",
     "`adler://scans/{from}/diff/{to}` (scan-to-scan diff), ",
     "`adler://timelines/{username}` (persisted first-seen / disappeared / ",
     "reappeared timeline).\n\n",
@@ -1138,6 +1167,144 @@ mod tests {
                 "expected string disabled_reason, got {entry}",
             );
         }
+    }
+
+    #[test]
+    fn watchlist_resource_reads_configured_json() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().join("watchlist.json");
+        std::fs::write(
+            &path,
+            serde_json::json!({
+                "schema_version": 1,
+                "default_scope": {
+                    "tag": ["social"],
+                    "exclude_tag": ["bot-protected"],
+                    "top": 100
+                },
+                "schedule": {
+                    "every_secs": 86400,
+                    "start_at_ms": 1_800_000_000_000_u64
+                },
+                "targets": [{
+                    "username": "alice",
+                    "aliases": ["alice_dev"],
+                    "scope": {
+                        "only": ["Git"],
+                        "tag": ["dev"],
+                        "top": 50
+                    }
+                }]
+            })
+            .to_string(),
+        )
+        .unwrap();
+        let server = AdlerMcp::new()
+            .expect("embedded registry must load")
+            .with_watchlist_path(path.clone());
+
+        let payload = server
+            .render_resource("adler://watchlists/default")
+            .unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&payload).unwrap();
+
+        assert_eq!(parsed["configured"], true);
+        assert_eq!(parsed["path"], path.display().to_string());
+        assert_eq!(parsed["target_count"], 1);
+        assert_eq!(parsed["alias_count"], 1);
+        assert_eq!(parsed["scan_target_count"], 2);
+        assert_eq!(parsed["schedule"]["every_secs"], 86400);
+        assert_eq!(parsed["targets"][0]["identity"], "alice");
+        assert_eq!(parsed["targets"][0]["scan_usernames"][1], "alice_dev");
+        assert_eq!(parsed["targets"][0]["effective_scope"]["tag"][0], "social");
+        assert_eq!(parsed["targets"][0]["effective_scope"]["tag"][1], "dev");
+        assert_eq!(parsed["targets"][0]["effective_scope"]["top"], 50);
+        assert_eq!(parsed["scan_targets"][0]["scope"]["tag"][0], "social");
+        assert_eq!(parsed["scan_targets"][0]["scope"]["tag"][1], "dev");
+    }
+
+    #[test]
+    fn watchlist_resource_reads_configured_toml() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().join("watchlist.toml");
+        std::fs::write(
+            &path,
+            r#"
+schema_version = 1
+
+[default_scope]
+tag = ["social"]
+
+[[targets]]
+username = "alice"
+aliases = ["alice_dev"]
+
+[targets.scope]
+top = 25
+"#,
+        )
+        .unwrap();
+        let server = AdlerMcp::new()
+            .expect("embedded registry must load")
+            .with_watchlist_path(path);
+
+        let payload = server
+            .render_resource("adler://watchlists/default")
+            .unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&payload).unwrap();
+
+        assert_eq!(parsed["configured"], true);
+        assert_eq!(parsed["target_count"], 1);
+        assert_eq!(parsed["scan_target_count"], 2);
+        assert_eq!(parsed["targets"][0]["effective_scope"]["tag"][0], "social");
+        assert_eq!(parsed["targets"][0]["effective_scope"]["top"], 25);
+    }
+
+    #[test]
+    fn watchlist_resource_returns_not_configured_for_missing_file() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().join("missing.json");
+        let server = AdlerMcp::new()
+            .expect("embedded registry must load")
+            .with_watchlist_path(path.clone());
+
+        let payload = server
+            .render_resource("adler://watchlists/default")
+            .unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&payload).unwrap();
+
+        assert_eq!(parsed["configured"], false);
+        assert_eq!(parsed["target_count"], 0);
+        assert_eq!(parsed["searched_paths"][0], path.display().to_string());
+    }
+
+    #[test]
+    fn watchlist_resource_surfaces_validation_error() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().join("watchlist.json");
+        std::fs::write(
+            &path,
+            serde_json::json!({
+                "targets": [{
+                    "username": "alice",
+                    "aliases": ["Alice"]
+                }]
+            })
+            .to_string(),
+        )
+        .unwrap();
+        let server = AdlerMcp::new()
+            .expect("embedded registry must load")
+            .with_watchlist_path(path);
+
+        let err = server
+            .render_resource("adler://watchlists/default")
+            .unwrap_err();
+
+        assert!(matches!(
+            err,
+            ResourceError::Watchlist(WatchlistResourceError::Validation { .. })
+        ));
     }
 
     #[test]

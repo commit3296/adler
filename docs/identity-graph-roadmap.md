@@ -152,7 +152,7 @@ that already exists.
 - [x] Expose scan timelines through the Web API.
 - [x] Show scan-to-scan diffs in Web UI.
 - [x] Expose timeline summaries through MCP resources.
-- [ ] Expose watchlist summaries through MCP resources.
+- [x] Expose watchlist summaries through MCP resources.
 - [x] Keep operator privacy and local-storage expectations explicit.
 
 ## Phase 7: Investigation reports

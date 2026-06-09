@@ -9,7 +9,8 @@
 //! - **Resources** — browsable data: `adler://registry/sites`,
 //!   `adler://registry/tags`, `adler://registry/disabled` (audit
 //!   surface for the `disabled_reason` annotations),
-//!   `adler://scans/recent`, and the templated `adler://scans/{id}`
+//!   `adler://scans/recent`, `adler://watchlists/default`, and the
+//!   templated `adler://scans/{id}`
 //!   / `adler://scans/{from}/diff/{to}` /
 //!   `adler://timelines/{username}`.
 //! - **Prompts** — templated OSINT workflows: `investigate_username`,
