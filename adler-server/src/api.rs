@@ -376,6 +376,98 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn start_scan_persists_request_context() {
+        let mock = MockServer::start().await;
+        Mock::given(any())
+            .and(path("/a/alice"))
+            .respond_with(ResponseTemplate::new(200))
+            .mount(&mock)
+            .await;
+
+        let mut enabled = site("A", &mock.uri(), "a");
+        enabled.tags = vec!["social".into()];
+        enabled.popularity = Some(10);
+
+        let mut disabled = site("A Parked", &mock.uri(), "parked");
+        disabled.tags = vec!["social".into()];
+        disabled.popularity = Some(20);
+        disabled.disabled = true;
+        disabled.disabled_reason = Some("Honest Limits: parked for test".into());
+
+        let client = Client::builder()
+            .timeout(Duration::from_secs(2))
+            .min_request_interval(Duration::ZERO)
+            .build()
+            .unwrap();
+        let tmp = tempfile::TempDir::new().unwrap();
+        let state = AppState::with_catalog(vec![enabled], vec![disabled], client, 16)
+            .with_scans_dir(tmp.path().to_owned());
+        let app = router(state);
+
+        let resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/scan")
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(
+                        r#"{
+                            "username":"alice",
+                            "only":["A"],
+                            "tag":["social"],
+                            "exclude_tag":["nsfw"],
+                            "top":100,
+                            "deadline_secs":5
+                        }"#,
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let body = to_bytes(resp.into_body(), 4096).await.unwrap();
+        let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        let scan_id = v["scan_id"].as_str().unwrap().to_owned();
+
+        for _ in 0..50 {
+            let resp = app
+                .clone()
+                .oneshot(
+                    Request::builder()
+                        .uri(format!("/api/scan/{scan_id}"))
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            let body = to_bytes(resp.into_body(), 16384).await.unwrap();
+            let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
+            if v["status"] == "finished" {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+
+        let raw = tokio::fs::read_to_string(tmp.path().join(format!("{scan_id}.json")))
+            .await
+            .unwrap();
+        let persisted: serde_json::Value = serde_json::from_str(&raw).unwrap();
+        let ctx = &persisted["request_context"];
+        assert_eq!(ctx["username"], "alice");
+        assert_eq!(ctx["only"], serde_json::json!(["A"]));
+        assert_eq!(ctx["tag"], serde_json::json!(["social"]));
+        assert_eq!(ctx["exclude_tag"], serde_json::json!(["nsfw"]));
+        assert_eq!(ctx["top"], 100);
+        assert_eq!(ctx["deadline_secs"], 5);
+        assert_eq!(ctx["disabled_matches"][0]["name"], "A Parked");
+        assert_eq!(
+            ctx["disabled_matches"][0]["disabled_reason"],
+            "Honest Limits: parked for test"
+        );
+    }
+
+    #[tokio::test]
     async fn start_scan_rejects_invalid_username() {
         let (app, _mock) = test_app().await;
         let resp = app
