@@ -23,11 +23,16 @@ use crate::scan::{FinishedScan, ScanId, Summary};
 /// (by `created_at_ms`) get [`prune`]d on the next save. Picked to be
 /// large enough for any plausible human-driven OSINT session.
 pub(crate) const MAX_PERSISTED_SCANS: usize = 200;
+/// Current on-disk schema version for [`PersistedScan`].
+pub(crate) const PERSISTED_SCAN_SCHEMA_VERSION: u16 = 1;
 
 /// Self-contained snapshot of a completed scan. Round-trips losslessly
 /// through JSON; tests assert that.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PersistedScan {
+    /// Version of this persisted scan artifact.
+    #[serde(default = "default_schema_version")]
+    pub schema_version: u16,
     /// Stable identifier — same value as in-memory [`ScanId`].
     pub scan_id: ScanId,
     /// Username that was scanned.
@@ -55,6 +60,7 @@ impl PersistedScan {
         finished: FinishedScan,
     ) -> Self {
         Self {
+            schema_version: PERSISTED_SCAN_SCHEMA_VERSION,
             scan_id,
             username,
             site_count,
@@ -64,6 +70,10 @@ impl PersistedScan {
             elapsed_ms: finished.elapsed_ms,
         }
     }
+}
+
+const fn default_schema_version() -> u16 {
+    PERSISTED_SCAN_SCHEMA_VERSION
 }
 
 /// Default directory for persisted scans.
@@ -163,6 +173,7 @@ mod tests {
 
     fn sample(scan_id: &str, ts: u64) -> PersistedScan {
         PersistedScan {
+            schema_version: PERSISTED_SCAN_SCHEMA_VERSION,
             scan_id: ScanId::from(scan_id.to_owned()),
             username: "alice".into(),
             site_count: 2,
@@ -212,10 +223,27 @@ mod tests {
 
         let loaded = load(tmp.path(), &s.scan_id).await.expect("loaded");
         assert_eq!(loaded.scan_id, s.scan_id);
+        assert_eq!(loaded.schema_version, PERSISTED_SCAN_SCHEMA_VERSION);
         assert_eq!(loaded.username, "alice");
         assert_eq!(loaded.outcomes.len(), 2);
         assert_eq!(loaded.outcomes[0].site, "GitHub");
         assert_eq!(loaded.summary.found, 1);
+    }
+
+    #[tokio::test]
+    async fn save_writes_schema_version() {
+        let tmp = TempDir::new().unwrap();
+        let s = sample("abc123", 1_700_000_000_000);
+        save(tmp.path(), &s).await.unwrap();
+
+        let raw = fs::read_to_string(tmp.path().join("abc123.json"))
+            .await
+            .unwrap();
+        let value: serde_json::Value = serde_json::from_str(&raw).unwrap();
+        assert_eq!(
+            value["schema_version"],
+            serde_json::json!(PERSISTED_SCAN_SCHEMA_VERSION)
+        );
     }
 
     #[tokio::test]
@@ -236,6 +264,31 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         let missing = load(tmp.path(), &ScanId::from("nope".to_owned())).await;
         assert!(missing.is_none());
+    }
+
+    #[tokio::test]
+    async fn load_defaults_schema_version_for_legacy_scan_json() {
+        let tmp = TempDir::new().unwrap();
+        let path = tmp.path().join("legacy.json");
+        fs::write(
+            &path,
+            br#"{
+                "scan_id": "legacy",
+                "username": "alice",
+                "site_count": 0,
+                "created_at_ms": 1700000000000,
+                "summary": { "found": 0, "not_found": 0, "uncertain": 0 },
+                "outcomes": [],
+                "elapsed_ms": 0
+            }"#,
+        )
+        .await
+        .unwrap();
+
+        let loaded = load(tmp.path(), &ScanId::from("legacy".to_owned()))
+            .await
+            .expect("legacy scan loads");
+        assert_eq!(loaded.schema_version, PERSISTED_SCAN_SCHEMA_VERSION);
     }
 
     #[tokio::test]

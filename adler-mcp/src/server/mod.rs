@@ -417,9 +417,9 @@ impl AdlerMcp {
     #[tool(
         name = "get_scan_history",
         description = "List recent persisted scans from the web server's history directory \
-                       ($XDG_CACHE_HOME/adler/scans/). Returns id, username, started_at, \
-                       total/found/not_found/uncertain counts. Filter by username if given. \
-                       Defaults to the 20 most recent."
+                       ($XDG_CACHE_HOME/adler/scans/). Returns id, schema_version, username, \
+                       started_at, total/found/not_found/uncertain counts. Filter by username \
+                       if given. Defaults to the 20 most recent."
     )]
     pub async fn get_scan_history(
         &self,
@@ -846,6 +846,7 @@ mod tests {
                 .collect();
             let scan = serde_json::json!({
                 "id": id,
+                "schema_version": 1,
                 "username": name,
                 "started_at": started,
                 "outcomes": outcomes_json,
@@ -860,6 +861,7 @@ mod tests {
         assert_eq!(rows.len(), 2);
         let alice = rows.iter().find(|r| r.username == "alice").unwrap();
         assert_eq!(alice.id, "a1");
+        assert_eq!(alice.schema_version, Some(1));
         assert_eq!(alice.total, 5);
         assert_eq!(alice.found, 3);
         assert_eq!(alice.not_found, 2);
