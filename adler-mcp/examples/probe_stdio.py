@@ -144,9 +144,9 @@ def main() -> int:
         tool_names = sorted(t["name"] for t in resp["result"]["tools"])
         expected = sorted([
             "list_sites", "scan_username", "scan_batch",
-            "doctor_check", "get_scan_history",
+            "doctor_check", "get_scan_history", "diff_scans",
         ])
-        ok("tools/list returns all 5", tool_names == expected, f"got {tool_names}")
+        ok("tools/list returns all 6", tool_names == expected, f"got {tool_names}")
 
         resp = call("tools/call", {"name": "list_sites", "arguments": {"tag": ["coding"]}})
         sc = resp["result"]["structuredContent"]
@@ -225,6 +225,10 @@ def main() -> int:
         ok(
             "resources/templates/list returns scans/{id}",
             any(t["uriTemplate"] == "adler://scans/{id}" for t in templates),
+        )
+        ok(
+            "resources/templates/list returns scan diff",
+            any(t["uriTemplate"] == "adler://scans/{from}/diff/{to}" for t in templates),
         )
 
         for uri in [

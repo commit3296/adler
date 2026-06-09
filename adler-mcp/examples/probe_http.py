@@ -189,9 +189,9 @@ def main() -> int:
         names = sorted(t["name"] for t in result.get("tools", []))
         expected = sorted([
             "list_sites", "scan_username", "scan_batch",
-            "doctor_check", "get_scan_history",
+            "doctor_check", "get_scan_history", "diff_scans",
         ])
-        ok("tools/list returns all 5", names == expected, f"got {names}")
+        ok("tools/list returns all 6", names == expected, f"got {names}")
 
         resp = call("tools/call", {"name": "list_sites", "arguments": {"tag": ["coding"]}})
         body = parse_sse_response(resp, want_id=resp.req_id)  # type: ignore[attr-defined]
@@ -286,6 +286,10 @@ def main() -> int:
         ok(
             "resources/templates/list returns scans/{id}",
             any(t["uriTemplate"] == "adler://scans/{id}" for t in templates),
+        )
+        ok(
+            "resources/templates/list returns scan diff",
+            any(t["uriTemplate"] == "adler://scans/{from}/diff/{to}" for t in templates),
         )
 
         for uri in [

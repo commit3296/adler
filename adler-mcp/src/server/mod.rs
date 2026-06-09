@@ -16,8 +16,9 @@ use prompts::{PROMPT_SPECS, render_prompt};
 use resources::{JSON_MIME, ResourceError, STATIC_RESOURCES, json_resource_contents};
 use tools::{
     BatchScanOutput, DisabledSiteEntry, DoctorCheckArgs, DoctorCheckOutput, ListSitesArgs,
-    ListSitesOutput, OutcomeRow, ScanBatchArgs, ScanFilter, ScanHistoryArgs, ScanHistoryOutput,
-    ScanOutput, ScanSummary, ScanUsernameArgs, SiteEntry, read_scan_history,
+    ListSitesOutput, OutcomeRow, ScanBatchArgs, ScanDiffArgs, ScanDiffError, ScanDiffOutput,
+    ScanFilter, ScanHistoryArgs, ScanHistoryOutput, ScanOutput, ScanSummary, ScanUsernameArgs,
+    SiteEntry, read_scan_diff, read_scan_history,
 };
 
 use std::num::NonZeroUsize;
@@ -435,6 +436,27 @@ impl AdlerMcp {
             scans: entries,
         }))
     }
+
+    /// Compare two persisted scans written by `adler --web`.
+    #[tool(
+        name = "diff_scans",
+        description = "Compare two finished persisted scans by id. Returns added_found, \
+                       removed_found, verdict_changes, and evidence_changes. Use \
+                       get_scan_history first to discover ids; reads from the same \
+                       $XDG_CACHE_HOME/adler/scans/ history directory."
+    )]
+    pub async fn diff_scans(
+        &self,
+        Parameters(args): Parameters<ScanDiffArgs>,
+    ) -> Result<Json<ScanDiffOutput>, rmcp::ErrorData> {
+        let diff = read_scan_diff(
+            self.scans_dir.as_ref(),
+            &args.from_scan_id,
+            &args.to_scan_id,
+        )
+        .map_err(scan_diff_error)?;
+        Ok(Json(diff))
+    }
 }
 
 impl AdlerMcp {
@@ -559,6 +581,20 @@ fn disabled_site_entry(s: adler_core::Site) -> DisabledSiteEntry {
     }
 }
 
+fn scan_diff_error(err: ScanDiffError) -> rmcp::ErrorData {
+    match err {
+        ScanDiffError::InvalidId(id) => {
+            rmcp::ErrorData::invalid_params(format!("invalid scan id {id:?}"), None)
+        }
+        ScanDiffError::NotFound(id) => {
+            rmcp::ErrorData::invalid_params(format!("scan {id:?} not found"), None)
+        }
+        ScanDiffError::Io { .. } | ScanDiffError::Json { .. } => {
+            internal_error_chain("reading scan diff", &err)
+        }
+    }
+}
+
 #[tool_handler]
 impl ServerHandler for AdlerMcp {
     fn get_info(&self) -> InitializeResult {
@@ -650,7 +686,7 @@ impl ServerHandler for AdlerMcp {
         _req: Option<PaginatedRequestParams>,
         _ctx: RequestContext<RoleServer>,
     ) -> Result<ListResourceTemplatesResult, rmcp::ErrorData> {
-        let template = Annotated::new(
+        let scan_by_id = Annotated::new(
             RawResourceTemplate::new("adler://scans/{id}", "scan_by_id")
                 .with_description(
                     "Read one persisted scan by id (filename stem). Returns the full \
@@ -661,8 +697,18 @@ impl ServerHandler for AdlerMcp {
                 .with_mime_type(JSON_MIME.to_owned()),
             None,
         );
+        let scan_diff = Annotated::new(
+            RawResourceTemplate::new("adler://scans/{from}/diff/{to}", "scan_diff")
+                .with_description(
+                    "Compare two persisted scan ids. Returns added_found, removed_found, \
+                     verdict_changes, and evidence_changes from the scan history directory."
+                        .to_owned(),
+                )
+                .with_mime_type(JSON_MIME.to_owned()),
+            None,
+        );
         Ok(ListResourceTemplatesResult {
-            resource_templates: vec![template],
+            resource_templates: vec![scan_by_id, scan_diff],
             ..Default::default()
         })
     }
@@ -682,6 +728,7 @@ impl ServerHandler for AdlerMcp {
             ResourceError::Json(err) => {
                 internal_error_chain(&format!("serialising resource {:?}", req.uri), &err)
             }
+            ResourceError::Diff(err) => scan_diff_error(err),
         })?;
         let contents = json_resource_contents(payload, &req.uri);
         Ok(ReadResourceResult::new(vec![contents]))
@@ -694,11 +741,13 @@ const ADLER_MCP_INSTRUCTIONS: &str = concat!(
     "Tools: `list_sites` (browse the registry by tag), `scan_username` (single-",
     "username scan with streaming progress notifications), `scan_batch` (sequential ",
     "multi-username scan), `doctor_check` (health probe for one named site), ",
-    "`get_scan_history` (recent persisted scans from the web server's history dir).\n\n",
+    "`get_scan_history` (recent persisted scans from the web server's history dir), ",
+    "`diff_scans` (compare two persisted scan ids).\n\n",
     "Resources: `adler://registry/sites` (full enabled registry), ",
     "`adler://registry/tags` (tags with site counts), `adler://registry/disabled` ",
     "(disabled entries + reasons — audit surface), `adler://scans/recent` (recent ",
-    "history), `adler://scans/{id}` (one scan by id).\n\n",
+    "history), `adler://scans/{id}` (one scan by id), ",
+    "`adler://scans/{from}/diff/{to}` (scan-to-scan diff).\n\n",
     "Prompts: `investigate_username` (full OSINT walk for one username), ",
     "`audit_registry_health` (doctor + dedup + disabled audit), `correlate_accounts` ",
     "(scan a list and look for shared profile signal).\n\n",
@@ -872,6 +921,69 @@ mod tests {
         assert_eq!(bob_only[0].username, "bob");
     }
 
+    #[tokio::test]
+    async fn diff_scans_tool_reads_persisted_scans() {
+        let tmp = tempfile::tempdir().unwrap();
+        write_scan(
+            tmp.path(),
+            "old",
+            &[
+                mock_outcome("GitHub", MatchKind::Found),
+                mock_outcome("Reddit", MatchKind::Found),
+                mock_outcome("Mastodon", MatchKind::NotFound),
+            ],
+        );
+        write_scan(
+            tmp.path(),
+            "new",
+            &[
+                mock_outcome("GitHub", MatchKind::Found),
+                mock_outcome("Reddit", MatchKind::NotFound),
+                mock_outcome("Mastodon", MatchKind::Found),
+            ],
+        );
+        let registry = Arc::new(Registry::default_embedded().unwrap());
+        let client = Arc::new(default_client().unwrap());
+        let server = AdlerMcp::with_components(registry, client, tmp.path().to_path_buf());
+
+        let Json(diff) = server
+            .diff_scans(Parameters(ScanDiffArgs {
+                from_scan_id: "old".to_owned(),
+                to_scan_id: "new".to_owned(),
+            }))
+            .await
+            .unwrap();
+
+        assert_eq!(diff.from_scan_id, "old");
+        assert_eq!(diff.to_scan_id, "new");
+        assert_eq!(diff.added_found[0].site, "Mastodon");
+        assert_eq!(diff.removed_found[0].site, "Reddit");
+        assert_eq!(diff.verdict_changes.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn diff_scans_tool_rejects_path_traversal_ids() {
+        let tmp = tempfile::tempdir().unwrap();
+        let registry = Arc::new(Registry::default_embedded().unwrap());
+        let client = Arc::new(default_client().unwrap());
+        let server = AdlerMcp::with_components(registry, client, tmp.path().to_path_buf());
+
+        let result = server
+            .diff_scans(Parameters(ScanDiffArgs {
+                from_scan_id: "../old".to_owned(),
+                to_scan_id: "new".to_owned(),
+            }))
+            .await;
+        let Err(err) = result else {
+            panic!("expected invalid scan id");
+        };
+
+        assert!(
+            err.message.contains("invalid scan id"),
+            "expected invalid id error, got {err:?}",
+        );
+    }
+
     #[test]
     fn scan_summary_counts_each_kind() {
         let outcomes = vec![
@@ -902,6 +1014,19 @@ mod tests {
             transport: None,
             escalations: 0,
         }
+    }
+
+    fn write_scan(path: &std::path::Path, scan_id: &str, outcomes: &[CheckOutcome]) {
+        let scan = serde_json::json!({
+            "scan_id": scan_id,
+            "username": "alice",
+            "outcomes": outcomes,
+        });
+        std::fs::write(
+            path.join(format!("{scan_id}.json")),
+            serde_json::to_string(&scan).unwrap(),
+        )
+        .unwrap();
     }
 
     #[test]
@@ -990,6 +1115,48 @@ mod tests {
                 "evil id {evil:?} should yield Unknown, not Io",
             );
         }
+    }
+
+    #[test]
+    fn scan_diff_resource_reads_persisted_files() {
+        let tmp = tempfile::tempdir().unwrap();
+        write_scan(
+            tmp.path(),
+            "old",
+            &[mock_outcome("Mastodon", MatchKind::NotFound)],
+        );
+        write_scan(
+            tmp.path(),
+            "new",
+            &[mock_outcome("Mastodon", MatchKind::Found)],
+        );
+        let registry = Arc::new(Registry::default_embedded().unwrap());
+        let client = Arc::new(default_client().unwrap());
+        let server = AdlerMcp::with_components(registry, client, tmp.path().to_path_buf());
+
+        let payload = server
+            .render_resource("adler://scans/old/diff/new")
+            .unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&payload).unwrap();
+        assert_eq!(parsed["from_scan_id"], "old");
+        assert_eq!(parsed["to_scan_id"], "new");
+        assert_eq!(parsed["added_found"][0]["site"], "Mastodon");
+    }
+
+    #[test]
+    fn scan_diff_resource_rejects_path_traversal_ids() {
+        let tmp = tempfile::tempdir().unwrap();
+        let registry = Arc::new(Registry::default_embedded().unwrap());
+        let client = Arc::new(default_client().unwrap());
+        let server = AdlerMcp::with_components(registry, client, tmp.path().to_path_buf());
+
+        let err = server
+            .render_resource("adler://scans/../old/diff/new")
+            .unwrap_err();
+        assert!(matches!(
+            err,
+            ResourceError::Diff(ScanDiffError::InvalidId(_))
+        ));
     }
 
     #[test]

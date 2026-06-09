@@ -43,11 +43,12 @@ Adler is a 4-crate Rust workspace on `main` at v0.12.1:
   selection; read-only access engine view + transport telemetry.
 - **`adler-mcp`** — Model Context Protocol server on `rmcp 1.7`.
   Two transports (stdio for Claude Desktop / Cursor / local agents;
-  Streamable HTTP+SSE for remote agents). Five tools (`list_sites`,
+  Streamable HTTP+SSE for remote agents). Six tools (`list_sites`,
   `scan_username` with streaming progress, `scan_batch`,
-  `doctor_check`, `get_scan_history`), five resources (`adler://
+  `doctor_check`, `get_scan_history`, `diff_scans`), six resources (`adler://
   registry/{sites,tags,disabled}`, `adler://scans/recent`,
-  `adler://scans/{id}` template), three prompts (`investigate_username`,
+  `adler://scans/{id}` / `adler://scans/{from}/diff/{to}` templates),
+  three prompts (`investigate_username`,
   `audit_registry_health`, `correlate_accounts`).
 
 The **Access engine initiative** (6 phases: `Fetcher` seam, impersonate

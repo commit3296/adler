@@ -10,7 +10,7 @@
 
 use rmcp::model::ResourceContents;
 
-use super::{AdlerMcp, RECENT_SCANS_LIMIT, SiteEntry, read_scan_history};
+use super::{AdlerMcp, RECENT_SCANS_LIMIT, SiteEntry, read_scan_diff, read_scan_history};
 
 /// MIME type stamped onto every resource Adler exposes — list,
 /// templates, and read all return `application/json`.
@@ -68,6 +68,7 @@ pub(super) enum ResourceError {
     Unknown,
     Io(std::io::Error),
     Json(serde_json::Error),
+    Diff(super::ScanDiffError),
 }
 
 impl AdlerMcp {
@@ -79,9 +80,17 @@ impl AdlerMcp {
             "adler://registry/tags" => self.render_registry_tags(),
             "adler://registry/disabled" => self.render_registry_disabled(),
             "adler://scans/recent" => self.render_scans_recent(),
-            other => other
-                .strip_prefix("adler://scans/")
-                .map_or(Err(ResourceError::Unknown), |id| self.render_scan_by_id(id)),
+            other => {
+                other
+                    .strip_prefix("adler://scans/")
+                    .map_or(Err(ResourceError::Unknown), |tail| {
+                        if let Some((from, to)) = tail.split_once("/diff/") {
+                            self.render_scan_diff(from, to)
+                        } else {
+                            self.render_scan_by_id(tail)
+                        }
+                    })
+            }
         }
     }
 
@@ -172,5 +181,11 @@ impl AdlerMcp {
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Err(ResourceError::Unknown),
             Err(e) => Err(ResourceError::Io(e)),
         }
+    }
+
+    fn render_scan_diff(&self, from: &str, to: &str) -> Result<String, ResourceError> {
+        let diff =
+            read_scan_diff(self.scans_dir.as_ref(), from, to).map_err(ResourceError::Diff)?;
+        serde_json::to_string_pretty(&diff).map_err(ResourceError::Json)
     }
 }

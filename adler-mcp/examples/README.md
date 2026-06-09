@@ -45,7 +45,7 @@ with `ADLER_MCP_PORT=…`.
   [PASS] capability advertised: prompts
 …
 == tools ==
-  [PASS] tools/list returns all 5
+  [PASS] tools/list returns all 6
   [PASS] tools/call list_sites(tag=coding)  32 sites, first 3: ['accounts.eclipse.org', 'BitBucket', 'codeberg.org']
   [PASS] tools/call scan_username(torvalds, top=2, tag=coding)  probed=2, found=1, sites=['GitHub', 'GitLab']
 …

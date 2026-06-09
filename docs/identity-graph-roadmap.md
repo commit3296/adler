@@ -142,6 +142,7 @@ that already exists.
 - [x] Add a deterministic scan-to-scan diff model for added, removed,
   verdict-changed, and evidence-changed results.
 - [x] Expose scan-to-scan diffs through the Web API.
+- [x] Expose scan-to-scan diffs through MCP tools and resources.
 - [ ] Add watchlist configuration for usernames, aliases, and optional
   site/tag scopes.
 - [ ] Support scheduled or repeated scans without coupling scheduling to
