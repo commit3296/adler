@@ -12,7 +12,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
-use adler_core::{CheckOutcome, MatchKind};
+use adler_core::{CheckOutcome, MatchKind, Username};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -335,6 +335,75 @@ pub struct ScanDiffOutput {
     pub evidence_changes: Vec<EvidenceChangeRow>,
 }
 
+/// Per-site lifecycle state inside a persisted scan timeline.
+#[derive(Debug, Serialize, JsonSchema)]
+pub(super) struct TimelineProfileRow {
+    /// Site name.
+    pub site: String,
+    /// Last known profile URL for the site.
+    pub url: String,
+    /// First scan timestamp where the profile was Found.
+    pub first_seen_ms: u64,
+    /// Most recent scan timestamp where the profile was Found.
+    pub last_seen_ms: u64,
+    /// Whether the profile is Found in the newest scan that mentioned it.
+    pub present_in_latest: bool,
+    /// Last verdict observed for this site.
+    pub last_verdict: Option<String>,
+}
+
+/// Timeline event category.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub(super) enum TimelineEventKind {
+    /// Site was Found for the first time in the supplied scan sequence.
+    FirstSeen,
+    /// Site was Found before, then no longer Found.
+    Disappeared,
+    /// Site was absent/not found after a previous hit, then Found again.
+    Reappeared,
+    /// Site stayed Found but profile/enrichment evidence changed.
+    EvidenceChanged,
+}
+
+/// One lifecycle event for a profile across scans.
+#[derive(Debug, Serialize, JsonSchema)]
+pub(super) struct TimelineEventRow {
+    /// Scan id where the event was observed.
+    pub scan_id: String,
+    /// Scan start timestamp.
+    pub at_ms: u64,
+    /// Site name.
+    pub site: String,
+    /// Best URL known for the site at this point in the timeline.
+    pub url: String,
+    /// Event category.
+    pub kind: TimelineEventKind,
+    /// Previous verdict, when known.
+    pub before: Option<String>,
+    /// Current verdict, when this scan mentioned the site.
+    pub after: Option<String>,
+    /// Changed enrichment/profile fields for `evidence_changed` events.
+    pub changed_fields: Vec<String>,
+}
+
+/// Envelope for an MCP scan timeline resource.
+#[derive(Debug, Serialize, JsonSchema)]
+pub(super) struct ScanTimelineOutput {
+    /// Username whose persisted scans were included.
+    pub username: String,
+    /// Number of persisted scans considered.
+    pub scan_count: usize,
+    /// Oldest scan timestamp.
+    pub from_ms: Option<u64>,
+    /// Newest scan timestamp.
+    pub to_ms: Option<u64>,
+    /// Per-site lifecycle summary.
+    pub profiles: Vec<TimelineProfileRow>,
+    /// Chronological lifecycle events.
+    pub events: Vec<TimelineEventRow>,
+}
+
 #[derive(Debug, thiserror::Error)]
 pub(super) enum ScanDiffError {
     #[error("invalid scan id {0:?}")]
@@ -355,12 +424,40 @@ pub(super) enum ScanDiffError {
     },
 }
 
+#[derive(Debug, thiserror::Error)]
+pub(super) enum ScanTimelineError {
+    #[error("invalid username {username:?}: {reason}")]
+    InvalidUsername { username: String, reason: String },
+    #[error("reading scan history: {0}")]
+    Io(#[from] std::io::Error),
+    #[error("parsing scan {id:?}: {source}")]
+    Json {
+        id: String,
+        #[source]
+        source: serde_json::Error,
+    },
+}
+
 #[derive(Debug, Deserialize)]
 struct PersistedScanForDiff {
     #[serde(default)]
     scan_id: Option<String>,
     #[serde(default)]
     id: Option<String>,
+    #[serde(default)]
+    outcomes: Vec<CheckOutcome>,
+}
+
+#[derive(Debug, Deserialize)]
+struct PersistedScanForTimeline {
+    #[serde(default)]
+    scan_id: Option<String>,
+    #[serde(default)]
+    id: Option<String>,
+    #[serde(default)]
+    username: String,
+    #[serde(default)]
+    created_at_ms: u64,
     #[serde(default)]
     outcomes: Vec<CheckOutcome>,
 }
@@ -452,6 +549,282 @@ pub(super) fn read_scan_diff(
     let previous = read_scan_for_diff(scans_dir, from_scan_id)?;
     let current = read_scan_for_diff(scans_dir, to_scan_id)?;
     Ok(diff_persisted_scans(&previous, &current))
+}
+
+/// Read persisted scans for one username and return a timeline summary.
+pub(super) fn read_scan_timeline(
+    scans_dir: &Path,
+    username: &str,
+) -> Result<ScanTimelineOutput, ScanTimelineError> {
+    let username =
+        Username::new(username.to_owned()).map_err(|err| ScanTimelineError::InvalidUsername {
+            username: username.to_owned(),
+            reason: err.to_string(),
+        })?;
+    let mut scans = read_timeline_scans(scans_dir, username.as_str())?;
+    scans.sort_by(|left, right| {
+        left.created_at_ms
+            .cmp(&right.created_at_ms)
+            .then_with(|| timeline_scan_id(left).cmp(&timeline_scan_id(right)))
+    });
+    Ok(build_timeline(username.as_str(), &scans))
+}
+
+fn read_timeline_scans(
+    scans_dir: &Path,
+    username: &str,
+) -> Result<Vec<PersistedScanForTimeline>, ScanTimelineError> {
+    let mut scans = Vec::new();
+    let entries = match std::fs::read_dir(scans_dir) {
+        Ok(entries) => entries,
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(scans),
+        Err(err) => return Err(ScanTimelineError::Io(err)),
+    };
+    for entry in entries {
+        let entry = entry?;
+        let path = entry.path();
+        if path.extension().and_then(|s| s.to_str()) != Some("json") {
+            continue;
+        }
+        let id = path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("")
+            .to_owned();
+        let raw = std::fs::read_to_string(&path)?;
+        let mut scan: PersistedScanForTimeline =
+            serde_json::from_str(&raw).map_err(|source| ScanTimelineError::Json {
+                id: id.clone(),
+                source,
+            })?;
+        if scan.username != username {
+            continue;
+        }
+        if scan.scan_id.is_none() && scan.id.is_none() {
+            scan.scan_id = Some(id);
+        }
+        scans.push(scan);
+    }
+    Ok(scans)
+}
+
+fn build_timeline(username: &str, scans: &[PersistedScanForTimeline]) -> ScanTimelineOutput {
+    let mut states: BTreeMap<String, TimelineProfileState> = BTreeMap::new();
+    let mut events = Vec::new();
+
+    for scan in scans {
+        let current_by_site = outcomes_by_site(&scan.outcomes);
+        let mut sites: Vec<String> = states.keys().cloned().collect();
+        for site in current_by_site.keys() {
+            if !states.contains_key(site.as_str()) {
+                sites.push((*site).clone());
+            }
+        }
+        sites.sort();
+        sites.dedup();
+
+        for site in sites {
+            let current = current_by_site.get(&site).copied();
+            apply_timeline_site(scan, &site, current, &mut states, &mut events);
+        }
+    }
+
+    let profiles = states
+        .into_iter()
+        .map(|(site, state)| TimelineProfileRow {
+            site,
+            url: state.url,
+            first_seen_ms: state.first_seen_ms,
+            last_seen_ms: state.last_seen_ms,
+            present_in_latest: state.present_in_latest,
+            last_verdict: state.last_verdict.map(match_kind_name),
+        })
+        .collect();
+
+    ScanTimelineOutput {
+        username: username.to_owned(),
+        scan_count: scans.len(),
+        from_ms: scans.first().map(|scan| scan.created_at_ms),
+        to_ms: scans.last().map(|scan| scan.created_at_ms),
+        profiles,
+        events,
+    }
+}
+
+fn apply_timeline_site(
+    scan: &PersistedScanForTimeline,
+    site: &str,
+    current: Option<&CheckOutcome>,
+    states: &mut BTreeMap<String, TimelineProfileState>,
+    events: &mut Vec<TimelineEventRow>,
+) {
+    let current_kind = current.map(|outcome| outcome.kind);
+    let had_state = states.contains_key(site);
+    let was_present = states
+        .get(site)
+        .is_some_and(|state| state.present_in_latest);
+
+    if current_kind == Some(MatchKind::Found) {
+        let outcome = current.expect("found outcome exists");
+        let state = states
+            .entry(site.to_owned())
+            .or_insert_with(|| TimelineProfileState::new(outcome, scan.created_at_ms));
+        if !had_state {
+            events.push(timeline_event(
+                scan,
+                site,
+                &outcome.url,
+                TimelineEventKind::FirstSeen,
+                None,
+                current_kind,
+                Vec::new(),
+            ));
+        } else if !was_present {
+            events.push(timeline_event(
+                scan,
+                site,
+                &outcome.url,
+                TimelineEventKind::Reappeared,
+                state.last_verdict,
+                current_kind,
+                Vec::new(),
+            ));
+        } else if state.profile_evidence_changed(outcome) {
+            events.push(timeline_event(
+                scan,
+                site,
+                &outcome.url,
+                TimelineEventKind::EvidenceChanged,
+                Some(MatchKind::Found),
+                current_kind,
+                changed_fields_for_state(state, outcome),
+            ));
+        }
+        states
+            .get_mut(site)
+            .expect("state inserted before found update")
+            .update_found(outcome, scan.created_at_ms);
+    } else if was_present {
+        let state = states
+            .get_mut(site)
+            .expect("present state exists before disappearance");
+        let url = current.map_or_else(|| state.url.clone(), |outcome| outcome.url.clone());
+        events.push(timeline_event(
+            scan,
+            site,
+            &url,
+            TimelineEventKind::Disappeared,
+            state.last_verdict,
+            current_kind,
+            Vec::new(),
+        ));
+        state.present_in_latest = false;
+        state.last_verdict = current_kind;
+        if let Some(outcome) = current {
+            state.url.clone_from(&outcome.url);
+        }
+    } else if let (Some(state), Some(outcome)) = (states.get_mut(site), current) {
+        state.last_verdict = Some(outcome.kind);
+        state.url.clone_from(&outcome.url);
+    }
+}
+
+fn timeline_event(
+    scan: &PersistedScanForTimeline,
+    site: &str,
+    url: &str,
+    kind: TimelineEventKind,
+    before: Option<MatchKind>,
+    after: Option<MatchKind>,
+    changed_fields: Vec<String>,
+) -> TimelineEventRow {
+    TimelineEventRow {
+        scan_id: timeline_scan_id(scan),
+        at_ms: scan.created_at_ms,
+        site: site.to_owned(),
+        url: url.to_owned(),
+        kind,
+        before: before.map(match_kind_name),
+        after: after.map(match_kind_name),
+        changed_fields,
+    }
+}
+
+fn timeline_scan_id(scan: &PersistedScanForTimeline) -> String {
+    scan.scan_id
+        .as_ref()
+        .or(scan.id.as_ref())
+        .cloned()
+        .unwrap_or_default()
+}
+
+fn match_kind_name(kind: MatchKind) -> String {
+    format!("{kind:?}")
+}
+
+#[derive(Debug, Clone)]
+struct TimelineProfileState {
+    url: String,
+    first_seen_ms: u64,
+    last_seen_ms: u64,
+    present_in_latest: bool,
+    last_verdict: Option<MatchKind>,
+    last_found_enrichment: BTreeMap<String, String>,
+    last_found_profile_evidence: Vec<adler_core::ProfileEvidence>,
+}
+
+impl TimelineProfileState {
+    fn new(outcome: &CheckOutcome, at_ms: u64) -> Self {
+        Self {
+            url: outcome.url.clone(),
+            first_seen_ms: at_ms,
+            last_seen_ms: at_ms,
+            present_in_latest: true,
+            last_verdict: Some(outcome.kind),
+            last_found_enrichment: outcome.enrichment.clone(),
+            last_found_profile_evidence: outcome.profile_evidence.clone(),
+        }
+    }
+
+    fn update_found(&mut self, outcome: &CheckOutcome, at_ms: u64) {
+        self.url.clone_from(&outcome.url);
+        self.last_seen_ms = at_ms;
+        self.present_in_latest = true;
+        self.last_verdict = Some(outcome.kind);
+        self.last_found_enrichment = outcome.enrichment.clone();
+        self.last_found_profile_evidence
+            .clone_from(&outcome.profile_evidence);
+    }
+
+    fn profile_evidence_changed(&self, outcome: &CheckOutcome) -> bool {
+        self.last_found_enrichment != outcome.enrichment
+            || self.last_found_profile_evidence != outcome.profile_evidence
+    }
+}
+
+fn changed_fields_for_state(state: &TimelineProfileState, current: &CheckOutcome) -> Vec<String> {
+    let mut fields = BTreeSet::new();
+    for key in state
+        .last_found_enrichment
+        .keys()
+        .chain(current.enrichment.keys())
+    {
+        if state.last_found_enrichment.get(key) != current.enrichment.get(key) {
+            fields.insert(key.clone());
+        }
+    }
+    for item in state
+        .last_found_profile_evidence
+        .iter()
+        .chain(current.profile_evidence.iter())
+    {
+        fields.insert(
+            item.field
+                .clone()
+                .unwrap_or_else(|| format!("{:?}", item.kind)),
+        );
+    }
+    fields.into_iter().collect()
 }
 
 fn read_scan_for_diff(

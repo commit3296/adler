@@ -10,7 +10,9 @@
 
 use rmcp::model::ResourceContents;
 
-use super::{AdlerMcp, RECENT_SCANS_LIMIT, SiteEntry, read_scan_diff, read_scan_history};
+use super::{
+    AdlerMcp, RECENT_SCANS_LIMIT, SiteEntry, read_scan_diff, read_scan_history, read_scan_timeline,
+};
 
 /// MIME type stamped onto every resource Adler exposes — list,
 /// templates, and read all return `application/json`.
@@ -69,6 +71,7 @@ pub(super) enum ResourceError {
     Io(std::io::Error),
     Json(serde_json::Error),
     Diff(super::ScanDiffError),
+    Timeline(super::ScanTimelineError),
 }
 
 impl AdlerMcp {
@@ -80,17 +83,21 @@ impl AdlerMcp {
             "adler://registry/tags" => self.render_registry_tags(),
             "adler://registry/disabled" => self.render_registry_disabled(),
             "adler://scans/recent" => self.render_scans_recent(),
-            other => {
-                other
-                    .strip_prefix("adler://scans/")
-                    .map_or(Err(ResourceError::Unknown), |tail| {
-                        if let Some((from, to)) = tail.split_once("/diff/") {
-                            self.render_scan_diff(from, to)
-                        } else {
-                            self.render_scan_by_id(tail)
-                        }
-                    })
-            }
+            other => other.strip_prefix("adler://timelines/").map_or_else(
+                || {
+                    other.strip_prefix("adler://scans/").map_or(
+                        Err(ResourceError::Unknown),
+                        |tail| {
+                            if let Some((from, to)) = tail.split_once("/diff/") {
+                                self.render_scan_diff(from, to)
+                            } else {
+                                self.render_scan_by_id(tail)
+                            }
+                        },
+                    )
+                },
+                |username| self.render_scan_timeline(username),
+            ),
         }
     }
 
@@ -187,5 +194,11 @@ impl AdlerMcp {
         let diff =
             read_scan_diff(self.scans_dir.as_ref(), from, to).map_err(ResourceError::Diff)?;
         serde_json::to_string_pretty(&diff).map_err(ResourceError::Json)
+    }
+
+    fn render_scan_timeline(&self, username: &str) -> Result<String, ResourceError> {
+        let timeline = read_scan_timeline(self.scans_dir.as_ref(), username)
+            .map_err(ResourceError::Timeline)?;
+        serde_json::to_string_pretty(&timeline).map_err(ResourceError::Json)
     }
 }
