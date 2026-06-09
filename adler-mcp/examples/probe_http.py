@@ -291,6 +291,10 @@ def main() -> int:
             "resources/templates/list returns scan diff",
             any(t["uriTemplate"] == "adler://scans/{from}/diff/{to}" for t in templates),
         )
+        ok(
+            "resources/templates/list returns timeline",
+            any(t["uriTemplate"] == "adler://timelines/{username}" for t in templates),
+        )
 
         for uri in [
             "adler://registry/sites",

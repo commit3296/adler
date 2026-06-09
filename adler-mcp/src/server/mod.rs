@@ -17,8 +17,8 @@ use resources::{JSON_MIME, ResourceError, STATIC_RESOURCES, json_resource_conten
 use tools::{
     BatchScanOutput, DisabledSiteEntry, DoctorCheckArgs, DoctorCheckOutput, ListSitesArgs,
     ListSitesOutput, OutcomeRow, ScanBatchArgs, ScanDiffArgs, ScanDiffError, ScanDiffOutput,
-    ScanFilter, ScanHistoryArgs, ScanHistoryOutput, ScanOutput, ScanSummary, ScanUsernameArgs,
-    SiteEntry, read_scan_diff, read_scan_history,
+    ScanFilter, ScanHistoryArgs, ScanHistoryOutput, ScanOutput, ScanSummary, ScanTimelineError,
+    ScanUsernameArgs, SiteEntry, read_scan_diff, read_scan_history, read_scan_timeline,
 };
 
 use std::num::NonZeroUsize;
@@ -595,6 +595,18 @@ fn scan_diff_error(err: ScanDiffError) -> rmcp::ErrorData {
     }
 }
 
+fn scan_timeline_error(err: ScanTimelineError) -> rmcp::ErrorData {
+    match err {
+        ScanTimelineError::InvalidUsername { username, reason } => rmcp::ErrorData::invalid_params(
+            format!("invalid timeline username {username:?}: {reason}"),
+            None,
+        ),
+        ScanTimelineError::Io(_) | ScanTimelineError::Json { .. } => {
+            internal_error_chain("reading scan timeline", &err)
+        }
+    }
+}
+
 #[tool_handler]
 impl ServerHandler for AdlerMcp {
     fn get_info(&self) -> InitializeResult {
@@ -707,8 +719,19 @@ impl ServerHandler for AdlerMcp {
                 .with_mime_type(JSON_MIME.to_owned()),
             None,
         );
+        let scan_timeline = Annotated::new(
+            RawResourceTemplate::new("adler://timelines/{username}", "scan_timeline")
+                .with_description(
+                    "Build a persisted scan timeline for one username. Returns profile \
+                     lifecycle summaries plus first_seen, disappeared, reappeared, and \
+                     evidence_changed events from the scan history directory."
+                        .to_owned(),
+                )
+                .with_mime_type(JSON_MIME.to_owned()),
+            None,
+        );
         Ok(ListResourceTemplatesResult {
-            resource_templates: vec![scan_by_id, scan_diff],
+            resource_templates: vec![scan_by_id, scan_diff, scan_timeline],
             ..Default::default()
         })
     }
@@ -729,6 +752,7 @@ impl ServerHandler for AdlerMcp {
                 internal_error_chain(&format!("serialising resource {:?}", req.uri), &err)
             }
             ResourceError::Diff(err) => scan_diff_error(err),
+            ResourceError::Timeline(err) => scan_timeline_error(err),
         })?;
         let contents = json_resource_contents(payload, &req.uri);
         Ok(ReadResourceResult::new(vec![contents]))
@@ -747,7 +771,9 @@ const ADLER_MCP_INSTRUCTIONS: &str = concat!(
     "`adler://registry/tags` (tags with site counts), `adler://registry/disabled` ",
     "(disabled entries + reasons — audit surface), `adler://scans/recent` (recent ",
     "history), `adler://scans/{id}` (one scan by id), ",
-    "`adler://scans/{from}/diff/{to}` (scan-to-scan diff).\n\n",
+    "`adler://scans/{from}/diff/{to}` (scan-to-scan diff), ",
+    "`adler://timelines/{username}` (persisted first-seen / disappeared / ",
+    "reappeared timeline).\n\n",
     "Prompts: `investigate_username` (full OSINT walk for one username), ",
     "`audit_registry_health` (doctor + dedup + disabled audit), `correlate_accounts` ",
     "(scan a list and look for shared profile signal).\n\n",
@@ -1029,6 +1055,27 @@ mod tests {
         .unwrap();
     }
 
+    fn write_timeline_scan(
+        path: &std::path::Path,
+        scan_id: &str,
+        username: &str,
+        created_at_ms: u64,
+        outcomes: &[CheckOutcome],
+    ) {
+        let scan = serde_json::json!({
+            "scan_id": scan_id,
+            "schema_version": 1,
+            "username": username,
+            "created_at_ms": created_at_ms,
+            "outcomes": outcomes,
+        });
+        std::fs::write(
+            path.join(format!("{scan_id}.json")),
+            serde_json::to_string(&scan).unwrap(),
+        )
+        .unwrap();
+    }
+
     #[test]
     fn server_info_advertises_resources_capability() {
         let server = AdlerMcp::new().expect("embedded registry must load");
@@ -1141,6 +1188,63 @@ mod tests {
         assert_eq!(parsed["from_scan_id"], "old");
         assert_eq!(parsed["to_scan_id"], "new");
         assert_eq!(parsed["added_found"][0]["site"], "Mastodon");
+    }
+
+    #[test]
+    fn scan_timeline_resource_reads_persisted_files() {
+        let tmp = tempfile::tempdir().unwrap();
+        write_timeline_scan(
+            tmp.path(),
+            "old",
+            "alice",
+            1_000,
+            &[mock_outcome("GitHub", MatchKind::Found)],
+        );
+        write_timeline_scan(
+            tmp.path(),
+            "new",
+            "alice",
+            2_000,
+            &[mock_outcome("GitHub", MatchKind::NotFound)],
+        );
+        write_timeline_scan(
+            tmp.path(),
+            "bob",
+            "bob",
+            3_000,
+            &[mock_outcome("GitHub", MatchKind::Found)],
+        );
+        let registry = Arc::new(Registry::default_embedded().unwrap());
+        let client = Arc::new(default_client().unwrap());
+        let server = AdlerMcp::with_components(registry, client, tmp.path().to_path_buf());
+
+        let payload = server.render_resource("adler://timelines/alice").unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&payload).unwrap();
+
+        assert_eq!(parsed["username"], "alice");
+        assert_eq!(parsed["scan_count"], 2);
+        assert_eq!(parsed["from_ms"], 1_000);
+        assert_eq!(parsed["to_ms"], 2_000);
+        assert_eq!(parsed["profiles"][0]["site"], "GitHub");
+        assert_eq!(parsed["profiles"][0]["present_in_latest"], false);
+        assert_eq!(parsed["events"][0]["kind"], "first_seen");
+        assert_eq!(parsed["events"][1]["kind"], "disappeared");
+    }
+
+    #[test]
+    fn scan_timeline_resource_rejects_invalid_username() {
+        let tmp = tempfile::tempdir().unwrap();
+        let registry = Arc::new(Registry::default_embedded().unwrap());
+        let client = Arc::new(default_client().unwrap());
+        let server = AdlerMcp::with_components(registry, client, tmp.path().to_path_buf());
+
+        let err = server
+            .render_resource("adler://timelines/bad space")
+            .unwrap_err();
+        assert!(matches!(
+            err,
+            ResourceError::Timeline(ScanTimelineError::InvalidUsername { .. })
+        ));
     }
 
     #[test]
