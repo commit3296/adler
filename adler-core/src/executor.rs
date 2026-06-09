@@ -16,6 +16,7 @@ use tokio::time::{Instant as TokioInstant, timeout_at};
 
 use crate::check::{CheckOutcome, MatchKind};
 use crate::client::Client;
+use crate::confidence::ConfidenceScore;
 use crate::site::Site;
 use crate::username::Username;
 
@@ -106,14 +107,22 @@ where
             let permit = match permits.acquire_owned().await {
                 Ok(p) => p,
                 Err(_closed) => {
+                    let reason = crate::check::UncertainReason::SchedulerClosed;
                     return CheckOutcome {
                         site: site.name.clone(),
                         url: site.url_for(&username),
                         kind: MatchKind::Uncertain,
-                        reason: Some(crate::check::UncertainReason::SchedulerClosed),
+                        reason: Some(reason.clone()),
                         elapsed_ms: 0,
                         enrichment: std::collections::BTreeMap::new(),
                         evidence: Vec::new(),
+                        profile_evidence: Vec::new(),
+                        confidence: ConfidenceScore::from_parts(
+                            MatchKind::Uncertain,
+                            Some(&reason),
+                            0,
+                            0,
+                        ),
                         transport: None,
                         escalations: 0,
                     };
@@ -124,17 +133,27 @@ where
                 None => probe.await,
                 Some(at) => match timeout_at(at, probe).await {
                     Ok(o) => o,
-                    Err(_elapsed) => CheckOutcome {
-                        site: site.name.clone(),
-                        url: site.url_for(&username),
-                        kind: MatchKind::Uncertain,
-                        reason: Some(crate::check::UncertainReason::Deadline),
-                        elapsed_ms: 0,
-                        enrichment: std::collections::BTreeMap::new(),
-                        evidence: Vec::new(),
-                        transport: None,
-                        escalations: 0,
-                    },
+                    Err(_elapsed) => {
+                        let reason = crate::check::UncertainReason::Deadline;
+                        CheckOutcome {
+                            site: site.name.clone(),
+                            url: site.url_for(&username),
+                            kind: MatchKind::Uncertain,
+                            reason: Some(reason.clone()),
+                            elapsed_ms: 0,
+                            enrichment: std::collections::BTreeMap::new(),
+                            evidence: Vec::new(),
+                            profile_evidence: Vec::new(),
+                            confidence: ConfidenceScore::from_parts(
+                                MatchKind::Uncertain,
+                                Some(&reason),
+                                0,
+                                0,
+                            ),
+                            transport: None,
+                            escalations: 0,
+                        }
+                    }
                 },
             };
             drop(permit);

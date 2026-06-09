@@ -102,7 +102,7 @@ pub(crate) async fn save(dir: &Path, scan: &PersistedScan) -> Result<()> {
 pub(crate) async fn load(dir: &Path, scan_id: &ScanId) -> Option<PersistedScan> {
     let path = dir.join(format!("{scan_id}.json"));
     let bytes = fs::read(&path).await.ok()?;
-    serde_json::from_slice(&bytes).ok()
+    serde_json::from_slice(&bytes).ok().map(refresh_confidence)
 }
 
 /// Enumerate every persisted scan, newest first. Files that fail to
@@ -124,10 +124,17 @@ pub(crate) async fn load_all(dir: &Path) -> Vec<PersistedScan> {
         let Ok(scan) = serde_json::from_slice::<PersistedScan>(&bytes) else {
             continue;
         };
-        out.push(scan);
+        out.push(refresh_confidence(scan));
     }
     out.sort_by_key(|s| std::cmp::Reverse(s.created_at_ms));
     out
+}
+
+fn refresh_confidence(mut scan: PersistedScan) -> PersistedScan {
+    for outcome in &mut scan.outcomes {
+        outcome.refresh_confidence();
+    }
+    scan
 }
 
 /// Delete scans beyond `keep_newest`. Newest-by-`created_at_ms` wins.
@@ -174,6 +181,8 @@ mod tests {
                     elapsed_ms: 120,
                     enrichment: BTreeMap::new(),
                     evidence: vec!["HTTP 200 (status_found)".into()],
+                    profile_evidence: Vec::new(),
+                    confidence: adler_core::ConfidenceScore::default(),
                     transport: None,
                     escalations: 0,
                 },
@@ -185,6 +194,8 @@ mod tests {
                     elapsed_ms: 90,
                     enrichment: BTreeMap::new(),
                     evidence: vec!["HTTP 404 (status_not_found)".into()],
+                    profile_evidence: Vec::new(),
+                    confidence: adler_core::ConfidenceScore::default(),
                     transport: None,
                     escalations: 0,
                 },

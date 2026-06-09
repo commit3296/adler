@@ -133,7 +133,9 @@ impl Cache {
         if now_unix().saturating_sub(entry.stored_at) > self.ttl.as_secs() {
             return None;
         }
-        Some(entry.outcome.clone())
+        let mut outcome = entry.outcome.clone();
+        outcome.refresh_confidence();
+        Some(outcome)
     }
 
     /// Store an outcome. `Uncertain` outcomes are ignored (not cached).
@@ -284,6 +286,8 @@ mod tests {
             elapsed_ms: 5,
             enrichment: std::collections::BTreeMap::new(),
             evidence: Vec::new(),
+            profile_evidence: Vec::new(),
+            confidence: crate::ConfidenceScore::default(),
             transport: None,
             escalations: 0,
         }

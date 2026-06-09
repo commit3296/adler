@@ -5,6 +5,9 @@ use std::fmt;
 
 use serde::{Deserialize, Serialize};
 
+use crate::confidence::ConfidenceScore;
+use crate::profile::ProfileEvidence;
+
 /// Outcome of a single site probe.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -126,6 +129,16 @@ pub struct CheckOutcome {
     /// fired). Surfaced by `--explain`; always present in JSON output.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub evidence: Vec<String>,
+    /// Normalized profile facts collected from extraction/enrichment. This is
+    /// distinct from the legacy `evidence` field above: `evidence` explains
+    /// the detection signal, while `profile_evidence` is structured product
+    /// data for confidence scoring, identity clustering, timelines, and
+    /// reports.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub profile_evidence: Vec<ProfileEvidence>,
+    /// Explainable confidence in this per-site verdict.
+    #[serde(default)]
+    pub confidence: ConfidenceScore,
     /// Which transport produced this outcome (HTTP / impersonate / browser).
     /// `None` only on outcomes from older persisted scans saved before this
     /// field existed; live scans always populate it.
@@ -138,6 +151,18 @@ pub struct CheckOutcome {
     /// systematically fails and the registry should pre-tag them.
     #[serde(default, skip_serializing_if = "is_zero_u8")]
     pub escalations: u8,
+}
+
+impl CheckOutcome {
+    /// Recompute confidence after callers attach signal or profile evidence.
+    pub fn refresh_confidence(&mut self) {
+        self.confidence = ConfidenceScore::from_parts(
+            self.kind,
+            self.reason.as_ref(),
+            self.evidence.len(),
+            self.profile_evidence.len(),
+        );
+    }
 }
 
 #[allow(clippy::trivially_copy_pass_by_ref)]
@@ -182,6 +207,8 @@ mod tests {
             elapsed_ms: 42,
             enrichment: BTreeMap::new(),
             evidence: Vec::new(),
+            profile_evidence: Vec::new(),
+            confidence: ConfidenceScore::default(),
             transport: None,
             escalations: 0,
         };
@@ -216,6 +243,8 @@ mod tests {
             elapsed_ms: 5_000,
             enrichment: BTreeMap::new(),
             evidence: Vec::new(),
+            profile_evidence: Vec::new(),
+            confidence: ConfidenceScore::default(),
             transport: None,
             escalations: 0,
         };
@@ -237,5 +266,18 @@ mod tests {
             UncertainReason::Network("boom".into()).to_string(),
             "request: boom"
         );
+    }
+
+    #[test]
+    fn old_outcome_json_defaults_confidence_and_profile_evidence() {
+        let json = r#"{
+            "site": "GitHub",
+            "url": "https://github.com/alice",
+            "kind": "found",
+            "elapsed_ms": 42
+        }"#;
+        let outcome: CheckOutcome = serde_json::from_str(json).unwrap();
+        assert!(outcome.profile_evidence.is_empty());
+        assert_eq!(outcome.confidence, ConfidenceScore::default());
     }
 }

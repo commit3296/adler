@@ -43,6 +43,8 @@ fn make_outcomes(count: usize) -> Vec<CheckOutcome> {
                 elapsed_ms: 100,
                 enrichment,
                 evidence: Vec::new(),
+                profile_evidence: Vec::new(),
+                confidence: adler_core::ConfidenceScore::default(),
                 transport: None,
                 escalations: 0,
             }

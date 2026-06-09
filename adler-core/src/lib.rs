@@ -133,6 +133,7 @@ mod ban;
 mod cache;
 mod check;
 mod client;
+mod confidence;
 mod correlate;
 pub mod doctor;
 mod enrich;
@@ -140,6 +141,7 @@ mod error;
 mod escalation;
 pub mod executor;
 mod permute;
+mod profile;
 mod registry;
 mod retry;
 mod robots;
@@ -163,12 +165,14 @@ pub use client::{
     BOT_PROTECTED_TAG, Client, ClientBuilder, DEFAULT_BROWSER_BUDGET, DEFAULT_ESCALATION_BUDGET,
     RawResponse,
 };
+pub use confidence::{ConfidenceLabel, ConfidenceReason, ConfidenceScore};
 pub use correlate::{Cluster, CorrelationReport, LINK_THRESHOLD, correlate};
 pub use doctor::{DoctorReport, ExtractSuggestion, FixSuggestion};
 pub use error::{Error, Result};
 pub use escalation::{EscalationBudget, TransportTier};
 pub use executor::ExecutorOptions;
 pub use permute::{MAX_VARIANTS, PermuteLevel, permute};
+pub use profile::{EvidenceOrigin, EvidenceSource, ProfileEvidence, ProfileEvidenceKind};
 pub use registry::{Registry, SiteFilter};
 pub use site::{
     Engine, Extractor, HttpMethod, KnownPresent, ProtectionKind, Signal, Site, UrlTemplate,

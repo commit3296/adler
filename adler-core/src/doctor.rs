@@ -430,14 +430,17 @@ fn html_title(body: &str) -> Option<String> {
 }
 
 fn dummy_outcome(site: &str, note: &str) -> CheckOutcome {
+    let reason = crate::check::UncertainReason::Other(note.to_owned());
     CheckOutcome {
         site: site.to_owned(),
         url: String::new(),
         kind: MatchKind::Uncertain,
-        reason: Some(crate::check::UncertainReason::Other(note.to_owned())),
+        reason: Some(reason.clone()),
         elapsed_ms: 0,
         enrichment: std::collections::BTreeMap::new(),
         evidence: Vec::new(),
+        profile_evidence: Vec::new(),
+        confidence: crate::ConfidenceScore::from_parts(MatchKind::Uncertain, Some(&reason), 0, 0),
         transport: None,
         escalations: 0,
     }

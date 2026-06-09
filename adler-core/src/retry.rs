@@ -79,6 +79,8 @@ mod tests {
             elapsed_ms: 0,
             enrichment: std::collections::BTreeMap::new(),
             evidence: Vec::new(),
+            profile_evidence: Vec::new(),
+            confidence: crate::ConfidenceScore::default(),
             transport: None,
             escalations: 0,
         }

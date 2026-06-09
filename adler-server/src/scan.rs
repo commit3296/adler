@@ -402,6 +402,8 @@ mod tests {
             elapsed_ms: 1,
             enrichment: std::collections::BTreeMap::new(),
             evidence: Vec::new(),
+            profile_evidence: Vec::new(),
+            confidence: adler_core::ConfidenceScore::default(),
             transport: None,
             escalations: 0,
         }

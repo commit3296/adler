@@ -255,6 +255,8 @@ mod tests {
             elapsed_ms: 1,
             enrichment,
             evidence: Vec::new(),
+            profile_evidence: Vec::new(),
+            confidence: crate::ConfidenceScore::default(),
             transport: None,
             escalations: 0,
         }

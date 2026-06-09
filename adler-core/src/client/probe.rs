@@ -435,7 +435,15 @@ impl Client {
         }
         if self.enrich && kind == MatchKind::Found && !site.extract.is_empty() {
             result.enrichment = crate::enrich::extract(&resp.body, &site.extract);
+            result.profile_evidence = result
+                .enrichment
+                .iter()
+                .map(|(field, value)| {
+                    crate::ProfileEvidence::from_enrichment(&result.site, &result.url, field, value)
+                })
+                .collect();
         }
+        result.refresh_confidence();
         result
     }
 }
