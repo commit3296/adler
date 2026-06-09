@@ -24,6 +24,9 @@ pub struct WatchlistConfig {
     /// Optional default scan scope inherited by every target.
     #[serde(default)]
     pub default_scope: WatchScope,
+    /// Optional repeated-scan policy. Runtime surfaces decide how to execute it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub schedule: Option<ScanSchedule>,
     /// Watched identities.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub targets: Vec<WatchTarget>,
@@ -34,6 +37,7 @@ impl Default for WatchlistConfig {
         Self {
             schema_version: WATCHLIST_CONFIG_SCHEMA_VERSION,
             default_scope: WatchScope::default(),
+            schedule: None,
             targets: Vec::new(),
         }
     }
@@ -46,6 +50,10 @@ impl WatchlistConfig {
     /// arrives through aliases, because a later timeline cannot safely decide
     /// which watched identity owns that scan artifact.
     pub fn validate(&self) -> Result<(), WatchlistError> {
+        if let Some(schedule) = &self.schedule {
+            schedule.validate()?;
+        }
+
         let mut seen = HashSet::new();
         for (index, target) in self.targets.iter().enumerate() {
             if target.username.trim().is_empty() {
@@ -96,6 +104,60 @@ impl WatchlistConfig {
 
 const fn default_schema_version() -> u16 {
     WATCHLIST_CONFIG_SCHEMA_VERSION
+}
+
+/// Repeated scan policy for a watchlist.
+///
+/// This type intentionally contains no timers, tasks, or async runtime hooks.
+/// A caller can persist the last started scan timestamp, ask whether a plan is
+/// due, and then launch scans using its own scheduler.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ScanSchedule {
+    /// Seconds between repeated scans. Must be greater than zero.
+    pub every_secs: u64,
+    /// Optional Unix epoch millisecond timestamp before which the plan is not
+    /// due. Omit for an immediately due first scan.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub start_at_ms: Option<u64>,
+}
+
+impl ScanSchedule {
+    /// Validate interval bounds.
+    pub fn validate(&self) -> Result<(), WatchlistError> {
+        if self.every_secs == 0 {
+            return Err(WatchlistError::InvalidSchedule {
+                reason: "every_secs must be greater than zero".to_owned(),
+            });
+        }
+        if self.every_secs > u64::MAX / 1_000 {
+            return Err(WatchlistError::InvalidSchedule {
+                reason: "every_secs is too large to convert to milliseconds".to_owned(),
+            });
+        }
+        Ok(())
+    }
+
+    /// Millisecond timestamp when the next scan is due.
+    ///
+    /// `last_started_at_ms` is the timestamp of the previous scan start for
+    /// this schedule. `None` means the first scan has not run yet.
+    #[must_use]
+    pub fn next_due_ms(&self, last_started_at_ms: Option<u64>) -> u64 {
+        let interval_ms = self.every_secs.saturating_mul(1_000);
+        let due_after_last = last_started_at_ms.map(|last| last.saturating_add(interval_ms));
+        match (due_after_last, self.start_at_ms) {
+            (Some(due), Some(start_at)) => due.max(start_at),
+            (Some(due), None) => due,
+            (None, Some(start_at)) => start_at,
+            (None, None) => 0,
+        }
+    }
+
+    /// Whether the schedule is due at `now_ms`.
+    #[must_use]
+    pub fn is_due(&self, last_started_at_ms: Option<u64>, now_ms: u64) -> bool {
+        self.next_due_ms(last_started_at_ms) <= now_ms
+    }
 }
 
 /// One watched identity.
@@ -211,6 +273,12 @@ pub enum WatchlistError {
         /// Duplicated username/alias.
         username: String,
     },
+    /// Schedule policy is invalid.
+    #[error("invalid watch schedule: {reason}")]
+    InvalidSchedule {
+        /// Human-readable validation reason.
+        reason: String,
+    },
 }
 
 fn validate_username(username: &str) -> Result<(), WatchlistError> {
@@ -253,6 +321,10 @@ mod tests {
                 top: Some(100),
                 ..WatchScope::default()
             },
+            schedule: Some(ScanSchedule {
+                every_secs: 86_400,
+                start_at_ms: Some(1_800_000_000_000),
+            }),
             targets: vec![WatchTarget {
                 username: "alice".into(),
                 aliases: vec!["alice_dev".into()],
@@ -264,9 +336,48 @@ mod tests {
         let json = serde_json::to_value(&cfg).unwrap();
         assert_eq!(json["schema_version"], WATCHLIST_CONFIG_SCHEMA_VERSION);
         assert_eq!(json["default_scope"]["tag"][0], "social");
+        assert_eq!(json["schedule"]["every_secs"], 86_400);
         assert_eq!(json["targets"][0]["username"], "alice");
         assert_eq!(json["targets"][0]["aliases"][0], "alice_dev");
         assert!(json["targets"][0].get("scope").is_some());
+    }
+
+    #[test]
+    fn schedule_is_due_immediately_without_start_or_previous_run() {
+        let schedule = ScanSchedule {
+            every_secs: 60,
+            start_at_ms: None,
+        };
+
+        assert_eq!(schedule.next_due_ms(None), 0);
+        assert!(schedule.is_due(None, 1));
+    }
+
+    #[test]
+    fn schedule_uses_start_and_last_run_for_next_due() {
+        let schedule = ScanSchedule {
+            every_secs: 60,
+            start_at_ms: Some(10_000),
+        };
+
+        assert_eq!(schedule.next_due_ms(None), 10_000);
+        assert_eq!(schedule.next_due_ms(Some(12_000)), 72_000);
+        assert!(!schedule.is_due(Some(12_000), 71_999));
+        assert!(schedule.is_due(Some(12_000), 72_000));
+    }
+
+    #[test]
+    fn validate_rejects_zero_schedule_interval() {
+        let cfg = WatchlistConfig {
+            schedule: Some(ScanSchedule {
+                every_secs: 0,
+                start_at_ms: None,
+            }),
+            ..WatchlistConfig::default()
+        };
+
+        let err = cfg.validate().unwrap_err();
+        assert!(matches!(err, WatchlistError::InvalidSchedule { .. }));
     }
 
     #[test]
