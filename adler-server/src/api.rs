@@ -5,6 +5,7 @@
 //! - `GET  /api/health`           — liveness probe (returns `{ "ok": true }`).
 //! - `GET  /api/sites`            — site catalogue available to scans.
 //! - `GET  /api/scans`            — scan history.
+//! - `GET  /api/scans/timeline/:username` — finished-scan timeline.
 //! - `GET  /api/scans/:from/diff/:to` — diff two finished scans.
 //! - `POST /api/scan`             — start a scan; returns a [`ScanId`].
 //! - `GET  /api/scan/:id`         — final aggregate (or 404 / 202 in-progress).
@@ -25,8 +26,8 @@ mod filter;
 mod handlers;
 
 use self::handlers::{
-    diff_scans, get_scan, health, list_access, list_scans, list_sites, refilter_scan, retry_site,
-    start_scan, stream_scan,
+    diff_scans, get_scan, health, list_access, list_scan_timeline, list_scans, list_sites,
+    refilter_scan, retry_site, start_scan, stream_scan,
 };
 use crate::state::AppState;
 
@@ -38,6 +39,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/sites", get(list_sites))
         .route("/api/access", get(list_access))
         .route("/api/scans", get(list_scans))
+        .route("/api/scans/timeline/{username}", get(list_scan_timeline))
         .route("/api/scans/{from}/diff/{to}", get(diff_scans))
         .route("/api/scan", post(start_scan))
         .route("/api/scan/{id}", get(get_scan))
@@ -1037,6 +1039,88 @@ mod tests {
         assert_eq!(v["added_found"][0]["site"], "Mastodon");
         assert_eq!(v["removed_found"][0]["site"], "Reddit");
         assert_eq!(v["verdict_changes"].as_array().unwrap().len(), 2);
+    }
+
+    #[tokio::test]
+    async fn scan_timeline_returns_persisted_username_history() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let previous = persisted_scan("old", 1_000, vec![outcome("GitHub", MatchKind::Found)]);
+        let current = persisted_scan("new", 2_000, vec![outcome("GitHub", MatchKind::NotFound)]);
+        let mut unrelated = persisted_scan("bob", 3_000, vec![outcome("GitHub", MatchKind::Found)]);
+        unrelated.username = "bob".into();
+        crate::persist::save(tmp.path(), &previous).await.unwrap();
+        crate::persist::save(tmp.path(), &current).await.unwrap();
+        crate::persist::save(tmp.path(), &unrelated).await.unwrap();
+
+        let client = Client::builder()
+            .timeout(Duration::from_secs(2))
+            .min_request_interval(Duration::ZERO)
+            .build()
+            .unwrap();
+        let state = AppState::new(Vec::new(), client, 16).with_scans_dir(tmp.path().to_owned());
+        let app = router(state);
+
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .uri("/api/scans/timeline/alice")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let body = to_bytes(resp.into_body(), 4096).await.unwrap();
+        let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(v["username"], "alice");
+        assert_eq!(v["scan_count"], 2);
+        assert_eq!(v["from_ms"], 1_000);
+        assert_eq!(v["to_ms"], 2_000);
+        assert_eq!(v["profiles"][0]["site"], "GitHub");
+        assert_eq!(v["profiles"][0]["present_in_latest"], false);
+        assert_eq!(v["events"][0]["kind"], "first_seen");
+        assert_eq!(v["events"][1]["kind"], "disappeared");
+    }
+
+    #[tokio::test]
+    async fn scan_timeline_rejects_invalid_username() {
+        let (app, _mock) = test_app().await;
+
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .uri("/api/scans/timeline/bad%20space")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+        let body = to_bytes(resp.into_body(), 1024).await.unwrap();
+        let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(v["error"], "invalid_username");
+    }
+
+    #[tokio::test]
+    async fn scan_timeline_returns_requested_username_when_empty() {
+        let (app, _mock) = test_app().await;
+
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .uri("/api/scans/timeline/absent")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let body = to_bytes(resp.into_body(), 1024).await.unwrap();
+        let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(v["username"], "absent");
+        assert_eq!(v["scan_count"], 0);
+        assert!(v.get("profiles").is_none());
+        assert!(v.get("events").is_none());
     }
 
     #[tokio::test]

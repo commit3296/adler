@@ -258,8 +258,9 @@ per-scan egress subset selection when a `--proxy-pool` is loaded, and
 a single/batch tab pair so you can paste a list of usernames into the
 hero and watch them queue through one at a time. The server persistence
 layer also builds timeline events for first-seen, disappeared,
-reappeared, and evidence-changed profiles; Web/MCP surfaces can expose
-that model in later slices.
+reappeared, and evidence-changed profiles through
+`/api/scans/timeline/{username}`; UI/MCP presentation can land in later
+slices.
 
 ```bash
 adler --web                          # http://127.0.0.1:8080
