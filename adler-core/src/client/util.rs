@@ -4,6 +4,7 @@
 use std::time::Instant;
 
 use crate::check::{CheckOutcome, MatchKind, UncertainReason};
+use crate::confidence::ConfidenceScore;
 
 /// Default `User-Agent` used by every Adler-built `reqwest::Client`.
 /// Carries the crate version so a target site sees a stable identity
@@ -48,6 +49,8 @@ pub(super) fn outcome(site: &str, url: String, started: Instant, kind: MatchKind
         elapsed_ms: elapsed_ms(started),
         enrichment: std::collections::BTreeMap::new(),
         evidence: Vec::new(),
+        profile_evidence: Vec::new(),
+        confidence: ConfidenceScore::from_parts(kind, None, 0, 0),
         transport: None,
         escalations: 0,
     }
@@ -61,6 +64,7 @@ pub(super) fn uncertain(
     started: Instant,
     reason: UncertainReason,
 ) -> CheckOutcome {
+    let confidence = ConfidenceScore::from_parts(MatchKind::Uncertain, Some(&reason), 0, 0);
     CheckOutcome {
         site: site.to_owned(),
         url,
@@ -69,6 +73,8 @@ pub(super) fn uncertain(
         elapsed_ms: elapsed_ms(started),
         enrichment: std::collections::BTreeMap::new(),
         evidence: Vec::new(),
+        profile_evidence: Vec::new(),
+        confidence,
         transport: None,
         escalations: 0,
     }

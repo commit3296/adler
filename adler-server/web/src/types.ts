@@ -42,6 +42,44 @@ export type MatchKind = "found" | "not_found" | "uncertain";
 /// browser. Older persisted scans may omit it.
 export type TransportTier = "http" | "impersonate" | "browser";
 
+export type ProfileEvidenceKind =
+    | "display_name"
+    | "bio"
+    | "avatar_url"
+    | "external_link"
+    | "location"
+    | "joined_date"
+    | "profile_title"
+    | "meta_description"
+    | "extracted_field";
+
+export interface ProfileEvidence {
+    kind: ProfileEvidenceKind;
+    field?: string;
+    value: string;
+    source: {
+        site: string;
+        url: string;
+        origin: "extractor";
+    };
+}
+
+export type ConfidenceLabel = "low" | "medium" | "high" | "verified";
+
+export interface ConfidenceScore {
+    score: number;
+    label: ConfidenceLabel;
+    reasons?: Array<
+        | { kind: "found_by_signal" }
+        | { kind: "not_found_by_signal" }
+        | { kind: "profile_metadata_extracted"; count: number }
+        | { kind: "signal_evidence"; count: number }
+        | { kind: "uncertain_outcome" }
+        | { kind: "session_required" }
+        | { kind: "transport_blocked" }
+    >;
+}
+
 export interface CheckOutcome {
     site: string;
     url: string;
@@ -50,6 +88,8 @@ export interface CheckOutcome {
     elapsed_ms: number;
     enrichment?: Record<string, string>;
     evidence?: string[];
+    profile_evidence?: ProfileEvidence[];
+    confidence?: ConfidenceScore;
     /// Which transport (HTTP / impersonate / browser) produced this
     /// verdict. Missing on older persisted scans.
     transport?: TransportTier;

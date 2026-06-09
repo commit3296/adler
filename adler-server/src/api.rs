@@ -969,6 +969,8 @@ mod tests {
                 elapsed_ms: 12,
                 evidence: Vec::new(),
                 enrichment: std::collections::BTreeMap::new(),
+                profile_evidence: Vec::new(),
+                confidence: adler_core::ConfidenceScore::default(),
                 transport: None,
                 escalations: 0,
             }])

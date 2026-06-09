@@ -66,26 +66,30 @@ that already exists.
 
 ## Phase 1: Evidence model
 
-- [ ] Add a normalized evidence model in `adler-core`.
-- [ ] Keep evidence collection separate from the low-level site check
+- [x] Add a normalized evidence model in `adler-core`.
+- [x] Keep evidence collection separate from the low-level site check
   path so `Client::check` does not absorb product-level logic.
-- [ ] Model evidence kinds such as:
-  username match, display name, profile title, meta description, avatar,
-  bio text, external links, location, created/joined date, and endpoint
-  source.
-- [ ] Include source metadata for each evidence item:
-  site, URL, transport/access path, extraction rule, and timestamp.
-- [ ] Add serde-compatible structs that can be reused by CLI JSON, Web
+- [x] Model normalized evidence kinds for current enrichment fields:
+  display name, profile title, meta description, avatar, bio text,
+  external links, location, created/joined date, and generic extracted
+  fields.
+- [x] Include source metadata for each evidence item:
+  site, URL, and extraction origin.
+- [ ] Extend evidence source metadata with transport/access path and
+  timestamp.
+- [ ] Add explicit username-match evidence once the detection pipeline can
+  distinguish username confirmation from generic positive site signals.
+- [x] Add serde-compatible structs that can be reused by CLI JSON, Web
   API, persisted scan history, and MCP.
-- [ ] Add focused unit tests for evidence serialization and backwards
+- [x] Add focused unit tests for evidence serialization and backwards
   compatible defaults.
 
 ## Phase 2: Confidence engine
 
-- [ ] Add a rule-based `adler-core` confidence module.
-- [ ] Produce a numeric score and a label such as
+- [x] Add a rule-based `adler-core` confidence module.
+- [x] Produce a numeric score and a label such as
   `low`, `medium`, `high`, or `verified`.
-- [ ] Return machine-readable and human-readable confidence reasons.
+- [x] Return machine-readable confidence reasons.
 - [ ] Account for positive signals:
   exact username match, strong body marker, extracted profile metadata,
   public endpoint match, authenticated endpoint match, and repeated
@@ -167,13 +171,12 @@ that already exists.
 
 ## Suggested first implementation slice
 
-- [ ] Create the `ProfileEvidence` and `ConfidenceScore` types in
+- [x] Create the `ProfileEvidence` and `ConfidenceScore` types in
   `adler-core`.
-- [ ] Populate a small evidence set from existing extract/meta rules
+- [x] Populate a small evidence set from existing extract/meta rules
   without changing detection behavior.
-- [ ] Add confidence calculation for current `Found`, `NotFound`,
-  `Uncertain`, `Disabled`, and `SessionRequired` cases.
-- [ ] Surface confidence in JSON/NDJSON first.
-- [ ] Add tests around serialization and score reasons.
+- [x] Add confidence calculation for current core outcomes:
+  `Found`, `NotFound`, `Uncertain`, including `SessionRequired`.
+- [x] Surface confidence in JSON/NDJSON first.
+- [x] Add tests around serialization and score reasons.
 - [ ] Only then add Web/MCP presentation.
-

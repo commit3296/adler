@@ -223,6 +223,8 @@ mod tests {
             elapsed_ms: 100,
             evidence: Vec::new(),
             enrichment: std::collections::BTreeMap::new(),
+            profile_evidence: Vec::new(),
+            confidence: crate::ConfidenceScore::default(),
             transport: None,
             escalations: 0,
         }
@@ -237,6 +239,8 @@ mod tests {
             elapsed_ms: 200,
             evidence: Vec::new(),
             enrichment: std::collections::BTreeMap::new(),
+            profile_evidence: Vec::new(),
+            confidence: crate::ConfidenceScore::default(),
             transport: Some(TransportTier::Browser),
             escalations: 1,
         }
