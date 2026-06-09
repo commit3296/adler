@@ -230,7 +230,11 @@ export function useScanLifecycle(
     ) {
         actions.setLoading(true);
         try {
-            const [a, b] = await Promise.all([api.scan(aId), api.scan(bId)]);
+            const [scanDiff, a, b] = await Promise.all([
+                api.scanDiff(aId, bId),
+                api.scan(aId),
+                api.scan(bId),
+            ]);
             const outA = a.status === "finished" ? a.outcomes : a.partial;
             const outB = b.status === "finished" ? b.outcomes : b.partial;
             closeStream();
@@ -238,6 +242,7 @@ export function useScanLifecycle(
             actions.setDiff({
                 a: { id: aId, username: a.username, outcomes: outA },
                 b: { id: bId, username: b.username, outcomes: outB },
+                scanDiff,
             });
             actions.setDrawer(false);
             if (!opts.fromUrl) location.hash = `#/diff/${aId}/${bId}`;

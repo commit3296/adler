@@ -4,7 +4,7 @@ import { api } from "./api";
 import { CATEGORIES, categoryForTags } from "./constants";
 import { actions, store } from "./store";
 import { displayUrl } from "./lib/format";
-import type { CheckOutcome } from "./types";
+import type { CheckOutcome, EvidenceChange, ScanDiff, VerdictChange } from "./types";
 
 import { About } from "./components/About";
 import { AccessModal } from "./components/AccessModal";
@@ -82,18 +82,29 @@ export const App: Component = () => {
     // ─────────── diff render ───────────
     const diffBreakdown = createMemo(() => {
         if (!store.diff) return null;
+        const serverDiff = store.diff.scanDiff;
         const aFound = new Map(
             store.diff.a.outcomes.filter((o) => o.kind === "found").map((o) => [o.site, o]),
         );
         const bFound = new Map(
             store.diff.b.outcomes.filter((o) => o.kind === "found").map((o) => [o.site, o]),
         );
-        const added: CheckOutcome[] = [];
-        const removed: CheckOutcome[] = [];
+        const added: CheckOutcome[] = serverDiff?.added_found ?? [];
+        const removed: CheckOutcome[] = serverDiff?.removed_found ?? [];
         const kept: CheckOutcome[] = [];
-        for (const [site, o] of bFound) (aFound.has(site) ? kept : added).push(o);
-        for (const [site, o] of aFound) if (!bFound.has(site)) removed.push(o);
-        return { added, removed, kept };
+        for (const [site, o] of bFound) if (aFound.has(site)) kept.push(o);
+        if (!serverDiff) {
+            for (const [site, o] of bFound) if (!aFound.has(site)) added.push(o);
+            for (const [site, o] of aFound) if (!bFound.has(site)) removed.push(o);
+        }
+        return {
+            added,
+            removed,
+            kept,
+            verdictChanges: serverDiff?.verdict_changes ?? [],
+            evidenceChanges: serverDiff?.evidence_changes ?? [],
+            scanDiff: serverDiff,
+        };
     });
 
     // ─────────── render ───────────
@@ -181,6 +192,9 @@ export const App: Component = () => {
                                         added={diffBreakdown()!.added}
                                         removed={diffBreakdown()!.removed}
                                         kept={diffBreakdown()!.kept}
+                                        verdictChanges={diffBreakdown()!.verdictChanges}
+                                        evidenceChanges={diffBreakdown()!.evidenceChanges}
+                                        scanDiff={diffBreakdown()!.scanDiff}
                                         a={store.diff!.a.username}
                                         b={store.diff!.b.username}
                                     />
@@ -215,10 +229,19 @@ const DiffView: Component<{
     added: CheckOutcome[];
     removed: CheckOutcome[];
     kept: CheckOutcome[];
+    verdictChanges: VerdictChange[];
+    evidenceChanges: EvidenceChange[];
+    scanDiff?: ScanDiff;
     a: string;
     b: string;
-}> = (p) => (
-    <>
+}> = (p) => {
+    const changeCount = () =>
+        p.added.length +
+        p.removed.length +
+        p.verdictChanges.length +
+        p.evidenceChanges.length;
+    return (
+        <>
         <div class="category-head">
             <span class="name">Diff</span>
             <span class="stat">
@@ -228,8 +251,17 @@ const DiffView: Component<{
             <span class="stat" style={{ color: "var(--red)" }}>
                 −{p.removed.length}
             </span>
+            <span class="stat uncertain">Δ{p.verdictChanges.length} verdict</span>
+            <span class="stat">~{p.evidenceChanges.length} evidence</span>
             <span class="stat">={p.kept.length} unchanged</span>
         </div>
+        <Show when={p.scanDiff}>
+            <div class="diff-summary">
+                <span>{p.scanDiff!.from_scan_id}</span>
+                <span class="diff-arrow">→</span>
+                <span>{p.scanDiff!.to_scan_id}</span>
+            </div>
+        </Show>
         <Show when={p.added.length > 0}>
             <div class="category-head">
                 <span class="name" style={{ color: "var(--green-text)" }}>
@@ -255,6 +287,26 @@ const DiffView: Component<{
                         <div class="meta-cell">{o.elapsed_ms}ms</div>
                     </div>
                 )}
+            </For>
+        </Show>
+        <Show when={p.verdictChanges.length > 0}>
+            <div class="category-head">
+                <span class="name" style={{ color: "var(--amber-text)" }}>
+                    VERDICT CHANGED
+                </span>
+                <span class="stat">{p.verdictChanges.length}</span>
+            </div>
+            <For each={p.verdictChanges}>
+                {(change) => <VerdictChangeRow change={change} />}
+            </For>
+        </Show>
+        <Show when={p.evidenceChanges.length > 0}>
+            <div class="category-head">
+                <span class="name">EVIDENCE CHANGED</span>
+                <span class="stat">{p.evidenceChanges.length}</span>
+            </div>
+            <For each={p.evidenceChanges}>
+                {(change) => <EvidenceChangeRow change={change} />}
             </For>
         </Show>
         <Show when={p.removed.length > 0}>
@@ -287,8 +339,57 @@ const DiffView: Component<{
                 )}
             </For>
         </Show>
-        <Show when={p.added.length === 0 && p.removed.length === 0}>
-            <div class="empty-results">No differences in found accounts</div>
+        <Show when={changeCount() === 0}>
+            <div class="empty-results">No scan differences</div>
         </Show>
     </>
+    );
+};
+
+const VerdictChangeRow: Component<{ change: VerdictChange }> = (p) => (
+    <div class="result-row diff-change-row">
+        <div class="dot" />
+        <div class="site">
+            <span class="site-name">{p.change.site}</span>
+        </div>
+        <div class="url-cell diff-change-flow">
+            <span class={`verdict-token ${p.change.before}`}>{p.change.before}</span>
+            <span class="diff-arrow">→</span>
+            <span class={`verdict-token ${p.change.after}`}>{p.change.after}</span>
+        </div>
+        <div class="meta-cell">verdict</div>
+    </div>
 );
+
+const EvidenceChangeRow: Component<{ change: EvidenceChange }> = (p) => {
+    const fieldNames = () => {
+        const names = new Set<string>();
+        for (const key of Object.keys(p.change.before_enrichment ?? {})) names.add(key);
+        for (const key of Object.keys(p.change.after_enrichment ?? {})) names.add(key);
+        for (const item of p.change.before_profile_evidence ?? [])
+            names.add(item.field ?? item.kind);
+        for (const item of p.change.after_profile_evidence ?? [])
+            names.add(item.field ?? item.kind);
+        return [...names];
+    };
+    return (
+        <div class="result-row diff-change-row">
+            <div class="dot" />
+            <div class="site">
+                <span class="site-name">{p.change.site}</span>
+            </div>
+            <div class="url-cell diff-evidence-fields">
+                <For each={fieldNames().slice(0, 4)}>
+                    {(field) => <span class="evidence-token">{field}</span>}
+                </For>
+                <Show when={fieldNames().length === 0}>
+                    <span class="evidence-token">profile</span>
+                </Show>
+                <Show when={fieldNames().length > 4}>
+                    <span class="evidence-token">+{fieldNames().length - 4}</span>
+                </Show>
+            </div>
+            <div class="meta-cell">evidence</div>
+        </div>
+    );
+};

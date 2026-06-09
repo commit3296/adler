@@ -26,6 +26,75 @@ test.beforeEach(async ({ page }) => {
         route.fulfill({ json: { egress: [], sessions: [] } }),
     );
     await page.route("/api/scans", (route) => route.fulfill({ json: [] }));
+    await page.route("/api/scans/old/diff/new", (route) =>
+        route.fulfill({
+            json: {
+                from_scan_id: "old",
+                to_scan_id: "new",
+                added_found: [
+                    {
+                        site: "Example Social",
+                        url: "https://social.example/alice",
+                        kind: "found",
+                        elapsed_ms: 31,
+                    },
+                ],
+                removed_found: [],
+                verdict_changes: [
+                    {
+                        site: "Example Social",
+                        before: "not_found",
+                        after: "found",
+                    },
+                ],
+                evidence_changes: [],
+            },
+        }),
+    );
+    await page.route("/api/scan/old", (route) =>
+        route.fulfill({
+            json: {
+                status: "finished",
+                username: "alice",
+                site_count: 2,
+                summary: { found: 1, not_found: 1, uncertain: 0 },
+                elapsed_ms: 50,
+                outcomes: [
+                    {
+                        site: "GitHub",
+                        url: "https://github.com/alice",
+                        kind: "found",
+                        elapsed_ms: 12,
+                    },
+                ],
+            },
+        }),
+    );
+    await page.route("/api/scan/new", (route) =>
+        route.fulfill({
+            json: {
+                status: "finished",
+                username: "alice",
+                site_count: 2,
+                summary: { found: 2, not_found: 0, uncertain: 0 },
+                elapsed_ms: 63,
+                outcomes: [
+                    {
+                        site: "GitHub",
+                        url: "https://github.com/alice",
+                        kind: "found",
+                        elapsed_ms: 12,
+                    },
+                    {
+                        site: "Example Social",
+                        url: "https://social.example/alice",
+                        kind: "found",
+                        elapsed_ms: 31,
+                    },
+                ],
+            },
+        }),
+    );
     await page.route("/api/scan/finished123", (route) =>
         route.fulfill({
             json: {
@@ -78,4 +147,18 @@ test("routed finished scan renders snapshot results", async ({ page }) => {
         page.getByRole("link", { name: "https://github.com/alice" }),
     ).toBeVisible();
     await expect(page.getByText("1 not_found hidden")).toBeVisible();
+});
+
+test("routed diff renders server scan diff details", async ({ page }) => {
+    await page.goto("/#/diff/old/new");
+
+    await expect(page.locator(".diff-summary").getByText("old")).toBeVisible();
+    await expect(page.locator(".diff-summary").getByText("new")).toBeVisible();
+    await expect(page.getByText("+ NEW")).toBeVisible();
+    await expect(page.getByText("VERDICT CHANGED")).toBeVisible();
+    await expect(
+        page.getByRole("main").getByText("Example Social", { exact: true }).first(),
+    ).toBeVisible();
+    await expect(page.getByText("not_found")).toBeVisible();
+    await expect(page.getByText("found").first()).toBeVisible();
 });

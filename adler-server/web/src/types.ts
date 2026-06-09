@@ -99,6 +99,29 @@ export interface CheckOutcome {
     escalations?: number;
 }
 
+export interface VerdictChange {
+    site: string;
+    before: MatchKind;
+    after: MatchKind;
+}
+
+export interface EvidenceChange {
+    site: string;
+    before_enrichment?: Record<string, string>;
+    after_enrichment?: Record<string, string>;
+    before_profile_evidence?: ProfileEvidence[];
+    after_profile_evidence?: ProfileEvidence[];
+}
+
+export interface ScanDiff {
+    from_scan_id: string;
+    to_scan_id: string;
+    added_found?: CheckOutcome[];
+    removed_found?: CheckOutcome[];
+    verdict_changes?: VerdictChange[];
+    evidence_changes?: EvidenceChange[];
+}
+
 export interface Summary {
     found: number;
     not_found: number;
