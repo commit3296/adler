@@ -139,6 +139,8 @@ that already exists.
 
 ## Phase 6: Timeline and watchlists
 
+- [x] Add a deterministic scan-to-scan diff model for added, removed,
+  verdict-changed, and evidence-changed results.
 - [ ] Add watchlist configuration for usernames, aliases, and optional
   site/tag scopes.
 - [ ] Support scheduled or repeated scans without coupling scheduling to

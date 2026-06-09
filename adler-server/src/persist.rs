@@ -10,9 +10,10 @@
 //! the final path. A crashed process leaves at most one orphan `.tmp`
 //! file behind, never a half-written `<id>.json`.
 
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-use adler_core::{CheckOutcome, Site};
+use adler_core::{CheckOutcome, MatchKind, ProfileEvidence, Site};
 use serde::{Deserialize, Serialize};
 use tokio::fs;
 
@@ -159,6 +160,136 @@ impl From<&Site> for PersistedDisabledMatch {
     }
 }
 
+/// Deterministic scan-to-scan diff used as the basis for timelines and
+/// watchlists.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ScanDiff {
+    /// Previous scan id.
+    pub from_scan_id: ScanId,
+    /// Current scan id.
+    pub to_scan_id: ScanId,
+    /// Found accounts that were not Found in the previous scan.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub added_found: Vec<CheckOutcome>,
+    /// Accounts that were Found previously but are no longer Found.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub removed_found: Vec<CheckOutcome>,
+    /// Sites present in both scans whose verdict changed.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub verdict_changes: Vec<VerdictChange>,
+    /// Found sites whose normalized profile evidence changed.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub evidence_changes: Vec<EvidenceChange>,
+}
+
+/// A verdict transition for one site.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VerdictChange {
+    /// Site name.
+    pub site: String,
+    /// Previous verdict.
+    pub before: MatchKind,
+    /// Current verdict.
+    pub after: MatchKind,
+}
+
+/// Profile evidence transition for one still-found site.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EvidenceChange {
+    /// Site name.
+    pub site: String,
+    /// Previous legacy enrichment fields.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub before_enrichment: BTreeMap<String, String>,
+    /// Current legacy enrichment fields.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub after_enrichment: BTreeMap<String, String>,
+    /// Previous normalized profile evidence.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub before_profile_evidence: Vec<ProfileEvidence>,
+    /// Current normalized profile evidence.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub after_profile_evidence: Vec<ProfileEvidence>,
+}
+
+/// Compare two persisted scans.
+///
+/// The diff is intentionally conservative: `added_found` and
+/// `removed_found` are based only on the `Found` verdict, while
+/// `evidence_changes` are reported only for sites that are Found in both
+/// scans.
+#[must_use]
+pub fn diff_scans(previous: &PersistedScan, current: &PersistedScan) -> ScanDiff {
+    let previous_by_site = outcomes_by_site(&previous.outcomes);
+    let current_by_site = outcomes_by_site(&current.outcomes);
+
+    let mut added_found = Vec::new();
+    let mut removed_found = Vec::new();
+    let mut verdict_changes = Vec::new();
+    let mut evidence_changes = Vec::new();
+
+    for (site, current_outcome) in &current_by_site {
+        let previous_outcome = previous_by_site.get(site);
+        if current_outcome.kind == MatchKind::Found
+            && previous_outcome.is_none_or(|o| o.kind != MatchKind::Found)
+        {
+            added_found.push((*current_outcome).clone());
+        }
+        if let Some(previous_outcome) = previous_outcome {
+            if previous_outcome.kind != current_outcome.kind {
+                verdict_changes.push(VerdictChange {
+                    site: site.clone(),
+                    before: previous_outcome.kind,
+                    after: current_outcome.kind,
+                });
+            }
+            if previous_outcome.kind == MatchKind::Found
+                && current_outcome.kind == MatchKind::Found
+                && profile_evidence_changed(previous_outcome, current_outcome)
+            {
+                evidence_changes.push(EvidenceChange {
+                    site: site.clone(),
+                    before_enrichment: previous_outcome.enrichment.clone(),
+                    after_enrichment: current_outcome.enrichment.clone(),
+                    before_profile_evidence: previous_outcome.profile_evidence.clone(),
+                    after_profile_evidence: current_outcome.profile_evidence.clone(),
+                });
+            }
+        }
+    }
+
+    for (site, previous_outcome) in &previous_by_site {
+        if previous_outcome.kind == MatchKind::Found
+            && current_by_site
+                .get(site)
+                .is_none_or(|o| o.kind != MatchKind::Found)
+        {
+            removed_found.push((*previous_outcome).clone());
+        }
+    }
+
+    ScanDiff {
+        from_scan_id: previous.scan_id.clone(),
+        to_scan_id: current.scan_id.clone(),
+        added_found,
+        removed_found,
+        verdict_changes,
+        evidence_changes,
+    }
+}
+
+fn outcomes_by_site(outcomes: &[CheckOutcome]) -> BTreeMap<String, &CheckOutcome> {
+    outcomes
+        .iter()
+        .map(|outcome| (outcome.site.clone(), outcome))
+        .collect()
+}
+
+fn profile_evidence_changed(previous: &CheckOutcome, current: &CheckOutcome) -> bool {
+    previous.enrichment != current.enrichment
+        || previous.profile_evidence != current.profile_evidence
+}
+
 /// Default directory for persisted scans.
 ///
 /// Mirrors [`adler_core::Cache::default_path`]'s discovery rules:
@@ -299,6 +430,22 @@ mod tests {
         }
     }
 
+    fn outcome(site: &str, kind: MatchKind) -> CheckOutcome {
+        CheckOutcome {
+            site: site.into(),
+            url: format!("https://{site}.example/alice"),
+            kind,
+            reason: None,
+            elapsed_ms: 10,
+            enrichment: BTreeMap::new(),
+            evidence: Vec::new(),
+            profile_evidence: Vec::new(),
+            confidence: adler_core::ConfidenceScore::default(),
+            transport: None,
+            escalations: 0,
+        }
+    }
+
     #[tokio::test]
     async fn save_then_load_roundtrips() {
         let tmp = TempDir::new().unwrap();
@@ -357,6 +504,100 @@ mod tests {
 
         let loaded = load(tmp.path(), &s.scan_id).await.expect("loaded");
         assert_eq!(loaded.request_context, Some(context));
+    }
+
+    #[test]
+    fn diff_scans_reports_added_removed_and_verdict_changes() {
+        let mut previous = sample("old", 1_000);
+        previous.outcomes = vec![
+            outcome("GitHub", MatchKind::Found),
+            outcome("Reddit", MatchKind::Found),
+            outcome("Mastodon", MatchKind::NotFound),
+        ];
+        let mut current = sample("new", 2_000);
+        current.outcomes = vec![
+            outcome("GitHub", MatchKind::Found),
+            outcome("Reddit", MatchKind::NotFound),
+            outcome("Mastodon", MatchKind::Found),
+        ];
+
+        let diff = diff_scans(&previous, &current);
+
+        assert_eq!(diff.from_scan_id.as_str(), "old");
+        assert_eq!(diff.to_scan_id.as_str(), "new");
+        assert_eq!(
+            diff.added_found
+                .iter()
+                .map(|outcome| outcome.site.as_str())
+                .collect::<Vec<_>>(),
+            ["Mastodon"]
+        );
+        assert_eq!(
+            diff.removed_found
+                .iter()
+                .map(|outcome| outcome.site.as_str())
+                .collect::<Vec<_>>(),
+            ["Reddit"]
+        );
+        assert_eq!(diff.verdict_changes.len(), 2);
+        assert_eq!(diff.verdict_changes[0].site, "Mastodon");
+        assert_eq!(diff.verdict_changes[0].before, MatchKind::NotFound);
+        assert_eq!(diff.verdict_changes[0].after, MatchKind::Found);
+        assert_eq!(diff.verdict_changes[1].site, "Reddit");
+        assert!(diff.evidence_changes.is_empty());
+    }
+
+    #[test]
+    fn diff_scans_reports_profile_evidence_changes_for_still_found_sites() {
+        let mut previous = sample("old", 1_000);
+        let mut old_github = outcome("GitHub", MatchKind::Found);
+        old_github.enrichment.insert("name".into(), "Alice".into());
+        old_github
+            .profile_evidence
+            .push(adler_core::ProfileEvidence::from_enrichment(
+                "GitHub",
+                "https://github.example/alice",
+                "name",
+                "Alice",
+            ));
+        previous.outcomes = vec![old_github];
+
+        let mut current = sample("new", 2_000);
+        let mut new_github = outcome("GitHub", MatchKind::Found);
+        new_github
+            .enrichment
+            .insert("name".into(), "Alice Liddell".into());
+        new_github
+            .profile_evidence
+            .push(adler_core::ProfileEvidence::from_enrichment(
+                "GitHub",
+                "https://github.example/alice",
+                "name",
+                "Alice Liddell",
+            ));
+        current.outcomes = vec![new_github];
+
+        let diff = diff_scans(&previous, &current);
+
+        assert!(diff.added_found.is_empty());
+        assert!(diff.removed_found.is_empty());
+        assert!(diff.verdict_changes.is_empty());
+        assert_eq!(diff.evidence_changes.len(), 1);
+        assert_eq!(diff.evidence_changes[0].site, "GitHub");
+        assert_eq!(
+            diff.evidence_changes[0]
+                .before_enrichment
+                .get("name")
+                .unwrap(),
+            "Alice"
+        );
+        assert_eq!(
+            diff.evidence_changes[0]
+                .after_enrichment
+                .get("name")
+                .unwrap(),
+            "Alice Liddell"
+        );
     }
 
     #[tokio::test]
