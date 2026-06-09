@@ -9,10 +9,13 @@
 //! against a malicious id that tries to traverse out of `scans_dir`.
 
 use rmcp::model::ResourceContents;
+use serde::Serialize;
+use std::path::{Path, PathBuf};
 
 use super::{
     AdlerMcp, RECENT_SCANS_LIMIT, SiteEntry, read_scan_diff, read_scan_history, read_scan_timeline,
 };
+use adler_core::{SiteFilter, WatchScope, WatchlistConfig, WatchlistError};
 
 /// MIME type stamped onto every resource Adler exposes — list,
 /// templates, and read all return `application/json`.
@@ -62,6 +65,13 @@ pub(super) const STATIC_RESOURCES: &[StaticResourceSpec] = &[
         description: "The 50 most recent persisted scans from the web server's history dir, \
                       one summary row each.",
     },
+    StaticResourceSpec {
+        uri: "adler://watchlists/default",
+        name: "watchlist_default",
+        description: "Summary of the default local watchlist config from $ADLER_WATCHLIST or \
+                      $XDG_CONFIG_HOME/adler/watchlist.{json,toml}. Returns configured=false \
+                      when no file exists.",
+    },
 ];
 
 /// Error from resource rendering.
@@ -72,6 +82,32 @@ pub(super) enum ResourceError {
     Json(serde_json::Error),
     Diff(super::ScanDiffError),
     Timeline(super::ScanTimelineError),
+    Watchlist(WatchlistResourceError),
+}
+
+/// Error while reading or validating the local watchlist resource.
+#[derive(Debug, thiserror::Error)]
+pub(super) enum WatchlistResourceError {
+    #[error("read watchlist config {path}: {source}")]
+    Io {
+        path: PathBuf,
+        source: std::io::Error,
+    },
+    #[error("parse watchlist JSON {path}: {source}")]
+    Json {
+        path: PathBuf,
+        source: serde_json::Error,
+    },
+    #[error("parse watchlist TOML {path}: {source}")]
+    Toml {
+        path: PathBuf,
+        source: toml::de::Error,
+    },
+    #[error("validate watchlist config {path}: {source}")]
+    Validation {
+        path: PathBuf,
+        source: WatchlistError,
+    },
 }
 
 impl AdlerMcp {
@@ -83,6 +119,7 @@ impl AdlerMcp {
             "adler://registry/tags" => self.render_registry_tags(),
             "adler://registry/disabled" => self.render_registry_disabled(),
             "adler://scans/recent" => self.render_scans_recent(),
+            "adler://watchlists/default" => self.render_watchlist_default(),
             other => other.strip_prefix("adler://timelines/").map_or_else(
                 || {
                     other.strip_prefix("adler://scans/").map_or(
@@ -201,4 +238,215 @@ impl AdlerMcp {
             .map_err(ResourceError::Timeline)?;
         serde_json::to_string_pretty(&timeline).map_err(ResourceError::Json)
     }
+
+    fn render_watchlist_default(&self) -> Result<String, ResourceError> {
+        let explicit_path = self
+            .watchlist_path
+            .as_ref()
+            .map(|path| path.as_ref().as_path());
+        let summary =
+            read_default_watchlist_summary(explicit_path).map_err(ResourceError::Watchlist)?;
+        serde_json::to_string_pretty(&summary).map_err(ResourceError::Json)
+    }
+}
+
+#[derive(Debug, Serialize)]
+struct WatchlistSummary {
+    configured: bool,
+    searched_paths: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    schema_version: Option<u16>,
+    target_count: usize,
+    alias_count: usize,
+    scan_target_count: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    schedule: Option<adler_core::ScanSchedule>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    default_scope: Option<WatchScope>,
+    targets: Vec<WatchTargetSummary>,
+    scan_targets: Vec<WatchScanTargetSummary>,
+}
+
+#[derive(Debug, Serialize)]
+struct WatchTargetSummary {
+    identity: String,
+    aliases: Vec<String>,
+    scan_usernames: Vec<String>,
+    scope: WatchScope,
+    effective_scope: WatchScope,
+}
+
+#[derive(Debug, Serialize)]
+struct WatchScanTargetSummary {
+    identity: String,
+    username: String,
+    scope: SiteFilterSummary,
+}
+
+#[derive(Debug, Serialize)]
+struct SiteFilterSummary {
+    only: Vec<String>,
+    exclude: Vec<String>,
+    tag: Vec<String>,
+    exclude_tag: Vec<String>,
+    include_nsfw: bool,
+    top: Option<u32>,
+}
+
+impl From<&SiteFilter> for SiteFilterSummary {
+    fn from(scope: &SiteFilter) -> Self {
+        Self {
+            only: scope.include.clone(),
+            exclude: scope.exclude.clone(),
+            tag: scope.tags.clone(),
+            exclude_tag: scope.exclude_tags.clone(),
+            include_nsfw: scope.include_nsfw,
+            top: scope.top,
+        }
+    }
+}
+
+fn read_default_watchlist_summary(
+    explicit_path: Option<&Path>,
+) -> Result<WatchlistSummary, WatchlistResourceError> {
+    let paths = watchlist_candidate_paths(explicit_path);
+    let searched_paths = paths
+        .iter()
+        .map(|path| path.display().to_string())
+        .collect::<Vec<_>>();
+
+    for path in &paths {
+        let raw = match std::fs::read_to_string(path) {
+            Ok(raw) => raw,
+            Err(source) if source.kind() == std::io::ErrorKind::NotFound => continue,
+            Err(source) => {
+                return Err(WatchlistResourceError::Io {
+                    path: path.clone(),
+                    source,
+                });
+            }
+        };
+        let config = parse_watchlist_config(path, &raw)?;
+        config
+            .validate()
+            .map_err(|source| WatchlistResourceError::Validation {
+                path: path.clone(),
+                source,
+            })?;
+        return configured_watchlist_summary(path, searched_paths, config);
+    }
+
+    Ok(WatchlistSummary {
+        configured: false,
+        searched_paths,
+        path: None,
+        schema_version: None,
+        target_count: 0,
+        alias_count: 0,
+        scan_target_count: 0,
+        schedule: None,
+        default_scope: None,
+        targets: Vec::new(),
+        scan_targets: Vec::new(),
+    })
+}
+
+fn watchlist_candidate_paths(explicit_path: Option<&Path>) -> Vec<PathBuf> {
+    if let Some(path) = explicit_path {
+        return vec![path.to_path_buf()];
+    }
+    if let Some(path) = std::env::var_os("ADLER_WATCHLIST") {
+        return vec![PathBuf::from(path)];
+    }
+
+    let mut paths = Vec::new();
+    if let Some(config_home) = std::env::var_os("XDG_CONFIG_HOME") {
+        let dir = PathBuf::from(config_home).join("adler");
+        paths.push(dir.join("watchlist.json"));
+        paths.push(dir.join("watchlist.toml"));
+    }
+    if let Some(home) = std::env::var_os("HOME") {
+        let dir = PathBuf::from(home).join(".config").join("adler");
+        paths.push(dir.join("watchlist.json"));
+        paths.push(dir.join("watchlist.toml"));
+    }
+    paths
+}
+
+fn parse_watchlist_config(
+    path: &Path,
+    raw: &str,
+) -> Result<WatchlistConfig, WatchlistResourceError> {
+    match path.extension().and_then(|ext| ext.to_str()) {
+        Some("toml") => toml::from_str(raw).map_err(|source| WatchlistResourceError::Toml {
+            path: path.to_path_buf(),
+            source,
+        }),
+        _ => serde_json::from_str(raw).map_err(|source| WatchlistResourceError::Json {
+            path: path.to_path_buf(),
+            source,
+        }),
+    }
+}
+
+fn configured_watchlist_summary(
+    path: &Path,
+    searched_paths: Vec<String>,
+    config: WatchlistConfig,
+) -> Result<WatchlistSummary, WatchlistResourceError> {
+    let scan_targets =
+        config
+            .scan_targets()
+            .map_err(|source| WatchlistResourceError::Validation {
+                path: path.to_path_buf(),
+                source,
+            })?;
+    let alias_count = config
+        .targets
+        .iter()
+        .map(|target| target.aliases.len())
+        .sum();
+    let targets = config
+        .targets
+        .iter()
+        .map(|target| {
+            let effective_scope = config.default_scope.merged(&target.scope);
+            let mut scan_usernames = Vec::with_capacity(1 + target.aliases.len());
+            scan_usernames.push(target.username.clone());
+            scan_usernames.extend(target.aliases.clone());
+            WatchTargetSummary {
+                identity: target.username.clone(),
+                aliases: target.aliases.clone(),
+                scan_usernames,
+                scope: target.scope.clone(),
+                effective_scope,
+            }
+        })
+        .collect();
+    let scan_targets = scan_targets
+        .iter()
+        .map(|target| WatchScanTargetSummary {
+            identity: target.identity.clone(),
+            username: target.username.clone(),
+            scope: SiteFilterSummary::from(&target.scope),
+        })
+        .collect::<Vec<_>>();
+    let target_count = config.targets.len();
+    let scan_target_count = scan_targets.len();
+
+    Ok(WatchlistSummary {
+        configured: true,
+        searched_paths,
+        path: Some(path.display().to_string()),
+        schema_version: Some(config.schema_version),
+        target_count,
+        alias_count,
+        scan_target_count,
+        schedule: config.schedule,
+        default_scope: Some(config.default_scope),
+        targets,
+        scan_targets,
+    })
 }
