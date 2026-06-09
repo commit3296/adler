@@ -47,6 +47,49 @@ export const ResultRow: Component<Props> = (props) => {
         }
         return `Probe ran via ${t} transport.`;
     }
+    function confidenceChip(): string | null {
+        const confidence = props.outcome.confidence;
+        if (!confidence) return null;
+        if (confidence.score === 0 && (!confidence.reasons || confidence.reasons.length === 0)) {
+            return null;
+        }
+        return `${confidence.label} ${confidence.score}%`;
+    }
+    function confidenceTitle(): string | undefined {
+        const confidence = props.outcome.confidence;
+        if (!confidence) return undefined;
+        return `Confidence: ${confidence.label} (${confidence.score}%)`;
+    }
+    function confidenceReasons(): string[] {
+        return (props.outcome.confidence?.reasons ?? []).map((reason) => {
+            switch (reason.kind) {
+                case "found_by_signal":
+                    return "found by detection signal";
+                case "not_found_by_signal":
+                    return "not found by detection signal";
+                case "profile_metadata_extracted":
+                    return `${reason.count} profile metadata field${
+                        reason.count === 1 ? "" : "s"
+                    } extracted`;
+                case "signal_evidence":
+                    return `${reason.count} signal evidence line${
+                        reason.count === 1 ? "" : "s"
+                    } recorded`;
+                case "uncertain_outcome":
+                    return "uncertain outcome";
+                case "session_required":
+                    return "operator session required";
+                case "transport_blocked":
+                    return "transport/access blocked reliable probing";
+            }
+        });
+    }
+    function profileEvidenceLines(): string[] {
+        return (props.outcome.profile_evidence ?? []).map((ev) => {
+            const field = ev.field ? ` (${ev.field})` : "";
+            return `${ev.kind}${field}: ${ev.value}`;
+        });
+    }
 
     return (
         <div
@@ -101,6 +144,14 @@ export const ResultRow: Component<Props> = (props) => {
                 </Show>
             </div>
             <div class="meta-cell">
+                <Show when={confidenceChip()}>
+                    <span
+                        class={`confidence-chip confidence-${props.outcome.confidence?.label}`}
+                        title={confidenceTitle()}
+                    >
+                        {confidenceChip()}
+                    </span>
+                </Show>
                 <Show when={transportChip()}>
                     <span
                         class={`transport-chip transport-${props.outcome.transport}`}
@@ -121,6 +172,18 @@ export const ResultRow: Component<Props> = (props) => {
             </div>
             <Show when={expanded()}>
                 <div class="evidence">
+                    <Show when={confidenceChip()}>
+                        <div>
+                            <span class="evidence-label">Confidence</span>{" "}
+                            <span class="evidence-dim">{confidenceChip()}</span>
+                            <Show when={confidenceReasons().length > 0}>
+                                <span class="evidence-dim">
+                                    {" "}
+                                    · {confidenceReasons().join(" · ")}
+                                </span>
+                            </Show>
+                        </div>
+                    </Show>
                     <Show
                         when={
                             props.outcome.evidence && props.outcome.evidence.length > 0
@@ -143,6 +206,14 @@ export const ResultRow: Component<Props> = (props) => {
                         <span class="evidence-dim">
                             {props.outcome.evidence!.map((e) => `· ${e}`).join("   ")}
                         </span>
+                    </Show>
+                    <Show when={profileEvidenceLines().length > 0}>
+                        <div>
+                            <span class="evidence-label">Profile</span>{" "}
+                            <span class="evidence-dim">
+                                {profileEvidenceLines().map((e) => `· ${e}`).join("   ")}
+                            </span>
+                        </div>
                     </Show>
                 </div>
             </Show>

@@ -524,6 +524,35 @@
         /* Chevron at the end of the result row signals "expandable
            for details" — replaces the implicit click affordance. */
         .meta-cell { display: flex; align-items: center; gap: 0.55rem; justify-content: flex-end; }
+        .confidence-chip {
+            display: inline-flex;
+            align-items: center;
+            height: 1.35rem;
+            padding: 0 0.45rem;
+            border-radius: 999px;
+            border: 1px solid var(--color-border);
+            font-size: 0.72rem;
+            line-height: 1;
+            white-space: nowrap;
+            color: var(--color-fg-dim);
+            background: color-mix(in srgb, var(--color-bg-elev) 88%, var(--color-border));
+        }
+        .confidence-high,
+        .confidence-verified {
+            color: var(--color-success);
+            border-color: color-mix(in srgb, var(--color-success) 55%, var(--color-border));
+            background: color-mix(in srgb, var(--color-success) 10%, var(--color-bg-elev));
+        }
+        .confidence-medium {
+            color: var(--color-accent-text);
+            border-color: color-mix(in srgb, var(--color-accent) 55%, var(--color-border));
+            background: color-mix(in srgb, var(--color-accent) 9%, var(--color-bg-elev));
+        }
+        .confidence-low {
+            color: var(--color-warning);
+            border-color: color-mix(in srgb, var(--color-warning) 55%, var(--color-border));
+            background: color-mix(in srgb, var(--color-warning) 9%, var(--color-bg-elev));
+        }
         .row-chevron {
             display: inline-flex;
             color: var(--color-fg-faint);
@@ -635,4 +664,3 @@
             font-size: 0.9rem;
             opacity: 0.85;
         }
-

@@ -10,7 +10,7 @@
 use std::io::{self, Write};
 use std::time::Duration;
 
-use adler_core::{CheckOutcome, CorrelationReport, MatchKind};
+use adler_core::{CheckOutcome, ConfidenceLabel, ConfidenceReason, CorrelationReport, MatchKind};
 use anyhow::{Context as _, Result};
 use indicatif::{ProgressBar, ProgressStyle};
 
@@ -87,15 +87,90 @@ pub(crate) fn print_row(
     if let Some(reason) = &o.reason {
         writeln!(out, "    note: {reason}")?;
     }
+    if let Some(confidence) = confidence_text(o) {
+        writeln!(out, "    confidence: {confidence}")?;
+    }
     if disp.explain {
+        for reason in &o.confidence.reasons {
+            writeln!(out, "    confidence-why: {}", confidence_reason(reason))?;
+        }
         for line in &o.evidence {
             writeln!(out, "    why: {line}")?;
+        }
+        for ev in &o.profile_evidence {
+            writeln!(
+                out,
+                "    profile: {}{} = {}",
+                ev.kind.kind_label(),
+                ev.field
+                    .as_ref()
+                    .map_or_else(String::new, |field| format!(" ({field})")),
+                ev.value
+            )?;
         }
     }
     for (field, value) in &o.enrichment {
         writeln!(out, "    {field}: {value}")?;
     }
     Ok(())
+}
+
+fn confidence_text(o: &CheckOutcome) -> Option<String> {
+    if o.confidence.score == 0 && o.confidence.reasons.is_empty() {
+        return None;
+    }
+    Some(format!(
+        "{} {}%",
+        confidence_label(o.confidence.label),
+        o.confidence.score
+    ))
+}
+
+fn confidence_label(label: ConfidenceLabel) -> &'static str {
+    match label {
+        ConfidenceLabel::Low => "low",
+        ConfidenceLabel::Medium => "medium",
+        ConfidenceLabel::High => "high",
+        ConfidenceLabel::Verified => "verified",
+    }
+}
+
+fn confidence_reason(reason: &ConfidenceReason) -> String {
+    match reason {
+        ConfidenceReason::FoundBySignal => "found by detection signal".to_owned(),
+        ConfidenceReason::NotFoundBySignal => "not found by detection signal".to_owned(),
+        ConfidenceReason::ProfileMetadataExtracted { count } => {
+            format!("{count} profile metadata field(s) extracted")
+        }
+        ConfidenceReason::SignalEvidence { count } => {
+            format!("{count} signal evidence line(s) recorded")
+        }
+        ConfidenceReason::UncertainOutcome => "uncertain outcome".to_owned(),
+        ConfidenceReason::SessionRequired => "operator session required".to_owned(),
+        ConfidenceReason::TransportBlocked => {
+            "transport/access blocked reliable probing".to_owned()
+        }
+    }
+}
+
+trait ProfileEvidenceLabel {
+    fn kind_label(&self) -> &'static str;
+}
+
+impl ProfileEvidenceLabel for adler_core::ProfileEvidenceKind {
+    fn kind_label(&self) -> &'static str {
+        match self {
+            Self::DisplayName => "display_name",
+            Self::Bio => "bio",
+            Self::AvatarUrl => "avatar_url",
+            Self::ExternalLink => "external_link",
+            Self::Location => "location",
+            Self::JoinedDate => "joined_date",
+            Self::ProfileTitle => "profile_title",
+            Self::MetaDescription => "meta_description",
+            Self::ExtractedField => "extracted_field",
+        }
+    }
 }
 
 /// Print the final tally line, counted over *all* outcomes regardless of
@@ -414,6 +489,45 @@ mod tests {
         o.reason = Some(UncertainReason::RateLimited);
         let text = render(OutputFormat::Text, false, &[o]);
         assert!(text.contains("note: rate_limited"), "{text}");
+    }
+
+    #[test]
+    fn text_renders_confidence_when_available() {
+        let mut o = outcome("Site", MatchKind::Found);
+        o.evidence.push("HTTP 200 (status_found)".into());
+        o.refresh_confidence();
+
+        let text = render(OutputFormat::Text, false, &[o]);
+        assert!(text.contains("confidence: high 75%"), "{text}");
+    }
+
+    #[test]
+    fn explain_renders_confidence_reasons_and_profile_evidence() {
+        let mut o = outcome("Site", MatchKind::Found);
+        o.evidence.push("HTTP 200 (status_found)".into());
+        o.profile_evidence
+            .push(adler_core::ProfileEvidence::from_enrichment(
+                "Site",
+                "https://Site.example/u",
+                "name",
+                "Alice",
+            ));
+        o.refresh_confidence();
+
+        let mut buf: Vec<u8> = Vec::new();
+        let mut opts = opts(OutputFormat::Text, false, false);
+        opts.display.explain = true;
+        write_outputs(&mut buf, &opts, &[o], None).unwrap();
+        let text = String::from_utf8(buf).unwrap();
+
+        assert!(
+            text.contains("confidence-why: found by detection signal"),
+            "{text}"
+        );
+        assert!(
+            text.contains("profile: display_name (name) = Alice"),
+            "{text}"
+        );
     }
 
     #[test]
