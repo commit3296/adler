@@ -9,6 +9,9 @@
 //! by both the `get_scan_history` tool and the
 //! `adler://scans/recent` resource.
 
+use std::collections::{BTreeMap, BTreeSet};
+use std::path::Path;
+
 use adler_core::{CheckOutcome, MatchKind};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -149,6 +152,15 @@ pub struct ScanHistoryArgs {
     pub username: Option<String>,
 }
 
+/// Parameters for the `diff_scans` tool.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct ScanDiffArgs {
+    /// Previous persisted scan id (filename stem).
+    pub from_scan_id: String,
+    /// Current persisted scan id (filename stem).
+    pub to_scan_id: String,
+}
+
 /// Per-site row inside [`ScanOutput`].
 #[derive(Debug, Serialize, JsonSchema)]
 pub struct OutcomeRow {
@@ -173,6 +185,18 @@ impl From<CheckOutcome> for OutcomeRow {
             url: o.url,
             elapsed_ms: o.elapsed_ms,
             reason: o.reason.map(|r| format!("{r:?}")),
+        }
+    }
+}
+
+impl From<&CheckOutcome> for OutcomeRow {
+    fn from(o: &CheckOutcome) -> Self {
+        Self {
+            site: o.site.clone(),
+            kind: format!("{:?}", o.kind),
+            url: o.url.clone(),
+            elapsed_ms: o.elapsed_ms,
+            reason: o.reason.as_ref().map(|r| format!("{r:?}")),
         }
     }
 }
@@ -270,6 +294,77 @@ pub struct ScanHistoryOutput {
     pub scans: Vec<ScanHistoryRow>,
 }
 
+/// A verdict transition for one site.
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct VerdictChangeRow {
+    /// Site name.
+    pub site: String,
+    /// Previous verdict.
+    pub before: String,
+    /// Current verdict.
+    pub after: String,
+}
+
+/// A profile/evidence transition for one still-found site.
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct EvidenceChangeRow {
+    /// Site name.
+    pub site: String,
+    /// Enrichment/profile fields whose values changed.
+    pub changed_fields: Vec<String>,
+    /// Number of normalized profile evidence items in the previous scan.
+    pub before_profile_evidence_count: usize,
+    /// Number of normalized profile evidence items in the current scan.
+    pub after_profile_evidence_count: usize,
+}
+
+/// Envelope for `diff_scans`.
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct ScanDiffOutput {
+    /// Previous scan id.
+    pub from_scan_id: String,
+    /// Current scan id.
+    pub to_scan_id: String,
+    /// Found accounts that were not Found in the previous scan.
+    pub added_found: Vec<OutcomeRow>,
+    /// Accounts that were Found previously but are no longer Found.
+    pub removed_found: Vec<OutcomeRow>,
+    /// Sites present in both scans whose verdict changed.
+    pub verdict_changes: Vec<VerdictChangeRow>,
+    /// Found sites whose profile/enrichment evidence changed.
+    pub evidence_changes: Vec<EvidenceChangeRow>,
+}
+
+#[derive(Debug, thiserror::Error)]
+pub(super) enum ScanDiffError {
+    #[error("invalid scan id {0:?}")]
+    InvalidId(String),
+    #[error("scan {0:?} not found")]
+    NotFound(String),
+    #[error("reading scan {id:?}: {source}")]
+    Io {
+        id: String,
+        #[source]
+        source: std::io::Error,
+    },
+    #[error("parsing scan {id:?}: {source}")]
+    Json {
+        id: String,
+        #[source]
+        source: serde_json::Error,
+    },
+}
+
+#[derive(Debug, Deserialize)]
+struct PersistedScanForDiff {
+    #[serde(default)]
+    scan_id: Option<String>,
+    #[serde(default)]
+    id: Option<String>,
+    #[serde(default)]
+    outcomes: Vec<CheckOutcome>,
+}
+
 /// Read the persisted-scans directory and return up to `limit` rows,
 /// newest first. Filters by exact username if `username_filter` is
 /// set. Each file is `<scans_dir>/<id>.json` with an `outcomes`
@@ -346,4 +441,148 @@ pub(super) fn read_scan_history(
         });
     }
     Ok(rows)
+}
+
+/// Read two persisted scans and return a deterministic diff.
+pub(super) fn read_scan_diff(
+    scans_dir: &Path,
+    from_scan_id: &str,
+    to_scan_id: &str,
+) -> Result<ScanDiffOutput, ScanDiffError> {
+    let previous = read_scan_for_diff(scans_dir, from_scan_id)?;
+    let current = read_scan_for_diff(scans_dir, to_scan_id)?;
+    Ok(diff_persisted_scans(&previous, &current))
+}
+
+fn read_scan_for_diff(
+    scans_dir: &Path,
+    scan_id: &str,
+) -> Result<PersistedScanForDiff, ScanDiffError> {
+    if scan_id.is_empty() || scan_id.contains('/') || scan_id.contains('\\') {
+        return Err(ScanDiffError::InvalidId(scan_id.to_owned()));
+    }
+    let path = scans_dir.join(format!("{scan_id}.json"));
+    let raw = std::fs::read_to_string(&path).map_err(|source| {
+        if source.kind() == std::io::ErrorKind::NotFound {
+            ScanDiffError::NotFound(scan_id.to_owned())
+        } else {
+            ScanDiffError::Io {
+                id: scan_id.to_owned(),
+                source,
+            }
+        }
+    })?;
+    let mut scan: PersistedScanForDiff =
+        serde_json::from_str(&raw).map_err(|source| ScanDiffError::Json {
+            id: scan_id.to_owned(),
+            source,
+        })?;
+    if scan.scan_id.is_none() && scan.id.is_none() {
+        scan.scan_id = Some(scan_id.to_owned());
+    }
+    Ok(scan)
+}
+
+fn diff_persisted_scans(
+    previous: &PersistedScanForDiff,
+    current: &PersistedScanForDiff,
+) -> ScanDiffOutput {
+    let previous_id = persisted_scan_id(previous);
+    let current_id = persisted_scan_id(current);
+    let previous_by_site = outcomes_by_site(&previous.outcomes);
+    let current_by_site = outcomes_by_site(&current.outcomes);
+
+    let mut added_found = Vec::new();
+    let mut removed_found = Vec::new();
+    let mut verdict_changes = Vec::new();
+    let mut evidence_changes = Vec::new();
+
+    for (site, current_outcome) in &current_by_site {
+        let previous_outcome = previous_by_site.get(site);
+        if current_outcome.kind == MatchKind::Found
+            && previous_outcome.is_none_or(|o| o.kind != MatchKind::Found)
+        {
+            added_found.push(OutcomeRow::from(*current_outcome));
+        }
+        if let Some(previous_outcome) = previous_outcome {
+            if previous_outcome.kind != current_outcome.kind {
+                verdict_changes.push(VerdictChangeRow {
+                    site: site.clone(),
+                    before: format!("{:?}", previous_outcome.kind),
+                    after: format!("{:?}", current_outcome.kind),
+                });
+            }
+            if previous_outcome.kind == MatchKind::Found
+                && current_outcome.kind == MatchKind::Found
+                && profile_evidence_changed(previous_outcome, current_outcome)
+            {
+                evidence_changes.push(EvidenceChangeRow {
+                    site: site.clone(),
+                    changed_fields: changed_fields(previous_outcome, current_outcome),
+                    before_profile_evidence_count: previous_outcome.profile_evidence.len(),
+                    after_profile_evidence_count: current_outcome.profile_evidence.len(),
+                });
+            }
+        }
+    }
+
+    for (site, previous_outcome) in &previous_by_site {
+        if previous_outcome.kind == MatchKind::Found
+            && current_by_site
+                .get(site)
+                .is_none_or(|o| o.kind != MatchKind::Found)
+        {
+            removed_found.push(OutcomeRow::from(*previous_outcome));
+        }
+    }
+
+    ScanDiffOutput {
+        from_scan_id: previous_id,
+        to_scan_id: current_id,
+        added_found,
+        removed_found,
+        verdict_changes,
+        evidence_changes,
+    }
+}
+
+fn persisted_scan_id(scan: &PersistedScanForDiff) -> String {
+    scan.scan_id
+        .as_ref()
+        .or(scan.id.as_ref())
+        .cloned()
+        .unwrap_or_default()
+}
+
+fn outcomes_by_site(outcomes: &[CheckOutcome]) -> BTreeMap<String, &CheckOutcome> {
+    outcomes
+        .iter()
+        .map(|outcome| (outcome.site.clone(), outcome))
+        .collect()
+}
+
+fn profile_evidence_changed(previous: &CheckOutcome, current: &CheckOutcome) -> bool {
+    previous.enrichment != current.enrichment
+        || previous.profile_evidence != current.profile_evidence
+}
+
+fn changed_fields(previous: &CheckOutcome, current: &CheckOutcome) -> Vec<String> {
+    let mut fields = BTreeSet::new();
+    for key in previous.enrichment.keys().chain(current.enrichment.keys()) {
+        if previous.enrichment.get(key) != current.enrichment.get(key) {
+            fields.insert(key.clone());
+        }
+    }
+    for item in previous
+        .profile_evidence
+        .iter()
+        .chain(current.profile_evidence.iter())
+    {
+        fields.insert(
+            item.field
+                .clone()
+                .unwrap_or_else(|| format!("{:?}", item.kind)),
+        );
+    }
+    fields.into_iter().collect()
 }

@@ -276,11 +276,13 @@ with `npm ci && npm run build` in `adler-server/web/`).
 ## MCP server
 
 Adler exposes its OSINT surface to AI assistants over the
-[Model Context Protocol](https://modelcontextprotocol.io/). Five
+[Model Context Protocol](https://modelcontextprotocol.io/). Six
 **tools** the agent can call (`list_sites`, `scan_username` with
-streamed progress, `scan_batch`, `doctor_check`, `get_scan_history`),
-five **resources** it can browse (`adler://registry/{sites,tags,
-disabled}`, `adler://scans/recent`, `adler://scans/{id}` template),
+streamed progress, `scan_batch`, `doctor_check`, `get_scan_history`,
+`diff_scans`),
+six **resources** it can browse (`adler://registry/{sites,tags,
+disabled}`, `adler://scans/recent`, `adler://scans/{id}` /
+`adler://scans/{from}/diff/{to}` templates),
 and three **prompts** with templated OSINT workflows
 (`investigate_username`, `audit_registry_health`,
 `correlate_accounts`). Two transports — pick whichever fits how the

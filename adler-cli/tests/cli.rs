@@ -1254,7 +1254,7 @@ fn mcp_stdio_serves_initialize_tools_resources_prompts() {
     assert!(init["result"]["capabilities"]["resources"].is_object());
     assert!(init["result"]["capabilities"]["prompts"].is_object());
 
-    // 2 — tools/list: all 5 names
+    // 2 — tools/list: core MCP tool names
     let tools = responses_by_id[&2]["result"]["tools"].as_array().unwrap();
     let tool_names: std::collections::HashSet<&str> =
         tools.iter().filter_map(|t| t["name"].as_str()).collect();
@@ -1264,6 +1264,7 @@ fn mcp_stdio_serves_initialize_tools_resources_prompts() {
         "scan_batch",
         "doctor_check",
         "get_scan_history",
+        "diff_scans",
     ] {
         assert!(
             tool_names.contains(expected),
