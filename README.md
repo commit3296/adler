@@ -316,6 +316,25 @@ return shape. `adler-mcp/examples/` ships two hand-runnable probes
 (stdio + HTTP) that double as reference implementations of a
 minimal MCP client.
 
+## Privacy and retention
+
+Adler stores local artifacts only for surfaces that need reuse:
+one-shot scans may use the result cache, `--watch` keeps a previous
+found-account snapshot, and `adler --web` writes finished scan JSON
+under `$XDG_CACHE_HOME/adler/scans/` (falling back to
+`$HOME/.cache/adler/scans/`). MCP history, diff, and timeline resources
+read that same web history directory but do not create scan history by
+themselves.
+
+Use `--no-cache` for one-shot scans that should not touch the result
+cache, `adler --cache-clear` to remove the cache file, a temporary
+`XDG_CACHE_HOME` for throwaway Web/MCP sessions, and `--scans-dir` when
+history needs an explicit location. Non-loopback `--web-bind` and
+`--mcp-http` expose history and scan APIs without Adler-provided
+authentication; put your own access control in front of them.
+
+→ Details live in [docs/privacy-retention.md](docs/privacy-retention.md).
+
 ## Access engine
 
 Adler ships a transport ladder for sites a plain HTTP client can't see —

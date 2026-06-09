@@ -484,11 +484,13 @@ pub(crate) struct Cli {
     /// Start a Model Context Protocol (MCP) server over stdio
     /// instead of running a scan. Intended for AI assistants like
     /// Claude Desktop / Cursor / any agent that speaks MCP. The
-    /// server exposes five tools (`list_sites`, `scan_username`
+    /// server exposes six tools (`list_sites`, `scan_username`
     /// with streaming progress, `scan_batch`, `doctor_check`,
-    /// `get_scan_history`), five resources
+    /// `get_scan_history`, `diff_scans`), seven resources/templates
     /// (`adler://registry/{sites,tags,disabled}`,
-    /// `adler://scans/recent`, `adler://scans/{id}` template), and
+    /// `adler://scans/recent`, `adler://scans/{id}`,
+    /// `adler://scans/{from}/diff/{to}`,
+    /// `adler://timelines/{username}`), and
     /// three prompts (`investigate_username`,
     /// `audit_registry_health`, `correlate_accounts`). Tracing output
     /// is forced onto stderr so stdout stays clean for the JSON-RPC
