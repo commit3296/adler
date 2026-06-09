@@ -64,9 +64,12 @@ set, filter via the `region:<cc>` tags Adler attaches to each entry.
 3. Call the `scan_username` tool with `username=\"{username}\"` and your filter. \
 Subscribe to `notifications/progress` if you want to see per-site results stream.
 4. Group the response by verdict (Found / NotFound / Uncertain). For each \
-Found account, report the canonical URL.
+Found account, report the canonical URL, `confidence.label`, \
+`confidence.score`, and the strongest `evidence` / `profile_evidence` values \
+available.
 5. If any sites came back Uncertain, note them but do not infer existence \
-either way — that's the doctor's responsibility.
+either way — cite their `confidence` reasons and any session/transport \
+limitations instead.
 
 Be honest about scope: Adler is for authorised security testing and OSINT \
 research. Do not generate or suggest harassment, doxxing, or unauthorised \
@@ -129,9 +132,10 @@ Workflow:
 (e.g. `tag=[\"social\",\"coding\"]`) so the scan finishes quickly — broad \
 sweeps add noise without helping correlation.
 2. For each username's Found accounts, look at the `outcomes[].url` field to \
-read each profile's name / bio / avatar where available. The agent doing \
-this should call `scan_username` with `enrich=true` if it needs richer profile \
-data than the bare-bones outcome.
+read each profile's name / bio / avatar where available. Prefer the \
+structured `profile_evidence` and `confidence` fields over scraping \
+presentation text. The agent doing this should call `scan_username` with \
+`enrich=true` if it needs richer profile data than the bare-bones outcome.
 3. Compare across usernames: shared exact name, shared bio fragments, shared \
 avatar URLs are strong signals; shared sites alone are weak.
 4. Report a confidence verdict (Strong / Plausible / Weak / Distinct) per \

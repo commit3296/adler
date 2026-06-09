@@ -89,7 +89,7 @@ that already exists.
 - [x] Add a rule-based `adler-core` confidence module.
 - [x] Produce a numeric score and a label such as
   `low`, `medium`, `high`, or `verified`.
-- [x] Return machine-readable confidence reasons.
+- [x] Return machine-readable and human-readable confidence reasons.
 - [ ] Account for positive signals:
   exact username match, strong body marker, extracted profile metadata,
   public endpoint match, authenticated endpoint match, and repeated
@@ -113,15 +113,15 @@ that already exists.
 
 ## Phase 4: CLI, Web, and MCP surfaces
 
-- [ ] Expose evidence and confidence in CLI JSON/NDJSON output.
-- [ ] Keep human CLI output compact:
+- [x] Expose evidence and confidence in CLI JSON/NDJSON output.
+- [x] Keep human CLI output compact:
   found/missing/session-required/disabled plus confidence label.
-- [ ] Add Web UI confidence badges and a result detail panel for evidence.
-- [ ] Add Web API fields without breaking legacy clients that expect the
+- [x] Add Web UI confidence badges and a result detail panel for evidence.
+- [x] Add Web API fields without breaking legacy clients that expect the
   current response shape.
-- [ ] Return evidence and confidence from MCP scan tools so agents can
+- [x] Return evidence and confidence from MCP scan tools so agents can
   reason over Adler results without scraping presentation text.
-- [ ] Update MCP prompts to instruct agents to cite evidence and
+- [x] Update MCP prompts to instruct agents to cite evidence and
   limitations.
 
 ## Phase 5: Identity clustering
@@ -179,4 +179,4 @@ that already exists.
   `Found`, `NotFound`, `Uncertain`, including `SessionRequired`.
 - [x] Surface confidence in JSON/NDJSON first.
 - [x] Add tests around serialization and score reasons.
-- [ ] Only then add Web/MCP presentation.
+- [x] Only then add Web/MCP presentation.

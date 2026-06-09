@@ -4,5 +4,6 @@ expression: stdout
 ---
 [?] Local          http://127.0.0.1:<PORT>/alice
     note: request: <reqwest error>
+    confidence: low 15%
 
 0 found · 0 not found · 1 uncertain · <TIME>s
