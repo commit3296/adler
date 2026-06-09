@@ -4,6 +4,8 @@
 //!
 //! - `GET  /api/health`           — liveness probe (returns `{ "ok": true }`).
 //! - `GET  /api/sites`            — site catalogue available to scans.
+//! - `GET  /api/scans`            — scan history.
+//! - `GET  /api/scans/:from/diff/:to` — diff two finished scans.
 //! - `POST /api/scan`             — start a scan; returns a [`ScanId`].
 //! - `GET  /api/scan/:id`         — final aggregate (or 404 / 202 in-progress).
 //! - `GET  /api/scan/:id/stream`  — Server-Sent Events stream of outcomes.
@@ -23,8 +25,8 @@ mod filter;
 mod handlers;
 
 use self::handlers::{
-    get_scan, health, list_access, list_scans, list_sites, refilter_scan, retry_site, start_scan,
-    stream_scan,
+    diff_scans, get_scan, health, list_access, list_scans, list_sites, refilter_scan, retry_site,
+    start_scan, stream_scan,
 };
 use crate::state::AppState;
 
@@ -36,6 +38,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/sites", get(list_sites))
         .route("/api/access", get(list_access))
         .route("/api/scans", get(list_scans))
+        .route("/api/scans/{from}/diff/{to}", get(diff_scans))
         .route("/api/scan", post(start_scan))
         .route("/api/scan/{id}", get(get_scan))
         .route("/api/scan/{id}/stream", get(stream_scan))
@@ -59,7 +62,7 @@ mod tests {
     use super::dto::StartScanRequest;
     use super::filter::filter_catalog;
     use crate::scan::{ScanHandle, ScanId};
-    use adler_core::{Client, KnownPresent, Signal, Site, UrlTemplate};
+    use adler_core::{CheckOutcome, Client, KnownPresent, MatchKind, Signal, Site, UrlTemplate};
     use axum::body::{Body, to_bytes};
     use axum::http::{Request, StatusCode, header};
     use tower::ServiceExt;
@@ -91,6 +94,40 @@ mod tests {
             popularity: None,
             access: adler_core::AccessPolicy::default(),
         }
+    }
+
+    fn outcome(site: &str, kind: MatchKind) -> CheckOutcome {
+        CheckOutcome {
+            site: site.into(),
+            url: format!("https://{site}.example/alice"),
+            kind,
+            reason: None,
+            elapsed_ms: 10,
+            enrichment: std::collections::BTreeMap::new(),
+            evidence: Vec::new(),
+            profile_evidence: Vec::new(),
+            confidence: adler_core::ConfidenceScore::default(),
+            transport: None,
+            escalations: 0,
+        }
+    }
+
+    fn persisted_scan(
+        scan_id: &str,
+        created_at_ms: u64,
+        outcomes: Vec<CheckOutcome>,
+    ) -> crate::persist::PersistedScan {
+        crate::persist::PersistedScan::from_finished(
+            ScanId::from(scan_id.to_owned()),
+            "alice".into(),
+            outcomes.len(),
+            created_at_ms,
+            crate::scan::FinishedScan {
+                summary: crate::scan::Summary::from_outcomes(&outcomes),
+                outcomes,
+                elapsed_ms: 20,
+            },
+        )
     }
 
     async fn test_app() -> (Router, MockServer) {
@@ -949,6 +986,86 @@ mod tests {
             arr[0]["started_at_ms"].as_u64() >= arr[1]["started_at_ms"].as_u64(),
             "scans must be newest-first",
         );
+    }
+
+    #[tokio::test]
+    async fn diff_scans_returns_persisted_scan_diff() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let previous = persisted_scan(
+            "old",
+            1_000,
+            vec![
+                outcome("GitHub", MatchKind::Found),
+                outcome("Reddit", MatchKind::Found),
+                outcome("Mastodon", MatchKind::NotFound),
+            ],
+        );
+        let current = persisted_scan(
+            "new",
+            2_000,
+            vec![
+                outcome("GitHub", MatchKind::Found),
+                outcome("Reddit", MatchKind::NotFound),
+                outcome("Mastodon", MatchKind::Found),
+            ],
+        );
+        crate::persist::save(tmp.path(), &previous).await.unwrap();
+        crate::persist::save(tmp.path(), &current).await.unwrap();
+
+        let client = Client::builder()
+            .timeout(Duration::from_secs(2))
+            .min_request_interval(Duration::ZERO)
+            .build()
+            .unwrap();
+        let state = AppState::new(Vec::new(), client, 16).with_scans_dir(tmp.path().to_owned());
+        let app = router(state);
+
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .uri("/api/scans/old/diff/new")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let body = to_bytes(resp.into_body(), 4096).await.unwrap();
+        let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(v["from_scan_id"], "old");
+        assert_eq!(v["to_scan_id"], "new");
+        assert_eq!(v["added_found"][0]["site"], "Mastodon");
+        assert_eq!(v["removed_found"][0]["site"], "Reddit");
+        assert_eq!(v["verdict_changes"].as_array().unwrap().len(), 2);
+    }
+
+    #[tokio::test]
+    async fn diff_scans_rejects_running_scan() {
+        let client = Client::builder()
+            .timeout(Duration::from_secs(2))
+            .min_request_interval(Duration::ZERO)
+            .build()
+            .unwrap();
+        let state = AppState::new(Vec::new(), client, 16);
+        let running_id = ScanId::from("running".to_owned());
+        state
+            .insert_scan(running_id.clone(), ScanHandle::new("alice", 0, 16))
+            .await;
+        let app = router(state);
+
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .uri(format!("/api/scans/{running_id}/diff/missing"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+        let body = to_bytes(resp.into_body(), 1024).await.unwrap();
+        let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(v["error"], "scan_not_finished");
     }
 
     #[tokio::test]
