@@ -12,7 +12,7 @@
 
 use std::path::{Path, PathBuf};
 
-use adler_core::CheckOutcome;
+use adler_core::{CheckOutcome, Site};
 use serde::{Deserialize, Serialize};
 use tokio::fs;
 
@@ -37,6 +37,11 @@ pub struct PersistedScan {
     pub scan_id: ScanId,
     /// Username that was scanned.
     pub username: String,
+    /// Request scope and parked-site diagnostics that explain how this
+    /// artifact was produced. Missing on scans saved before v1 context
+    /// support landed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub request_context: Option<ScanRequestContext>,
     /// Total number of sites probed in this scan.
     pub site_count: usize,
     /// Unix epoch milliseconds when the scan was started.
@@ -63,6 +68,7 @@ impl PersistedScan {
             schema_version: PERSISTED_SCAN_SCHEMA_VERSION,
             scan_id,
             username,
+            request_context: None,
             site_count,
             created_at_ms,
             summary: finished.summary,
@@ -70,10 +76,87 @@ impl PersistedScan {
             elapsed_ms: finished.elapsed_ms,
         }
     }
+
+    /// Attach request-scope metadata to this persisted scan.
+    #[must_use]
+    pub fn with_request_context(mut self, context: ScanRequestContext) -> Self {
+        self.request_context = Some(context);
+        self
+    }
 }
 
 const fn default_schema_version() -> u16 {
     PERSISTED_SCAN_SCHEMA_VERSION
+}
+
+/// Request scope persisted with a finished scan so future timelines and
+/// reports can explain what was scanned and what was intentionally out of
+/// scope.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ScanRequestContext {
+    /// Username supplied by the operator.
+    pub username: String,
+    /// Previous scan id when this scan was created by refiltering.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub derived_from: Option<ScanId>,
+    /// Site name include filters.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub only: Vec<String>,
+    /// Site name exclude filters.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub exclude: Vec<String>,
+    /// Tag include filters.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tag: Vec<String>,
+    /// Tag exclude filters.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub exclude_tag: Vec<String>,
+    /// Popularity ceiling, when supplied.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub top: Option<u32>,
+    /// Whether NSFW-tagged entries were included.
+    pub nsfw: bool,
+    /// Per-scan concurrency override, when supplied.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub concurrency: Option<usize>,
+    /// Per-scan deadline override, seconds.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub deadline_secs: Option<u64>,
+    /// Egress subset requested for this scan.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub egress_names: Vec<String>,
+    /// Disabled/parked sites that matched the same filter and were not
+    /// included in the enabled scan set.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub disabled_matches: Vec<PersistedDisabledMatch>,
+}
+
+/// Compact disabled-site diagnostic persisted with scan context.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PersistedDisabledMatch {
+    /// Site name.
+    pub name: String,
+    /// Profile URL template.
+    pub url: String,
+    /// Registry tags.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tags: Vec<String>,
+    /// Human-readable reason the site is parked.
+    pub disabled_reason: String,
+}
+
+impl From<&Site> for PersistedDisabledMatch {
+    fn from(site: &Site) -> Self {
+        Self {
+            name: site.name.clone(),
+            url: site.url.as_str().to_owned(),
+            tags: site.tags.clone(),
+            disabled_reason: site
+                .disabled_reason
+                .clone()
+                .unwrap_or_else(|| "disabled in registry".to_owned()),
+        }
+    }
 }
 
 /// Default directory for persisted scans.
@@ -176,6 +259,7 @@ mod tests {
             schema_version: PERSISTED_SCAN_SCHEMA_VERSION,
             scan_id: ScanId::from(scan_id.to_owned()),
             username: "alice".into(),
+            request_context: None,
             site_count: 2,
             created_at_ms: ts,
             summary: Summary {
@@ -244,6 +328,35 @@ mod tests {
             value["schema_version"],
             serde_json::json!(PERSISTED_SCAN_SCHEMA_VERSION)
         );
+    }
+
+    #[tokio::test]
+    async fn save_roundtrips_request_context() {
+        let tmp = TempDir::new().unwrap();
+        let context = ScanRequestContext {
+            username: "alice".into(),
+            derived_from: Some(ScanId::from("previous".to_owned())),
+            only: vec!["Git".into()],
+            exclude: Vec::new(),
+            tag: vec!["coding".into()],
+            exclude_tag: vec!["nsfw".into()],
+            top: Some(100),
+            nsfw: false,
+            concurrency: Some(8),
+            deadline_secs: Some(30),
+            egress_names: vec!["us-resi".into()],
+            disabled_matches: vec![PersistedDisabledMatch {
+                name: "TikTok".into(),
+                url: "https://www.tiktok.com/@{username}".into(),
+                tags: vec!["social".into()],
+                disabled_reason: "Honest Limits: JS hydration".into(),
+            }],
+        };
+        let s = sample("ctx", 1_700_000_000_000).with_request_context(context.clone());
+        save(tmp.path(), &s).await.unwrap();
+
+        let loaded = load(tmp.path(), &s.scan_id).await.expect("loaded");
+        assert_eq!(loaded.request_context, Some(context));
     }
 
     #[tokio::test]

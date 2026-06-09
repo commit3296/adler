@@ -108,7 +108,7 @@ that already exists.
   scan history.
 - [x] Preserve access telemetry and session-required states in
   the same artifact.
-- [ ] Preserve disabled/parked filter context alongside scan artifacts.
+- [x] Preserve disabled/parked filter context alongside scan artifacts.
 - [x] Add migration or tolerant-read behavior for older scan records.
 - [x] Add serialization tests for persisted scan history.
 

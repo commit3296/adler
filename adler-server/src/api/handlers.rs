@@ -17,6 +17,7 @@ use super::dto::{
 };
 use super::error::ApiError;
 use super::filter::filter_catalog;
+use crate::persist::{PersistedDisabledMatch, ScanRequestContext};
 use crate::scan::{ScanHandle, ScanId};
 use crate::state::AppState;
 
@@ -176,6 +177,7 @@ pub(super) async fn start_scan(
         .map(|dir| crate::scan::PersistContext {
             scan_id: id.clone(),
             dir: dir.clone(),
+            request_context: request_context(&req, &state.catalog, None),
         });
 
     // Per-scan client: when egress_names is non-empty, swap the pool
@@ -252,7 +254,7 @@ pub(super) async fn refilter_scan(
     }
 
     // Resolve new filter against the catalog.
-    let start_shape = StartScanRequest::from(&req);
+    let mut start_shape = StartScanRequest::from(&req);
     let new_sites = filter_catalog(&state.sites, &start_shape);
     if new_sites.is_empty() {
         let disabled = disabled_matches(&state.catalog, &start_shape);
@@ -298,6 +300,7 @@ pub(super) async fn refilter_scan(
     }
 
     let username_str = prev_handle.username().to_owned();
+    start_shape.username = username_str.clone();
     let username = Username::new(username_str.clone())
         .map_err(|e| ApiError::bad_request("invalid_username", e.to_string()))?;
 
@@ -318,6 +321,7 @@ pub(super) async fn refilter_scan(
         .map(|dir| crate::scan::PersistContext {
             scan_id: id.clone(),
             dir: dir.clone(),
+            request_context: request_context(&start_shape, &state.catalog, Some(prev_id.clone())),
         });
 
     let scan_client: Arc<adler_core::Client> = if req.egress_names.is_empty() {
@@ -349,6 +353,30 @@ fn disabled_matches(catalog: &[Site], req: &StartScanRequest) -> Vec<DisabledSit
         .iter()
         .map(DisabledSiteSummary::from)
         .collect()
+}
+
+fn request_context(
+    req: &StartScanRequest,
+    catalog: &[Site],
+    derived_from: Option<ScanId>,
+) -> ScanRequestContext {
+    ScanRequestContext {
+        username: req.username.clone(),
+        derived_from,
+        only: req.only.clone(),
+        exclude: req.exclude.clone(),
+        tag: req.tag.clone(),
+        exclude_tag: req.exclude_tag.clone(),
+        top: req.top,
+        nsfw: req.nsfw,
+        concurrency: req.concurrency.map(std::num::NonZeroUsize::get),
+        deadline_secs: req.deadline_secs,
+        egress_names: req.egress_names.clone(),
+        disabled_matches: super::filter::disabled_matches(catalog, req)
+            .iter()
+            .map(PersistedDisabledMatch::from)
+            .collect(),
+    }
 }
 
 fn empty_filter_message(disabled_empty: bool) -> &'static str {
@@ -447,13 +475,17 @@ pub(super) async fn retry_site(
     if let Some(handle) = state.get_scan(&scan_id).await {
         handle.replace_outcome(new_outcome.clone()).await;
         if let (Some(finished), Some(dir)) = (handle.finished().await, &state.scans_dir) {
-            let snap = crate::persist::PersistedScan::from_finished(
+            let existing_context = crate::persist::load(dir, &scan_id)
+                .await
+                .and_then(|scan| scan.request_context);
+            let mut snap = crate::persist::PersistedScan::from_finished(
                 scan_id.clone(),
                 handle.username().to_owned(),
                 handle.site_count(),
                 handle.created_at_ms(),
                 finished,
             );
+            snap.request_context = existing_context;
             if let Err(err) = crate::persist::save(dir, &snap).await {
                 tracing::warn!(error = %err, scan_id = %scan_id, "failed to re-persist scan");
             }

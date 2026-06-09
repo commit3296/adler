@@ -16,7 +16,7 @@ use adler_core::{CheckOutcome, Client, ExecutorOptions, MatchKind, Site, Usernam
 use serde::{Deserialize, Serialize};
 use tokio::sync::{Notify, RwLock, broadcast, mpsc};
 
-use crate::persist::{self, PersistedScan};
+use crate::persist::{self, PersistedScan, ScanRequestContext};
 
 /// Identifier for a running or finished scan.
 ///
@@ -300,6 +300,7 @@ impl ScanHandle {
 pub(crate) struct PersistContext {
     pub scan_id: ScanId,
     pub dir: Arc<PathBuf>,
+    pub request_context: ScanRequestContext,
 }
 
 /// Spawn the background task that runs the scan and feeds the handle.
@@ -372,7 +373,8 @@ async fn run(
             handle.site_count(),
             handle.created_at_ms(),
             finished.clone(),
-        );
+        )
+        .with_request_context(ctx.request_context.clone());
         if let Err(err) = persist::save(&ctx.dir, &snapshot).await {
             tracing::warn!(error = %err, scan_id = %ctx.scan_id, "failed to persist scan");
         } else {
