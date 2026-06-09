@@ -73,7 +73,10 @@ mod state;
 
 pub use api::router;
 pub use error::{Error, Result};
-pub use persist::{PersistedScan, default_dir as default_scans_dir};
+pub use persist::{
+    EvidenceChange, PersistedScan, ScanDiff, VerdictChange, default_dir as default_scans_dir,
+    diff_scans,
+};
 pub use scan::{FinishedScan, ScanHandle, ScanId, Summary};
 pub use state::AppState;
 
