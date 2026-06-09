@@ -17,7 +17,7 @@ use super::dto::{
 };
 use super::error::ApiError;
 use super::filter::filter_catalog;
-use crate::persist::{PersistedDisabledMatch, ScanRequestContext};
+use crate::persist::{PersistedDisabledMatch, PersistedScan, ScanRequestContext};
 use crate::scan::{ScanHandle, ScanId};
 use crate::state::AppState;
 
@@ -420,6 +420,44 @@ pub(super) async fn get_scan(
                 },
             }));
         }
+    }
+    Err(ApiError::not_found(
+        "scan_not_found",
+        "no scan with that ID",
+    ))
+}
+
+pub(super) async fn diff_scans(
+    State(state): State<AppState>,
+    AxumPath((from, to)): AxumPath<(String, String)>,
+) -> Result<Json<crate::persist::ScanDiff>, ApiError> {
+    let from_id = ScanId::from(from);
+    let to_id = ScanId::from(to);
+    let previous = load_finished_scan(&state, &from_id).await?;
+    let current = load_finished_scan(&state, &to_id).await?;
+    Ok(Json(crate::persist::diff_scans(&previous, &current)))
+}
+
+async fn load_finished_scan(state: &AppState, scan_id: &ScanId) -> Result<PersistedScan, ApiError> {
+    if let Some(scan) = state.get_scan(scan_id).await {
+        if let Some(finished) = scan.finished().await {
+            return Ok(PersistedScan::from_finished(
+                scan_id.clone(),
+                scan.username().to_owned(),
+                scan.site_count(),
+                scan.created_at_ms(),
+                finished,
+            ));
+        }
+        return Err(ApiError::bad_request(
+            "scan_not_finished",
+            "scan is still running",
+        ));
+    }
+    if let Some(dir) = &state.scans_dir
+        && let Some(scan) = crate::persist::load(dir, scan_id).await
+    {
+        return Ok(scan);
     }
     Err(ApiError::not_found(
         "scan_not_found",
