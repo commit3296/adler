@@ -94,15 +94,16 @@ issue links.
 - [x] Produce a numeric score and a label such as
   `low`, `medium`, `high`, or `verified`.
 - [x] Return machine-readable and human-readable confidence reasons.
-- [ ] Account for positive signals:
-  exact username match, strong body marker, extracted profile metadata,
-  public endpoint match, authenticated endpoint match, and repeated
-  historical consistency. ([#76](https://github.com/commit3296/adler/issues/76))
-- [ ] Account for negative or weakening signals:
-  weak status-only detection, known false-positive-prone site,
-  catch-all profile response, blocked transport, missing body marker,
-  and disabled/parked limitations.
-- [ ] Add tests for representative confidence cases before surfacing the
+- [x] Account for current positive signals:
+  signal evidence, extracted profile metadata, authenticated access,
+  browser/impersonating transport, and successful escalation.
+  ([#76](https://github.com/commit3296/adler/issues/76))
+- [x] Account for current negative or weakening signals:
+  weak status-only detection, blocked transport, missing session,
+  geo-unavailable access, CAPTCHA/rate-limit/browser-budget limits.
+- [ ] Add exact username-match and repeated historical consistency
+  scoring once those signals are modeled explicitly.
+- [x] Add tests for representative confidence cases before surfacing the
   score in UI.
 
 ## Phase 3: Versioned scan artifact

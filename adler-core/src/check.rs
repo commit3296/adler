@@ -5,7 +5,7 @@ use std::fmt;
 
 use serde::{Deserialize, Serialize};
 
-use crate::confidence::ConfidenceScore;
+use crate::confidence::{ConfidenceScore, ConfidenceSignals};
 use crate::profile::ProfileEvidence;
 
 /// Outcome of a single site probe.
@@ -156,12 +156,26 @@ pub struct CheckOutcome {
 impl CheckOutcome {
     /// Recompute confidence after callers attach signal or profile evidence.
     pub fn refresh_confidence(&mut self) {
-        self.confidence = ConfidenceScore::from_parts(
-            self.kind,
-            self.reason.as_ref(),
-            self.evidence.len(),
-            self.profile_evidence.len(),
-        );
+        let access_paths = self
+            .profile_evidence
+            .iter()
+            .filter_map(|evidence| evidence.source.access_path.as_ref());
+        let authenticated_access = access_paths.clone().any(|path| path.authenticated);
+        let metadata_transport = access_paths.clone().map(|path| path.transport).next();
+        let metadata_escalated = access_paths.clone().any(|path| path.escalated);
+        self.confidence = ConfidenceScore::from_signals(&ConfidenceSignals {
+            kind: self.kind,
+            reason: self.reason.clone(),
+            signal_evidence_count: self.evidence.len(),
+            profile_evidence_count: self.profile_evidence.len(),
+            authenticated_access,
+            transport: metadata_transport.or(self.transport),
+            escalations: if metadata_escalated && self.escalations == 0 {
+                1
+            } else {
+                self.escalations
+            },
+        });
     }
 }
 
@@ -276,8 +290,10 @@ mod tests {
             "kind": "found",
             "elapsed_ms": 42
         }"#;
-        let outcome: CheckOutcome = serde_json::from_str(json).unwrap();
+        let mut outcome: CheckOutcome = serde_json::from_str(json).unwrap();
         assert!(outcome.profile_evidence.is_empty());
         assert_eq!(outcome.confidence, ConfidenceScore::default());
+        outcome.refresh_confidence();
+        assert_eq!(outcome.confidence.score, 65);
     }
 }

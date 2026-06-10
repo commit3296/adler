@@ -142,8 +142,20 @@ fn confidence_reason(reason: &ConfidenceReason) -> String {
         ConfidenceReason::ProfileMetadataExtracted { count } => {
             format!("{count} profile metadata field(s) extracted")
         }
+        ConfidenceReason::ProfileMetadataRich { count } => {
+            format!("{count} rich profile metadata field(s) extracted")
+        }
         ConfidenceReason::SignalEvidence { count } => {
             format!("{count} signal evidence line(s) recorded")
+        }
+        ConfidenceReason::AuthenticatedAccess => "authenticated access path used".to_owned(),
+        ConfidenceReason::BrowserTransport => "browser transport produced verdict".to_owned(),
+        ConfidenceReason::ImpersonateTransport => {
+            "impersonating transport produced verdict".to_owned()
+        }
+        ConfidenceReason::EscalatedTransport => "escalated transport produced verdict".to_owned(),
+        ConfidenceReason::WeakStatusOnly => {
+            "weak status-only signal without supporting evidence".to_owned()
         }
         ConfidenceReason::UncertainOutcome => "uncertain outcome".to_owned(),
         ConfidenceReason::SessionRequired => "operator session required".to_owned(),
@@ -498,7 +510,7 @@ mod tests {
         o.refresh_confidence();
 
         let text = render(OutputFormat::Text, false, &[o]);
-        assert!(text.contains("confidence: high 75%"), "{text}");
+        assert!(text.contains("confidence: medium 70%"), "{text}");
     }
 
     #[test]
