@@ -190,7 +190,7 @@ mod tests {
     use crate::browser::RenderedPage;
     use crate::check::{MatchKind, UncertainReason};
     use crate::error::{Error, Result};
-    use crate::site::{HttpMethod, ProtectionKind, Signal, Site, UrlTemplate};
+    use crate::site::{Extractor, HttpMethod, ProtectionKind, Signal, Site, UrlTemplate};
     use crate::username::Username;
     use std::time::Instant;
     use wiremock::matchers::{any, method, path};
@@ -305,6 +305,89 @@ mod tests {
             "session cookie should unlock the 200 (got {:?})",
             outcome.reason,
         );
+    }
+
+    #[tokio::test]
+    async fn live_enriched_result_stamps_evidence_access_metadata() {
+        let server = MockServer::start().await;
+        Mock::given(any())
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_string(r#"<html><h1 class="name">Alice Example</h1></html>"#),
+            )
+            .mount(&server)
+            .await;
+        let client = Client::builder()
+            .timeout(Duration::from_secs(2))
+            .min_request_interval(Duration::ZERO)
+            .max_retries(0)
+            .enrich(true)
+            .build()
+            .expect("client builds");
+        let mut site = site_with(&server, vec![Signal::StatusFound { codes: vec![200] }]);
+        site.extract = vec![Extractor {
+            field: "name".to_owned(),
+            selector: "h1.name".to_owned(),
+            attr: None,
+        }];
+
+        let outcome = client.check(&site, &user()).await;
+
+        assert_eq!(outcome.kind, MatchKind::Found);
+        assert_eq!(outcome.profile_evidence.len(), 1);
+        let source = &outcome.profile_evidence[0].source;
+        assert!(source.observed_at_ms.is_some());
+        let access = source.access_path.as_ref().expect("access metadata");
+        assert_eq!(access.transport, crate::escalation::TransportTier::Http);
+        assert!(!access.escalated);
+        assert!(!access.authenticated);
+        assert!(!access.session_required);
+    }
+
+    #[tokio::test]
+    async fn authenticated_enriched_result_marks_authenticated_without_session_name() {
+        let server = MockServer::start().await;
+        Mock::given(any())
+            .and(wiremock::matchers::header("cookie", "sessionid=real"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_string(r#"<html><h1 class="name">Alice Example</h1></html>"#),
+            )
+            .mount(&server)
+            .await;
+        let mut headers = std::collections::BTreeMap::new();
+        headers.insert("Cookie".to_string(), "sessionid=real".to_string());
+        let mut store = SessionStore::new();
+        store.insert("acct", crate::access::Session::from_headers(headers));
+        let client = Client::builder()
+            .timeout(Duration::from_secs(2))
+            .min_request_interval(Duration::ZERO)
+            .max_retries(0)
+            .sessions(store)
+            .enrich(true)
+            .build()
+            .expect("client builds");
+        let mut site = site_with(&server, vec![Signal::StatusFound { codes: vec![200] }]);
+        site.access.session = Some("acct".to_owned());
+        site.extract = vec![Extractor {
+            field: "name".to_owned(),
+            selector: "h1.name".to_owned(),
+            attr: None,
+        }];
+
+        let outcome = client.check(&site, &user()).await;
+
+        assert_eq!(outcome.kind, MatchKind::Found);
+        let evidence = outcome.profile_evidence.first().expect("profile evidence");
+        let access = evidence
+            .source
+            .access_path
+            .as_ref()
+            .expect("access metadata");
+        assert!(access.authenticated);
+        let encoded = serde_json::to_string(evidence).unwrap();
+        assert!(!encoded.contains("acct"));
+        assert!(!encoded.contains("sessionid=real"));
     }
 
     #[tokio::test]

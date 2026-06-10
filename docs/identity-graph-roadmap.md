@@ -79,7 +79,7 @@ issue links.
   fields.
 - [x] Include source metadata for each evidence item:
   site, URL, and extraction origin.
-- [ ] Extend evidence source metadata with transport/access path and
+- [x] Extend evidence source metadata with transport/access path and
   timestamp. ([#75](https://github.com/commit3296/adler/issues/75))
 - [ ] Add explicit username-match evidence once the detection pipeline can
   distinguish username confirmation from generic positive site signals.

@@ -7,6 +7,8 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::escalation::TransportTier;
+
 /// A normalized fact observed on a profile or profile-like endpoint.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ProfileEvidence {
@@ -54,6 +56,46 @@ pub struct EvidenceSource {
     pub url: String,
     /// Which Adler subsystem produced the fact.
     pub origin: EvidenceOrigin,
+    /// Unix epoch milliseconds when Adler observed this fact. Missing on
+    /// older persisted scans and on manually-built evidence.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub observed_at_ms: Option<u64>,
+    /// Coarse, non-secret access context for the probe that produced this
+    /// evidence. Deliberately excludes session names, proxy URLs, header
+    /// values, and egress identifiers.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub access_path: Option<EvidenceAccessPath>,
+}
+
+/// Non-secret access context for an evidence item.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EvidenceAccessPath {
+    /// Transport that produced the response.
+    pub transport: TransportTier,
+    /// Whether the result came from an automatic retry through a heavier
+    /// transport.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub escalated: bool,
+    /// Whether an operator-supplied authenticated session was applied.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub authenticated: bool,
+    /// Reserved for future evidence types that record a missing session as
+    /// evidence. Extracted profile evidence should normally leave this false.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub session_required: bool,
+}
+
+impl EvidenceAccessPath {
+    /// Build a non-secret access summary from the live probe path.
+    #[must_use]
+    pub const fn new(transport: TransportTier, escalations: u8, authenticated: bool) -> Self {
+        Self {
+            transport,
+            escalated: escalations > 0,
+            authenticated,
+            session_required: false,
+        }
+    }
 }
 
 /// Adler subsystem that produced an evidence item.
@@ -68,6 +110,20 @@ impl ProfileEvidence {
     /// Build normalized evidence from a legacy enrichment field.
     #[must_use]
     pub fn from_enrichment(site: &str, url: &str, field: &str, value: &str) -> Self {
+        Self::from_enrichment_with_source(site, url, field, value, None, None)
+    }
+
+    /// Build normalized evidence from a live enrichment field with optional
+    /// observation/access metadata.
+    #[must_use]
+    pub fn from_enrichment_with_source(
+        site: &str,
+        url: &str,
+        field: &str,
+        value: &str,
+        observed_at_ms: Option<u64>,
+        access_path: Option<EvidenceAccessPath>,
+    ) -> Self {
         Self {
             kind: ProfileEvidenceKind::from_field(field),
             field: Some(field.to_owned()),
@@ -76,6 +132,8 @@ impl ProfileEvidence {
                 site: site.to_owned(),
                 url: url.to_owned(),
                 origin: EvidenceOrigin::Extractor,
+                observed_at_ms,
+                access_path,
             },
         }
     }
@@ -97,6 +155,11 @@ impl ProfileEvidenceKind {
             _ => Self::ExtractedField,
         }
     }
+}
+
+#[allow(clippy::trivially_copy_pass_by_ref)]
+fn is_false(value: &bool) -> bool {
+    !*value
 }
 
 #[cfg(test)]
@@ -131,5 +194,56 @@ mod tests {
         assert_eq!(json["kind"], "display_name");
         assert_eq!(json["field"], "name");
         assert_eq!(json["source"]["origin"], "extractor");
+        assert!(json["source"].get("observed_at_ms").is_none());
+        assert!(json["source"].get("access_path").is_none());
+    }
+
+    #[test]
+    fn old_profile_evidence_json_defaults_missing_source_metadata() {
+        let raw = r#"{
+            "kind": "display_name",
+            "field": "name",
+            "value": "Alice",
+            "source": {
+                "site": "GitHub",
+                "url": "https://github.com/alice",
+                "origin": "extractor"
+            }
+        }"#;
+
+        let ev: ProfileEvidence = serde_json::from_str(raw).unwrap();
+
+        assert_eq!(ev.source.site, "GitHub");
+        assert_eq!(ev.source.observed_at_ms, None);
+        assert_eq!(ev.source.access_path, None);
+    }
+
+    #[test]
+    fn source_metadata_serializes_without_secret_names() {
+        let ev = ProfileEvidence::from_enrichment_with_source(
+            "GitHub",
+            "https://github.com/alice",
+            "name",
+            "Alice",
+            Some(1_800_000_000_000),
+            Some(EvidenceAccessPath::new(TransportTier::Browser, 1, true)),
+        );
+
+        let json = serde_json::to_value(&ev).unwrap();
+
+        assert_eq!(json["source"]["observed_at_ms"], 1_800_000_000_000_u64);
+        assert_eq!(json["source"]["access_path"]["transport"], "browser");
+        assert_eq!(json["source"]["access_path"]["escalated"], true);
+        assert_eq!(json["source"]["access_path"]["authenticated"], true);
+        assert!(
+            json["source"]["access_path"]
+                .get("session_required")
+                .is_none()
+        );
+
+        let encoded = serde_json::to_string(&ev).unwrap();
+        assert!(!encoded.contains("sessionid"));
+        assert!(!encoded.contains("acct"));
+        assert!(!encoded.contains("proxy"));
     }
 }
