@@ -132,16 +132,18 @@ issue links.
 
 ## Phase 5: Identity clustering
 
-- [ ] Add `IdentityCluster` and `ClusterReason` models in `adler-core`.
+- [x] Add `IdentityCluster` and `ClusterReason` models in `adler-core`.
   ([#77](https://github.com/commit3296/adler/issues/77))
-- [ ] Build deterministic correlation rules before considering any ML:
-  shared external link, avatar hash, display name, bio phrase, location,
-  and historical co-occurrence.
-- [ ] Assign cluster confidence separately from per-profile confidence.
-- [ ] Make uncertain clusters explicit instead of silently merging weakly
+- [x] Build deterministic correlation rules before considering any ML:
+  shared external link, avatar URL equality, display name, bio phrase, and
+  location.
+- [ ] Add avatar hashing and historical co-occurrence once image/history
+  inputs are available.
+- [x] Assign cluster confidence separately from per-profile confidence.
+- [x] Make uncertain clusters explicit instead of silently merging weakly
   related accounts.
 - [ ] Add Web and MCP output for cluster candidates.
-- [ ] Add tests that prevent over-merging based on username-only matches.
+- [x] Add tests that prevent over-merging based on username-only matches.
 
 ## Phase 6: Timeline and watchlists
 
