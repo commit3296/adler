@@ -175,7 +175,9 @@ pub use error::{Error, Result};
 pub use escalation::{EscalationBudget, TransportTier};
 pub use executor::ExecutorOptions;
 pub use permute::{MAX_VARIANTS, PermuteLevel, permute};
-pub use profile::{EvidenceOrigin, EvidenceSource, ProfileEvidence, ProfileEvidenceKind};
+pub use profile::{
+    EvidenceAccessPath, EvidenceOrigin, EvidenceSource, ProfileEvidence, ProfileEvidenceKind,
+};
 pub use registry::{Registry, SiteFilter};
 pub use site::{
     Engine, Extractor, HttpMethod, KnownPresent, ProtectionKind, Signal, Site, UrlTemplate,

@@ -16,10 +16,11 @@
 use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 use crate::access::EgressChoice;
 use crate::check::{CheckOutcome, MatchKind, UncertainReason};
+use crate::escalation::TransportTier;
 use crate::retry;
 use crate::site::{HttpMethod, Probe, ProtectionKind, Signal, SignalVerdict, Site, aggregate};
 use crate::transport::{
@@ -38,6 +39,13 @@ fn routes_through_browser(site: &Site) -> bool {
             .protection
             .iter()
             .any(|p| !matches!(p, ProtectionKind::UserAuth))
+}
+
+#[derive(Debug, Clone, Copy)]
+struct ProbeEvidenceContext {
+    transport: TransportTier,
+    escalations: u8,
+    authenticated: bool,
 }
 
 impl Client {
@@ -185,20 +193,21 @@ impl Client {
         // unauthenticated into a login wall — which reads identically
         // for an existing and a missing account. Applies to both the
         // HTTP and browser transports.
-        let session_headers: Cow<'_, BTreeMap<String, String>> = match &site.access.session {
-            None => Cow::Borrowed(&site.request_headers),
-            Some(name) => match self.sessions.get(name) {
-                Some(session) => Cow::Owned(session.apply(&site.request_headers)),
-                None => {
-                    return uncertain(
-                        &site.name,
-                        url,
-                        Instant::now(),
-                        UncertainReason::SessionRequired,
-                    );
-                }
-            },
-        };
+        let (session_headers, authenticated): (Cow<'_, BTreeMap<String, String>>, bool) =
+            match &site.access.session {
+                None => (Cow::Borrowed(&site.request_headers), false),
+                Some(name) => match self.sessions.get(name) {
+                    Some(session) => (Cow::Owned(session.apply(&site.request_headers)), true),
+                    None => {
+                        return uncertain(
+                            &site.name,
+                            url,
+                            Instant::now(),
+                            UncertainReason::SessionRequired,
+                        );
+                    }
+                },
+            };
         let headers: &BTreeMap<String, String> = &session_headers;
 
         // Auto-route bot-protected sites through the browser backend when
@@ -221,10 +230,20 @@ impl Client {
                     };
                     let fetcher = BrowserFetcher::new(Arc::clone(backend));
                     let mut outcome = match fetcher.fetch(&req).await {
-                        Ok(resp) => self.finish(site, url, started, &resp),
+                        Ok(resp) => self.finish(
+                            site,
+                            url,
+                            started,
+                            &resp,
+                            ProbeEvidenceContext {
+                                transport: TransportTier::Browser,
+                                escalations: 0,
+                                authenticated,
+                            },
+                        ),
                         Err(FetchError(reason)) => uncertain(&site.name, url, started, reason),
                     };
-                    outcome.transport = Some(crate::escalation::TransportTier::Browser);
+                    outcome.transport = Some(TransportTier::Browser);
                     return outcome;
                 }
                 tracing::warn!(site = %site.name, "browser budget exhausted");
@@ -234,7 +253,7 @@ impl Client {
                     Instant::now(),
                     UncertainReason::BrowserBudget,
                 );
-                outcome.transport = Some(crate::escalation::TransportTier::Browser);
+                outcome.transport = Some(TransportTier::Browser);
                 return outcome;
             }
         }
@@ -264,11 +283,23 @@ impl Client {
                     want_body: true,
                 };
                 let mut primary = match fetcher.fetch(&req).await {
-                    Ok(resp) => self.finish(site, url.clone(), started, &resp),
+                    Ok(resp) => self.finish(
+                        site,
+                        url.clone(),
+                        started,
+                        &resp,
+                        ProbeEvidenceContext {
+                            transport: TransportTier::Impersonate,
+                            escalations: 0,
+                            authenticated,
+                        },
+                    ),
                     Err(FetchError(reason)) => uncertain(&site.name, url.clone(), started, reason),
                 };
-                primary.transport = Some(crate::escalation::TransportTier::Impersonate);
-                return self.maybe_escalate(site, &url, headers, primary).await;
+                primary.transport = Some(TransportTier::Impersonate);
+                return self
+                    .maybe_escalate(site, &url, headers, authenticated, primary)
+                    .await;
             }
         }
 
@@ -343,11 +374,22 @@ impl Client {
             want_body: needs_body,
         };
         let mut primary = match egress.fetch(&req).await {
-            Ok(resp) => self.finish(site, url.clone(), started, &resp),
+            Ok(resp) => self.finish(
+                site,
+                url.clone(),
+                started,
+                &resp,
+                ProbeEvidenceContext {
+                    transport: TransportTier::Http,
+                    escalations: 0,
+                    authenticated,
+                },
+            ),
             Err(FetchError(reason)) => uncertain(&site.name, url.clone(), started, reason),
         };
-        primary.transport = Some(crate::escalation::TransportTier::Http);
-        self.maybe_escalate(site, &url, headers, primary).await
+        primary.transport = Some(TransportTier::Http);
+        self.maybe_escalate(site, &url, headers, authenticated, primary)
+            .await
     }
 
     /// If the cheap transport returned an `Uncertain` reason a browser
@@ -359,6 +401,7 @@ impl Client {
         site: &Site,
         url: &str,
         headers: &BTreeMap<String, String>,
+        authenticated: bool,
         primary: CheckOutcome,
     ) -> CheckOutcome {
         if !self.escalation_enabled || primary.kind != MatchKind::Uncertain {
@@ -390,10 +433,20 @@ impl Client {
         };
         let fetcher = BrowserFetcher::new(Arc::clone(backend));
         let mut escalated = match fetcher.fetch(&req).await {
-            Ok(resp) => self.finish(site, url.to_owned(), started, &resp),
+            Ok(resp) => self.finish(
+                site,
+                url.to_owned(),
+                started,
+                &resp,
+                ProbeEvidenceContext {
+                    transport: TransportTier::Browser,
+                    escalations: 1,
+                    authenticated,
+                },
+            ),
             Err(FetchError(r)) => uncertain(&site.name, url.to_owned(), started, r),
         };
-        escalated.transport = Some(crate::escalation::TransportTier::Browser);
+        escalated.transport = Some(TransportTier::Browser);
         escalated.escalations = 1;
         escalated
     }
@@ -407,6 +460,7 @@ impl Client {
         url: String,
         started: Instant,
         resp: &crate::transport::FetchResponse,
+        context: ProbeEvidenceContext,
     ) -> CheckOutcome {
         let probe = Probe {
             status: resp.status,
@@ -420,6 +474,8 @@ impl Client {
             .collect();
         let kind = aggregate(votes.iter().map(|(_, v)| *v));
         let mut result = outcome(&site.name, url, started, kind);
+        result.transport = Some(context.transport);
+        result.escalations = context.escalations;
         // Record which signals produced the verdict (the winning polarity).
         let winning = match kind {
             MatchKind::Found => Some(SignalVerdict::Found),
@@ -435,15 +491,36 @@ impl Client {
         }
         if self.enrich && kind == MatchKind::Found && !site.extract.is_empty() {
             result.enrichment = crate::enrich::extract(&resp.body, &site.extract);
+            let observed_at_ms = unix_epoch_ms();
+            let access_path = crate::EvidenceAccessPath::new(
+                context.transport,
+                context.escalations,
+                context.authenticated,
+            );
             result.profile_evidence = result
                 .enrichment
                 .iter()
                 .map(|(field, value)| {
-                    crate::ProfileEvidence::from_enrichment(&result.site, &result.url, field, value)
+                    crate::ProfileEvidence::from_enrichment_with_source(
+                        &result.site,
+                        &result.url,
+                        field,
+                        value,
+                        Some(observed_at_ms),
+                        Some(access_path.clone()),
+                    )
                 })
                 .collect();
         }
         result.refresh_confidence();
         result
     }
+}
+
+fn unix_epoch_ms() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .ok()
+        .and_then(|duration| u64::try_from(duration.as_millis()).ok())
+        .unwrap_or(u64::MAX)
 }
