@@ -53,16 +53,20 @@ that already exists.
 ## Phase 0: Architecture specification
 
 - [x] Capture the long-term direction in this roadmap.
-- [ ] Add a short architectural sketch showing the intended data flow:
+- [x] Add a short architectural sketch showing the intended data flow:
   registry -> probe -> outcome -> evidence -> confidence -> identity
   cluster -> timeline/report -> CLI/Web/MCP.
-- [ ] Decide which terms become stable public API names:
+- [x] Decide which terms become stable public API names:
   `ProfileEvidence`, `ObservedProfile`, `ConfidenceScore`,
   `IdentityCluster`, `InvestigationReport`.
-- [ ] Define which fields are experimental and can change before the
+- [x] Define which fields are experimental and can change before the
   next semver-relevant release.
-- [ ] Link follow-up GitHub issues or milestones from this checklist once
+- [x] Link follow-up GitHub issues or milestones from this checklist once
   they exist.
+
+See [identity-graph-architecture.md](identity-graph-architecture.md)
+for the data flow, public API terms, stability policy, and follow-up
+issue links.
 
 ## Phase 1: Evidence model
 
@@ -76,7 +80,7 @@ that already exists.
 - [x] Include source metadata for each evidence item:
   site, URL, and extraction origin.
 - [ ] Extend evidence source metadata with transport/access path and
-  timestamp.
+  timestamp. ([#75](https://github.com/commit3296/adler/issues/75))
 - [ ] Add explicit username-match evidence once the detection pipeline can
   distinguish username confirmation from generic positive site signals.
 - [x] Add serde-compatible structs that can be reused by CLI JSON, Web
@@ -93,7 +97,7 @@ that already exists.
 - [ ] Account for positive signals:
   exact username match, strong body marker, extracted profile metadata,
   public endpoint match, authenticated endpoint match, and repeated
-  historical consistency.
+  historical consistency. ([#76](https://github.com/commit3296/adler/issues/76))
 - [ ] Account for negative or weakening signals:
   weak status-only detection, known false-positive-prone site,
   catch-all profile response, blocked transport, missing body marker,
@@ -128,6 +132,7 @@ that already exists.
 ## Phase 5: Identity clustering
 
 - [ ] Add `IdentityCluster` and `ClusterReason` models in `adler-core`.
+  ([#77](https://github.com/commit3296/adler/issues/77))
 - [ ] Build deterministic correlation rules before considering any ML:
   shared external link, avatar hash, display name, bio phrase, location,
   and historical co-occurrence.
@@ -159,6 +164,7 @@ that already exists.
 
 - [ ] Add a report model that consumes scan artifacts, evidence,
   confidence, clusters, and timeline events.
+  ([#78](https://github.com/commit3296/adler/issues/78))
 - [ ] Generate Markdown reports first.
 - [ ] Include sections for summary, high-confidence accounts, uncertain
   accounts, evidence table, timeline, parked/disabled sites, and known
@@ -170,6 +176,7 @@ that already exists.
 ## Phase 8: Hardening and release readiness
 
 - [ ] Add compatibility tests for public JSON, Web API, and MCP output.
+  ([#79](https://github.com/commit3296/adler/issues/79))
 - [ ] Add UI tests for confidence/evidence rendering.
 - [ ] Add performance checks for large scan artifacts.
 - [ ] Document privacy, retention, and responsible-use considerations.
