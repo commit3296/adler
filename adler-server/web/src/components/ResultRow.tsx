@@ -71,10 +71,24 @@ export const ResultRow: Component<Props> = (props) => {
                     return `${reason.count} profile metadata field${
                         reason.count === 1 ? "" : "s"
                     } extracted`;
+                case "profile_metadata_rich":
+                    return `${reason.count} rich profile metadata field${
+                        reason.count === 1 ? "" : "s"
+                    } extracted`;
                 case "signal_evidence":
                     return `${reason.count} signal evidence line${
                         reason.count === 1 ? "" : "s"
                     } recorded`;
+                case "authenticated_access":
+                    return "authenticated access";
+                case "browser_transport":
+                    return "browser transport";
+                case "impersonate_transport":
+                    return "impersonate transport";
+                case "escalated_transport":
+                    return "escalated transport";
+                case "weak_status_only":
+                    return "weak status-only signal";
                 case "uncertain_outcome":
                     return "uncertain outcome";
                 case "session_required":

@@ -15,8 +15,9 @@ import { createViewActions } from "./store/viewActions";
 import type {
     AccessResponse,
     CheckOutcome,
-    ScanDiff,
     DisabledSiteSummary,
+    IdentityCluster,
+    ScanDiff,
     ScanListEntry,
     SiteSummary,
     Summary,
@@ -98,6 +99,10 @@ export interface ScanState {
     /// rAF. Solid's fine-grained reactivity means only the
     /// CategoryBlock matching the changed bucket re-evaluates.
     bucketsByCategory: Record<string, CheckOutcome[]>;
+    /// Finished-only identity candidates derived by the backend from
+    /// structured profile evidence. Running scans keep this empty;
+    /// no per-outcome SSE updates are applied here.
+    identityClusters: IdentityCluster[];
     status: ScanStatus;
     summary: Summary | null;
     siteCount: number;

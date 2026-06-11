@@ -142,7 +142,8 @@ issue links.
 - [x] Assign cluster confidence separately from per-profile confidence.
 - [x] Make uncertain clusters explicit instead of silently merging weakly
   related accounts.
-- [ ] Add Web and MCP output for cluster candidates.
+- [x] Add persisted scan, Web API, MCP, and compact Web output for
+  cluster candidates.
 - [x] Add tests that prevent over-merging based on username-only matches.
 
 ## Phase 6: Timeline and watchlists

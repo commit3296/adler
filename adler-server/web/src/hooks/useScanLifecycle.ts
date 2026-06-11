@@ -55,7 +55,12 @@ export function useScanLifecycle(
                     onOutcome,
                     onDone: (f) => {
                         stopElapsedTimer();
-                        actions.finishScan(f.summary, f.outcomes, f.elapsed_ms);
+                        actions.finishScan(
+                            f.summary,
+                            f.outcomes,
+                            f.elapsed_ms,
+                            f.identity_clusters ?? [],
+                        );
                         refreshHistory();
                         resolve(r.scan_id);
                     },
@@ -121,7 +126,12 @@ export function useScanLifecycle(
                 onOutcome,
                 onDone: (f) => {
                     stopElapsedTimer();
-                    actions.finishScan(f.summary, f.outcomes, f.elapsed_ms);
+                    actions.finishScan(
+                        f.summary,
+                        f.outcomes,
+                        f.elapsed_ms,
+                        f.identity_clusters ?? [],
+                    );
                     refreshHistory();
                 },
                 onError: () => {
@@ -158,7 +168,12 @@ export function useScanLifecycle(
             onOutcome: (o) => actions.appendOutcome(o),
             onDone: (f) => {
                 stopElapsedTimer();
-                actions.finishScan(f.summary, f.outcomes, f.elapsed_ms);
+                actions.finishScan(
+                    f.summary,
+                    f.outcomes,
+                    f.elapsed_ms,
+                    f.identity_clusters ?? [],
+                );
                 refreshHistory();
             },
             onError: () => {
@@ -183,6 +198,7 @@ export function useScanLifecycle(
                     outcomes: data.outcomes,
                     outcomeSites: {},
                     bucketsByCategory: {},
+                    identityClusters: data.identity_clusters ?? [],
                     status: "finished",
                     summary: data.summary,
                     siteCount: data.site_count,
@@ -203,7 +219,12 @@ export function useScanLifecycle(
                     onOutcome,
                     onDone: (f) => {
                         stopElapsedTimer();
-                        actions.finishScan(f.summary, f.outcomes, f.elapsed_ms);
+                        actions.finishScan(
+                            f.summary,
+                            f.outcomes,
+                            f.elapsed_ms,
+                            f.identity_clusters ?? [],
+                        );
                         refreshHistory();
                     },
                     onError: () => {

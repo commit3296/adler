@@ -61,7 +61,16 @@ export interface ProfileEvidence {
         site: string;
         url: string;
         origin: "extractor";
+        observed_at_ms?: number;
+        access_path?: EvidenceAccessPath;
     };
+}
+
+export interface EvidenceAccessPath {
+    transport: TransportTier;
+    escalated?: boolean;
+    authenticated?: boolean;
+    session_required?: boolean;
 }
 
 export type ConfidenceLabel = "low" | "medium" | "high" | "verified";
@@ -73,7 +82,13 @@ export interface ConfidenceScore {
         | { kind: "found_by_signal" }
         | { kind: "not_found_by_signal" }
         | { kind: "profile_metadata_extracted"; count: number }
+        | { kind: "profile_metadata_rich"; count: number }
         | { kind: "signal_evidence"; count: number }
+        | { kind: "authenticated_access" }
+        | { kind: "browser_transport" }
+        | { kind: "impersonate_transport" }
+        | { kind: "escalated_transport" }
+        | { kind: "weak_status_only" }
         | { kind: "uncertain_outcome" }
         | { kind: "session_required" }
         | { kind: "transport_blocked" }
@@ -128,10 +143,36 @@ export interface Summary {
     uncertain: number;
 }
 
+export type ClusterReason =
+    | { kind: "shared_display_name"; value: string }
+    | { kind: "shared_bio_phrase"; phrase: string }
+    | { kind: "shared_external_link"; value: string }
+    | { kind: "shared_location"; value: string }
+    | { kind: "shared_avatar_url"; value: string }
+    | { kind: "historical_co_occurrence" };
+
+export interface ObservedProfile {
+    site: string;
+    username: string;
+    url: string;
+    evidence?: ProfileEvidence[];
+    confidence: ConfidenceScore;
+    observed_at_ms?: number;
+}
+
+export interface IdentityCluster {
+    id: string;
+    members: ObservedProfile[];
+    confidence: number;
+    reasons?: ClusterReason[];
+    uncertain: boolean;
+}
+
 export interface FinishedScan {
     summary: Summary;
     outcomes: CheckOutcome[];
     elapsed_ms: number;
+    identity_clusters?: IdentityCluster[];
 }
 
 export type ScanSnapshot =
@@ -149,6 +190,7 @@ export type ScanSnapshot =
           summary: Summary;
           outcomes: CheckOutcome[];
           elapsed_ms: number;
+          identity_clusters?: IdentityCluster[];
       };
 
 export interface ScanListEntry {
