@@ -168,7 +168,7 @@ impl AppState {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::scan::{FinishedScan, Summary};
+    use crate::scan::FinishedScan;
 
     fn client() -> Client {
         Client::builder().build().expect("default client")
@@ -181,11 +181,7 @@ mod tests {
         let id_a = ScanId::from("aaaaaaaaaaaa".to_owned());
         let handle_a = ScanHandle::new("a", 0, 4);
         handle_a
-            .publish(FinishedScan {
-                summary: Summary::default(),
-                outcomes: Vec::new(),
-                elapsed_ms: 0,
-            })
+            .publish(FinishedScan::from_outcomes("a", Vec::new(), 0))
             .await;
         state.insert_scan(id_a.clone(), handle_a).await;
 

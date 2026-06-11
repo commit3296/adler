@@ -124,11 +124,7 @@ mod tests {
             "alice".into(),
             outcomes.len(),
             created_at_ms,
-            crate::scan::FinishedScan {
-                summary: crate::scan::Summary::from_outcomes(&outcomes),
-                outcomes,
-                elapsed_ms: 20,
-            },
+            crate::scan::FinishedScan::from_outcomes("alice", outcomes, 20),
         )
     }
 
