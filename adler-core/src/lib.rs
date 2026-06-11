@@ -146,6 +146,7 @@ mod identity;
 mod permute;
 mod profile;
 mod registry;
+mod report;
 mod retry;
 mod robots;
 mod site;
@@ -181,6 +182,11 @@ pub use profile::{
     EvidenceAccessPath, EvidenceOrigin, EvidenceSource, ProfileEvidence, ProfileEvidenceKind,
 };
 pub use registry::{Registry, SiteFilter};
+pub use report::{
+    INVESTIGATION_REPORT_SCHEMA_VERSION, InvestigationReport, InvestigationReportBuilder,
+    ReportAccount, ReportDisabledSite, ReportEvidence, ReportLimitation, ReportLimitationKind,
+    ReportSummary, ReportTimelineEvent, ReportTimelineEventKind, ReportUncertainAccount,
+};
 pub use site::{
     Engine, Extractor, HttpMethod, KnownPresent, ProtectionKind, Signal, Site, UrlTemplate,
 };
