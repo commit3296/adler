@@ -166,7 +166,7 @@ issue links.
 
 ## Phase 7: Investigation reports
 
-- [ ] Add a report model that consumes scan artifacts, evidence,
+- [x] Add a report model that consumes scan artifacts, evidence,
   confidence, clusters, and timeline events.
   ([#78](https://github.com/commit3296/adler/issues/78))
 - [ ] Generate Markdown reports first.
