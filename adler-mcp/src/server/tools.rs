@@ -12,7 +12,10 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
-use adler_core::{CheckOutcome, MatchKind, Username};
+use adler_core::{
+    CheckOutcome, ClusterReason, ConfidenceReason, ConfidenceScore, IdentityCluster, MatchKind,
+    ObservedProfile, ProfileEvidence, Username, build_identity_clusters,
+};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -175,17 +178,26 @@ pub struct OutcomeRow {
     /// Free-form reason string when `kind == Uncertain` (rate-limit,
     /// timeout, Cloudflare challenge, …).
     pub reason: Option<String>,
+    /// Human-readable detection evidence lines.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub evidence: Vec<String>,
+    /// Structured profile evidence extracted from the found page.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub profile_evidence: Vec<ProfileEvidenceRow>,
+    /// Per-site verdict confidence, when the scan computed one.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub confidence: Option<ConfidenceRow>,
+    /// Transport tier that produced this outcome.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub transport: Option<String>,
+    /// Automatic escalations beyond the primary route.
+    #[serde(skip_serializing_if = "is_zero_u8")]
+    pub escalations: u8,
 }
 
 impl From<CheckOutcome> for OutcomeRow {
     fn from(o: CheckOutcome) -> Self {
-        Self {
-            site: o.site,
-            kind: format!("{:?}", o.kind),
-            url: o.url,
-            elapsed_ms: o.elapsed_ms,
-            reason: o.reason.map(|r| format!("{r:?}")),
-        }
+        Self::from(&o)
     }
 }
 
@@ -197,6 +209,264 @@ impl From<&CheckOutcome> for OutcomeRow {
             url: o.url.clone(),
             elapsed_ms: o.elapsed_ms,
             reason: o.reason.as_ref().map(|r| format!("{r:?}")),
+            evidence: o.evidence.clone(),
+            profile_evidence: o.profile_evidence.iter().map(Into::into).collect(),
+            confidence: ConfidenceRow::from_score(&o.confidence),
+            transport: o.transport.as_ref().map(serde_string),
+            escalations: o.escalations,
+        }
+    }
+}
+
+/// Structured profile evidence row exposed through MCP.
+#[derive(Debug, Clone, Serialize, JsonSchema)]
+pub struct ProfileEvidenceRow {
+    /// Evidence kind, serialized like Adler's JSON output.
+    pub kind: String,
+    /// Original extractor field name.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub field: Option<String>,
+    /// Observed value.
+    pub value: String,
+    /// Non-secret source metadata.
+    pub source: EvidenceSourceRow,
+}
+
+impl From<&ProfileEvidence> for ProfileEvidenceRow {
+    fn from(evidence: &ProfileEvidence) -> Self {
+        Self {
+            kind: serde_string(&evidence.kind),
+            field: evidence.field.clone(),
+            value: evidence.value.clone(),
+            source: EvidenceSourceRow::from(&evidence.source),
+        }
+    }
+}
+
+/// Non-secret source metadata for profile evidence.
+#[derive(Debug, Clone, Serialize, JsonSchema)]
+pub struct EvidenceSourceRow {
+    /// Site name that produced the evidence.
+    pub site: String,
+    /// Profile URL where the evidence was observed.
+    pub url: String,
+    /// Evidence origin.
+    pub origin: String,
+    /// Unix epoch milliseconds when observed.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub observed_at_ms: Option<u64>,
+    /// Coarse access-path metadata without secrets.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub access_path: Option<EvidenceAccessPathRow>,
+}
+
+impl From<&adler_core::EvidenceSource> for EvidenceSourceRow {
+    fn from(source: &adler_core::EvidenceSource) -> Self {
+        Self {
+            site: source.site.clone(),
+            url: source.url.clone(),
+            origin: serde_string(&source.origin),
+            observed_at_ms: source.observed_at_ms,
+            access_path: source.access_path.as_ref().map(Into::into),
+        }
+    }
+}
+
+/// Coarse access path for profile evidence.
+#[derive(Debug, Clone, Serialize, JsonSchema)]
+pub struct EvidenceAccessPathRow {
+    /// Transport tier that produced the response.
+    pub transport: String,
+    /// Whether Adler escalated from a cheaper route.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub escalated: bool,
+    /// Whether an authenticated operator session was applied.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub authenticated: bool,
+    /// Whether this evidence records that a session was required.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub session_required: bool,
+}
+
+impl From<&adler_core::EvidenceAccessPath> for EvidenceAccessPathRow {
+    fn from(path: &adler_core::EvidenceAccessPath) -> Self {
+        Self {
+            transport: serde_string(&path.transport),
+            escalated: path.escalated,
+            authenticated: path.authenticated,
+            session_required: path.session_required,
+        }
+    }
+}
+
+/// Explainable per-site confidence row.
+#[derive(Debug, Clone, Serialize, JsonSchema)]
+pub struct ConfidenceRow {
+    /// Numeric confidence score, 0-100.
+    pub score: u8,
+    /// Coarse confidence label.
+    pub label: String,
+    /// Machine-readable confidence reasons.
+    pub reasons: Vec<ConfidenceReasonRow>,
+}
+
+impl ConfidenceRow {
+    fn from_score(score: &ConfidenceScore) -> Option<Self> {
+        let row = Self {
+            score: score.score,
+            label: serde_string(&score.label),
+            reasons: score.reasons.iter().map(Into::into).collect(),
+        };
+        (!row.is_empty()).then_some(row)
+    }
+
+    fn is_empty(&self) -> bool {
+        self.score == 0 && self.reasons.is_empty()
+    }
+}
+
+/// One machine-readable confidence reason.
+#[derive(Debug, Clone, Serialize, JsonSchema)]
+pub struct ConfidenceReasonRow {
+    /// Reason kind in `snake_case`.
+    pub kind: String,
+    /// Count attached to count-bearing reasons.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub count: Option<usize>,
+}
+
+impl From<&ConfidenceReason> for ConfidenceReasonRow {
+    fn from(reason: &ConfidenceReason) -> Self {
+        let (kind, count) = match reason {
+            ConfidenceReason::FoundBySignal => ("found_by_signal", None),
+            ConfidenceReason::NotFoundBySignal => ("not_found_by_signal", None),
+            ConfidenceReason::ProfileMetadataExtracted { count } => {
+                ("profile_metadata_extracted", Some(*count))
+            }
+            ConfidenceReason::ProfileMetadataRich { count } => {
+                ("profile_metadata_rich", Some(*count))
+            }
+            ConfidenceReason::SignalEvidence { count } => ("signal_evidence", Some(*count)),
+            ConfidenceReason::AuthenticatedAccess => ("authenticated_access", None),
+            ConfidenceReason::BrowserTransport => ("browser_transport", None),
+            ConfidenceReason::ImpersonateTransport => ("impersonate_transport", None),
+            ConfidenceReason::EscalatedTransport => ("escalated_transport", None),
+            ConfidenceReason::WeakStatusOnly => ("weak_status_only", None),
+            ConfidenceReason::UncertainOutcome => ("uncertain_outcome", None),
+            ConfidenceReason::SessionRequired => ("session_required", None),
+            ConfidenceReason::TransportBlocked => ("transport_blocked", None),
+        };
+        Self {
+            kind: kind.to_owned(),
+            count,
+        }
+    }
+}
+
+/// Identity cluster row exposed through MCP.
+#[derive(Debug, Clone, Serialize, JsonSchema)]
+pub struct IdentityClusterRow {
+    /// Stable deterministic cluster id within this scan result.
+    pub id: String,
+    /// Profiles included in this identity candidate.
+    pub members: Vec<ObservedProfileRow>,
+    /// Cluster-level confidence, 0-100.
+    pub confidence: u8,
+    /// Evidence reasons that linked members.
+    pub reasons: Vec<ClusterReasonRow>,
+    /// Whether the cluster contains weak or ambiguous links.
+    pub uncertain: bool,
+}
+
+impl From<&IdentityCluster> for IdentityClusterRow {
+    fn from(cluster: &IdentityCluster) -> Self {
+        Self {
+            id: cluster.id.clone(),
+            members: cluster.members.iter().map(Into::into).collect(),
+            confidence: cluster.confidence,
+            reasons: cluster.reasons.iter().map(Into::into).collect(),
+            uncertain: cluster.uncertain,
+        }
+    }
+}
+
+/// Observed profile member inside an identity cluster.
+#[derive(Debug, Clone, Serialize, JsonSchema)]
+pub struct ObservedProfileRow {
+    /// Site name.
+    pub site: String,
+    /// Username scanned.
+    pub username: String,
+    /// Profile URL.
+    pub url: String,
+    /// Structured profile evidence.
+    pub evidence: Vec<ProfileEvidenceRow>,
+    /// Per-profile verdict confidence.
+    pub confidence: Option<ConfidenceRow>,
+    /// Earliest evidence timestamp for this profile.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub observed_at_ms: Option<u64>,
+}
+
+impl From<&ObservedProfile> for ObservedProfileRow {
+    fn from(profile: &ObservedProfile) -> Self {
+        Self {
+            site: profile.site.clone(),
+            username: profile.username.clone(),
+            url: profile.url.clone(),
+            evidence: profile.evidence.iter().map(Into::into).collect(),
+            confidence: ConfidenceRow::from_score(&profile.confidence),
+            observed_at_ms: profile.observed_at_ms,
+        }
+    }
+}
+
+/// Reason that linked profiles inside an identity cluster.
+#[derive(Debug, Clone, Serialize, JsonSchema)]
+pub struct ClusterReasonRow {
+    /// Reason kind in `snake_case`.
+    pub kind: String,
+    /// Shared value for value-bearing reasons.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub value: Option<String>,
+    /// Shared phrase for biography phrase matches.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub phrase: Option<String>,
+}
+
+impl From<&ClusterReason> for ClusterReasonRow {
+    fn from(reason: &ClusterReason) -> Self {
+        match reason {
+            ClusterReason::SharedDisplayName { value } => Self {
+                kind: "shared_display_name".to_owned(),
+                value: Some(value.clone()),
+                phrase: None,
+            },
+            ClusterReason::SharedBioPhrase { phrase } => Self {
+                kind: "shared_bio_phrase".to_owned(),
+                value: None,
+                phrase: Some(phrase.clone()),
+            },
+            ClusterReason::SharedExternalLink { value } => Self {
+                kind: "shared_external_link".to_owned(),
+                value: Some(value.clone()),
+                phrase: None,
+            },
+            ClusterReason::SharedLocation { value } => Self {
+                kind: "shared_location".to_owned(),
+                value: Some(value.clone()),
+                phrase: None,
+            },
+            ClusterReason::SharedAvatarUrl { value } => Self {
+                kind: "shared_avatar_url".to_owned(),
+                value: Some(value.clone()),
+                phrase: None,
+            },
+            ClusterReason::HistoricalCoOccurrence => Self {
+                kind: "historical_co_occurrence".to_owned(),
+                value: None,
+                phrase: None,
+            },
         }
     }
 }
@@ -242,6 +512,32 @@ pub struct ScanOutput {
     pub summary: ScanSummary,
     /// Per-site outcomes, in registry order.
     pub outcomes: Vec<OutcomeRow>,
+    /// Identity candidates derived from found outcomes with structured
+    /// profile evidence.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub identity_clusters: Vec<IdentityClusterRow>,
+}
+
+impl ScanOutput {
+    pub(super) fn from_outcomes(
+        username: String,
+        total_probed: usize,
+        outcomes: &[CheckOutcome],
+    ) -> Self {
+        let summary = ScanSummary::from_outcomes(outcomes);
+        let identity_clusters = build_identity_clusters(&username, outcomes)
+            .iter()
+            .map(Into::into)
+            .collect();
+        let outcomes = outcomes.iter().map(OutcomeRow::from).collect();
+        Self {
+            username,
+            total_probed,
+            summary,
+            outcomes,
+            identity_clusters,
+        }
+    }
 }
 
 /// Envelope for `scan_batch`.
@@ -958,4 +1254,88 @@ fn changed_fields(previous: &CheckOutcome, current: &CheckOutcome) -> Vec<String
         );
     }
     fields.into_iter().collect()
+}
+
+fn serde_string<T>(value: &T) -> String
+where
+    T: Serialize + std::fmt::Debug,
+{
+    serde_json::to_value(value)
+        .ok()
+        .and_then(|value| value.as_str().map(str::to_owned))
+        .unwrap_or_else(|| format!("{value:?}"))
+}
+
+#[allow(clippy::trivially_copy_pass_by_ref)]
+fn is_false(value: &bool) -> bool {
+    !*value
+}
+
+#[allow(clippy::trivially_copy_pass_by_ref)]
+fn is_zero_u8(value: &u8) -> bool {
+    *value == 0
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::BTreeMap;
+
+    use adler_core::{MatchKind, ProfileEvidence, TransportTier};
+
+    use super::*;
+
+    fn found_with_website(site: &str, website: &str) -> CheckOutcome {
+        let url = format!("https://{}.example/alice", site.to_lowercase());
+        let mut outcome = CheckOutcome {
+            site: site.to_owned(),
+            url: url.clone(),
+            kind: MatchKind::Found,
+            reason: None,
+            elapsed_ms: 10,
+            enrichment: BTreeMap::new(),
+            evidence: vec!["HTTP 200 (status_found)".to_owned()],
+            profile_evidence: vec![ProfileEvidence::from_enrichment(
+                site, &url, "website", website,
+            )],
+            confidence: adler_core::ConfidenceScore::default(),
+            transport: Some(TransportTier::Http),
+            escalations: 0,
+        };
+        outcome.refresh_confidence();
+        outcome
+    }
+
+    #[test]
+    fn scan_output_includes_identity_clusters() {
+        let outcomes = vec![
+            found_with_website("GitHub", "https://alice.dev"),
+            found_with_website("GitLab", "https://alice.dev"),
+        ];
+        let output = ScanOutput::from_outcomes("alice".to_owned(), 2, &outcomes);
+
+        assert_eq!(output.summary.found, 2);
+        assert_eq!(output.identity_clusters.len(), 1);
+        assert_eq!(output.identity_clusters[0].members.len(), 2);
+        assert!(!output.identity_clusters[0].uncertain);
+        assert!(
+            output.identity_clusters[0]
+                .reasons
+                .iter()
+                .any(|reason| reason.kind == "shared_external_link")
+        );
+    }
+
+    #[test]
+    fn outcome_row_preserves_evidence_confidence_and_transport() {
+        let outcome = found_with_website("GitHub", "https://alice.dev");
+        let row = OutcomeRow::from(&outcome);
+        let json = serde_json::to_value(&row).unwrap();
+
+        assert_eq!(json["evidence"][0], "HTTP 200 (status_found)");
+        assert_eq!(json["profile_evidence"][0]["kind"], "external_link");
+        assert_eq!(json["profile_evidence"][0]["value"], "https://alice.dev");
+        assert_eq!(json["confidence"]["label"], "high");
+        assert_eq!(json["confidence"]["reasons"][0]["kind"], "found_by_signal");
+        assert_eq!(json["transport"], "http");
+    }
 }
