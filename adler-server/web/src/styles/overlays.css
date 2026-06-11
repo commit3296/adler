@@ -544,14 +544,14 @@
             background: color-mix(in srgb, var(--color-success) 10%, var(--color-bg-elev));
         }
         .confidence-medium {
-            color: var(--color-accent-text);
-            border-color: color-mix(in srgb, var(--color-accent) 55%, var(--color-border));
-            background: color-mix(in srgb, var(--color-accent) 9%, var(--color-bg-elev));
-        }
-        .confidence-low {
             color: var(--color-warning);
             border-color: color-mix(in srgb, var(--color-warning) 55%, var(--color-border));
             background: color-mix(in srgb, var(--color-warning) 9%, var(--color-bg-elev));
+        }
+        .confidence-low {
+            color: var(--color-accent-text);
+            border-color: color-mix(in srgb, var(--color-accent) 55%, var(--color-border));
+            background: color-mix(in srgb, var(--color-accent) 9%, var(--color-bg-elev));
         }
         .row-chevron {
             display: inline-flex;
