@@ -1,6 +1,7 @@
 //! Adler CLI entry point.
 
 mod doctor;
+mod investigation_report;
 mod output;
 mod report;
 mod scan;
@@ -14,6 +15,7 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 
 use crate::doctor::{DoctorOpts, run_doctor};
+use crate::investigation_report::run_report_scan;
 use crate::scan::run_scan;
 use crate::transport::build_client;
 use anyhow::{Context as _, Result};
@@ -57,6 +59,7 @@ const AFTER_HELP: &str = concat!(
     "  Batch and watch:\n",
     "    adler --input users.txt --format ndjson > batch.ndjson\n",
     "    adler --watch --interval 86400 alice        # daily diff vs last run\n",
+    "    adler --report-scan <ID> > report.md       # Markdown investigation report\n",
     "\n",
     "  Web UI:\n",
     "    adler --web                                 # http://127.0.0.1:8765\n",
@@ -89,7 +92,7 @@ pub(crate) struct Cli {
     /// Username to search for. With `--add-site`, this is an account that
     /// EXISTS on the site (used to derive the signature). Not required with
     /// `--doctor`, `--cache-clear`, `--list-sites`, or `--completions`.
-    #[arg(required_unless_present_any = ["doctor", "cache_clear", "list_sites", "list_tags", "completions", "man_page", "add_site", "input", "web", "mcp", "mcp_http"])]
+    #[arg(required_unless_present_any = ["doctor", "cache_clear", "list_sites", "list_tags", "completions", "man_page", "add_site", "input", "web", "mcp", "mcp_http", "report_scan"])]
     pub(crate) username: Option<String>,
 
     /// List registry site names (honoring `--only`/`--exclude`/`--tag`) and
@@ -410,17 +413,16 @@ pub(crate) struct Cli {
     #[arg(long, requires = "doctor", help_heading = "Doctor")]
     suggest_protection: bool,
 
-    /// With `--suggest-protection`: directory holding persisted scan
-    /// JSON files. Defaults to `$XDG_CACHE_HOME/adler/scans/` (then
-    /// `$HOME/.cache/adler/scans/`), the same path the web UI writes
-    /// to.
-    #[arg(
-        long,
-        value_name = "PATH",
-        requires = "suggest_protection",
-        help_heading = "Doctor"
-    )]
+    /// Directory holding persisted scan JSON files for doctor telemetry and
+    /// report generation. Defaults to `$XDG_CACHE_HOME/adler/scans/` (then
+    /// `$HOME/.cache/adler/scans/`), the same path the web UI writes to.
+    #[arg(long, value_name = "PATH", help_heading = "Doctor")]
     scans_dir: Option<PathBuf>,
+
+    /// Generate a Markdown investigation report from a persisted web scan id
+    /// and exit. Reads from `--scans-dir` or Adler's default scan history dir.
+    #[arg(long, value_name = "SCAN_ID", help_heading = "Reports")]
+    report_scan: Option<String>,
 
     /// Scan every username in this file (one per line; blank lines and lines
     /// starting with `#` are skipped, duplicates removed). A positional
@@ -704,6 +706,13 @@ async fn run(cli: Cli) -> Result<ExitCode> {
         let path = cache_path(&cli);
         Cache::clear(&path).with_context(|| format!("clearing cache at {}", path.display()))?;
         println!("cleared cache at {}", path.display());
+        return Ok(ExitCode::SUCCESS);
+    }
+
+    if let Some(scan_id) = cli.report_scan.as_deref() {
+        let stdout = io::stdout();
+        let mut out = stdout.lock();
+        run_report_scan(cli.scans_dir.as_deref(), scan_id, &mut out)?;
         return Ok(ExitCode::SUCCESS);
     }
 

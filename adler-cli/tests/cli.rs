@@ -647,6 +647,76 @@ async fn html_format_renders_self_contained_report() {
 }
 
 #[test]
+fn report_scan_renders_markdown_from_persisted_scan() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let scan = serde_json::json!({
+        "schema_version": 2,
+        "scan_id": "scan123",
+        "username": "alice",
+        "site_count": 2,
+        "created_at_ms": 1_781_192_451_000_u64,
+        "summary": {"found": 2, "not_found": 0, "uncertain": 0},
+        "outcomes": [
+            {
+                "site": "GitHub",
+                "url": "https://github.com/alice",
+                "kind": "found",
+                "elapsed_ms": 12,
+                "evidence": ["HTTP 200 (status_found)"],
+                "profile_evidence": [{
+                    "kind": "external_link",
+                    "field": "website",
+                    "value": "https://alice.dev",
+                    "source": {
+                        "site": "GitHub",
+                        "url": "https://github.com/alice",
+                        "origin": "extractor"
+                    }
+                }]
+            },
+            {
+                "site": "GitLab",
+                "url": "https://gitlab.com/alice",
+                "kind": "found",
+                "elapsed_ms": 15,
+                "evidence": ["HTTP 200 (status_found)"],
+                "profile_evidence": [{
+                    "kind": "external_link",
+                    "field": "website",
+                    "value": "https://alice.dev",
+                    "source": {
+                        "site": "GitLab",
+                        "url": "https://gitlab.com/alice",
+                        "origin": "extractor"
+                    }
+                }]
+            }
+        ],
+        "elapsed_ms": 42
+    });
+    std::fs::write(
+        dir.path().join("scan123.json"),
+        serde_json::to_vec_pretty(&scan).unwrap(),
+    )
+    .expect("write scan");
+
+    adler()
+        .args([
+            "--report-scan",
+            "scan123",
+            "--scans-dir",
+            dir.path().to_str().unwrap(),
+        ])
+        .assert()
+        .success()
+        .stdout(str::contains("# Adler investigation report: alice"))
+        .stdout(str::contains("## Identity Clusters"))
+        .stdout(str::contains("identity-0001"))
+        .stdout(str::contains("shared external link"))
+        .stdout(str::contains("## Evidence Table"));
+}
+
+#[test]
 fn permute_basic_scans_separator_variants() {
     // Dead local port → all Uncertain, but every variant URL must appear.
     let sites = sites_file(
