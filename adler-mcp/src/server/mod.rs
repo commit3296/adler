@@ -18,8 +18,8 @@ use resources::{
 };
 use tools::{
     BatchScanOutput, DisabledSiteEntry, DoctorCheckArgs, DoctorCheckOutput, ListSitesArgs,
-    ListSitesOutput, OutcomeRow, ScanBatchArgs, ScanDiffArgs, ScanDiffError, ScanDiffOutput,
-    ScanFilter, ScanHistoryArgs, ScanHistoryOutput, ScanOutput, ScanSummary, ScanTimelineError,
+    ListSitesOutput, ScanBatchArgs, ScanDiffArgs, ScanDiffError, ScanDiffOutput, ScanFilter,
+    ScanHistoryArgs, ScanHistoryOutput, ScanOutput, ScanSummary, ScanTimelineError,
     ScanUsernameArgs, SiteEntry, read_scan_diff, read_scan_history, read_scan_timeline,
 };
 
@@ -299,13 +299,11 @@ impl AdlerMcp {
                 args.concurrency,
             )
             .await?;
-        let summary = ScanSummary::from_outcomes(&outcomes);
-        Ok(Json(ScanOutput {
-            username: args.username,
-            total_probed: total,
-            summary,
-            outcomes: outcomes.into_iter().map(OutcomeRow::from).collect(),
-        }))
+        Ok(Json(ScanOutput::from_outcomes(
+            args.username,
+            total,
+            &outcomes,
+        )))
     }
 
     /// Scan many usernames sequentially. Streaming progress carries
@@ -357,6 +355,7 @@ impl AdlerMcp {
                             ..Default::default()
                         },
                         outcomes: Vec::new(),
+                        identity_clusters: Vec::new(),
                     });
                     continue;
                 }
@@ -370,13 +369,11 @@ impl AdlerMcp {
                     args.concurrency,
                 )
                 .await?;
-            let summary = ScanSummary::from_outcomes(&outcomes);
-            results.push(ScanOutput {
-                username: raw_username,
-                total_probed: sites_total,
-                summary,
-                outcomes: outcomes.into_iter().map(OutcomeRow::from).collect(),
-            });
+            results.push(ScanOutput::from_outcomes(
+                raw_username,
+                sites_total,
+                &outcomes,
+            ));
         }
         let total_usernames = results.len();
         Ok(Json(BatchScanOutput {
@@ -794,7 +791,10 @@ const ADLER_MCP_INSTRUCTIONS: &str = concat!(
     "username scan with streaming progress notifications), `scan_batch` (sequential ",
     "multi-username scan), `doctor_check` (health probe for one named site), ",
     "`get_scan_history` (recent persisted scans from the web server's history dir), ",
-    "`diff_scans` (compare two persisted scan ids).\n\n",
+    "`diff_scans` (compare two persisted scan ids). `scan_username` and ",
+    "`scan_batch` return per-site `outcomes` plus `identity_clusters` derived ",
+    "from structured profile evidence; use cluster `uncertain=true` as a ",
+    "caution flag, not proof.\n\n",
     "Resources: `adler://registry/sites` (full enabled registry), ",
     "`adler://registry/tags` (tags with site counts), `adler://registry/disabled` ",
     "(disabled entries + reasons — audit surface), `adler://scans/recent` (recent ",

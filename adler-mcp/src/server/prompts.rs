@@ -66,7 +66,8 @@ Subscribe to `notifications/progress` if you want to see per-site results stream
 4. Group the response by verdict (Found / NotFound / Uncertain). For each \
 Found account, report the canonical URL, `confidence.label`, \
 `confidence.score`, and the strongest `evidence` / `profile_evidence` values \
-available.
+available. If `identity_clusters` is non-empty, summarize the cluster \
+members, cluster confidence, reasons, and whether `uncertain` is true.
 5. If any sites came back Uncertain, note them but do not infer existence \
 either way — cite their `confidence` reasons and any session/transport \
 limitations instead.
@@ -131,13 +132,13 @@ Workflow:
 1. Call `scan_batch` with the comma-split username list. Use a small filter \
 (e.g. `tag=[\"social\",\"coding\"]`) so the scan finishes quickly — broad \
 sweeps add noise without helping correlation.
-2. For each username's Found accounts, look at the `outcomes[].url` field to \
-read each profile's name / bio / avatar where available. Prefer the \
-structured `profile_evidence` and `confidence` fields over scraping \
-presentation text. The agent doing this should call `scan_username` with \
-`enrich=true` if it needs richer profile data than the bare-bones outcome.
+2. For each username's Found accounts, use `identity_clusters` first. Then \
+inspect `outcomes[].profile_evidence`, `outcomes[].confidence`, and \
+`outcomes[].url` for supporting details. Do not scrape presentation text \
+when structured evidence is present.
 3. Compare across usernames: shared exact name, shared bio fragments, shared \
-avatar URLs are strong signals; shared sites alone are weak.
+external links, and shared avatar URLs are signals; shared sites alone are weak. \
+Treat any cluster with `uncertain=true` as a candidate, not a hard merge.
 4. Report a confidence verdict (Strong / Plausible / Weak / Distinct) per \
 pair, with the evidence that supports it.
 
