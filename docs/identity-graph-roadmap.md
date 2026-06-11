@@ -169,13 +169,13 @@ issue links.
 - [x] Add a report model that consumes scan artifacts, evidence,
   confidence, clusters, and timeline events.
   ([#78](https://github.com/commit3296/adler/issues/78))
-- [ ] Generate Markdown reports first.
-- [ ] Include sections for summary, high-confidence accounts, uncertain
+- [x] Generate Markdown reports first.
+- [x] Include sections for summary, high-confidence accounts, uncertain
   accounts, evidence table, timeline, parked/disabled sites, and known
   limitations.
 - [ ] Add JSON report output for downstream tools.
 - [ ] Consider HTML export after the report model stabilizes.
-- [ ] Add snapshot tests for report rendering.
+- [x] Add snapshot tests for report rendering.
 
 ## Phase 8: Hardening and release readiness
 
