@@ -262,6 +262,54 @@ describe("adler-server SSE scan contract", () => {
             summary: { found: 1, not_found: 0, uncertain: 0 },
             outcomes: [outcome],
             elapsed_ms: 25,
+            identity_clusters: [
+                {
+                    id: "identity-0001",
+                    confidence: 90,
+                    uncertain: false,
+                    reasons: [
+                        {
+                            kind: "shared_external_link",
+                            value: "https://alice.dev",
+                        },
+                    ],
+                    members: [
+                        {
+                            site: "GitHub",
+                            username: "alice",
+                            url: "https://github.com/alice",
+                            evidence: [
+                                {
+                                    kind: "external_link",
+                                    field: "website",
+                                    value: "https://alice.dev",
+                                    source: {
+                                        site: "GitHub",
+                                        url: "https://github.com/alice",
+                                        origin: "extractor",
+                                        observed_at_ms: 1781192451000,
+                                        access_path: {
+                                            transport: "http",
+                                        },
+                                    },
+                                },
+                            ],
+                            confidence: {
+                                score: 85,
+                                label: "high",
+                                reasons: [
+                                    { kind: "found_by_signal" },
+                                    {
+                                        kind: "profile_metadata_rich",
+                                        count: 3,
+                                    },
+                                ],
+                            },
+                            observed_at_ms: 1781192451000,
+                        },
+                    ],
+                },
+            ],
         };
 
         expect(source.url).toBe("/api/scan/scan_1/stream");

@@ -1,7 +1,7 @@
 import { produce, reconcile, type SetStoreFunction } from "solid-js/store";
 
 import { ApiClientError, api } from "../api";
-import type { CheckOutcome, Summary } from "../types";
+import type { CheckOutcome, IdentityCluster, Summary } from "../types";
 import type {
     AppStore,
     NotFoundState,
@@ -10,6 +10,9 @@ import type {
 } from "../store";
 
 type ToastKind = "success" | "error" | "info";
+type LoadableScanState = Omit<ScanState, "identityClusters"> & {
+    identityClusters?: IdentityCluster[];
+};
 
 interface Deps {
     set: SetStoreFunction<AppStore>;
@@ -90,6 +93,7 @@ export function createScanActions({
                 outcomes: [],
                 outcomeSites: {},
                 bucketsByCategory: emptyBuckets(),
+                identityClusters: [],
                 status: "running",
                 summary: null,
                 siteCount,
@@ -108,6 +112,7 @@ export function createScanActions({
             set("scan", "outcomes", []);
             set("scan", "outcomeSites", reconcile({}));
             set("scan", "bucketsByCategory", reconcile(emptyBuckets()));
+            set("scan", "identityClusters", []);
             set("scan", "summary", null);
             set("scan", "status", "running");
             set("scan", "startedAtMs", Date.now());
@@ -176,7 +181,12 @@ export function createScanActions({
                 setRetrying(site, false);
             }
         },
-        finishScan(summary: Summary, outcomes: CheckOutcome[], elapsedMs: number) {
+        finishScan(
+            summary: Summary,
+            outcomes: CheckOutcome[],
+            elapsedMs: number,
+            identityClusters: IdentityCluster[] = [],
+        ) {
             const sites = Object.fromEntries(
                 outcomes.map((o) => [o.site, true as const]),
             );
@@ -190,14 +200,16 @@ export function createScanActions({
                     s.outcomes = outcomes;
                     s.outcomeSites = sites;
                     s.bucketsByCategory = buckets;
+                    s.identityClusters = identityClusters;
                     s.elapsedMs = elapsedMs;
                 }),
             );
         },
-        loadScan(scan: ScanState) {
+        loadScan(scan: LoadableScanState) {
             set("diff", null);
             set("notFound", null);
             set("loading", false);
+            scan.identityClusters ??= [];
             if (!scan.outcomeSites || Object.keys(scan.outcomeSites).length === 0) {
                 scan.outcomeSites = Object.fromEntries(
                     scan.outcomes.map((o) => [o.site, true as const]),
@@ -212,7 +224,7 @@ export function createScanActions({
                     store.categoryBySite,
                 );
             }
-            set("scan", scan);
+            set("scan", scan as ScanState);
         },
         clearScan() {
             set("scan", null);

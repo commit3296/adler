@@ -63,6 +63,41 @@ describe("useScanLifecycle", () => {
                 },
             ],
             elapsed_ms: 42,
+            identity_clusters: [
+                {
+                    id: "identity-0001",
+                    confidence: 90,
+                    uncertain: false,
+                    reasons: [
+                        {
+                            kind: "shared_external_link",
+                            value: "https://alice.dev",
+                        },
+                    ],
+                    members: [
+                        {
+                            site: "GitHub",
+                            username: "alice",
+                            url: "https://github.com/alice",
+                            confidence: {
+                                score: 85,
+                                label: "high",
+                                reasons: [],
+                            },
+                        },
+                        {
+                            site: "GitLab",
+                            username: "alice",
+                            url: "https://gitlab.com/alice",
+                            confidence: {
+                                score: 85,
+                                label: "high",
+                                reasons: [],
+                            },
+                        },
+                    ],
+                },
+            ],
         };
         mocks.startScan.mockResolvedValue({
             scan_id: "scan1",
@@ -95,6 +130,7 @@ describe("useScanLifecycle", () => {
         );
         expect(store.scan?.status).toBe("finished");
         expect(store.scan?.summary).toEqual(finished.summary);
+        expect(store.scan?.identityClusters).toEqual(finished.identity_clusters);
         expect(refreshHistory).toHaveBeenCalled();
     });
 

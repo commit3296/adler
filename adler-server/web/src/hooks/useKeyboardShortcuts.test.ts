@@ -114,6 +114,7 @@ describe("createKeyboardHandler", () => {
                 outcomes: [github],
                 outcomeSites: { GitHub: true },
                 bucketsByCategory: { dev: [github] },
+                identityClusters: [],
                 status: "finished",
                 summary: { found: 1, not_found: 0, uncertain: 0 },
                 siteCount: 1,

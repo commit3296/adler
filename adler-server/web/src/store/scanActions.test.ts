@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { api } from "../api";
-import type { CheckOutcome } from "../types";
+import type { CheckOutcome, IdentityCluster } from "../types";
 import { createScanActions } from "./scanActions";
 import { createTestStore } from "./testHelpers";
 
@@ -25,6 +25,27 @@ const gitlab: CheckOutcome = {
     url: "https://gitlab.com/alice",
     kind: "not_found",
     elapsed_ms: 20,
+};
+
+const identityCluster: IdentityCluster = {
+    id: "identity-0001",
+    confidence: 90,
+    uncertain: false,
+    reasons: [{ kind: "shared_external_link", value: "https://alice.dev" }],
+    members: [
+        {
+            site: "GitHub",
+            username: "alice",
+            url: "https://github.com/alice",
+            confidence: { score: 85, label: "high", reasons: [] },
+        },
+        {
+            site: "GitLab",
+            username: "alice",
+            url: "https://gitlab.com/alice",
+            confidence: { score: 85, label: "high", reasons: [] },
+        },
+    ],
 };
 
 function createActions() {
@@ -118,6 +139,7 @@ describe("scanActions", () => {
             { found: 1, not_found: 1, uncertain: 0 },
             [github, gitlab],
             64,
+            [identityCluster],
         );
 
         expect(store.scan?.status).toBe("finished");
@@ -128,6 +150,7 @@ describe("scanActions", () => {
         });
         expect(store.scan?.elapsedMs).toBe(64);
         expect(store.scan?.bucketsByCategory.dev).toHaveLength(2);
+        expect(store.scan?.identityClusters).toEqual([identityCluster]);
 
         actions.loadScan({
             id: "old-scan",
@@ -145,6 +168,7 @@ describe("scanActions", () => {
 
         expect(store.scan?.id).toBe("old-scan");
         expect(store.scan?.outcomeSites).toEqual({ GitHub: true });
+        expect(store.scan?.identityClusters).toEqual([]);
         expect(store.scan?.bucketsByCategory.dev.map((o) => o.site)).toEqual([
             "GitHub",
         ]);
