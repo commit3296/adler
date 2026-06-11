@@ -12,7 +12,10 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use adler_core::{CheckOutcome, Client, ExecutorOptions, MatchKind, Site, Username, executor};
+use adler_core::{
+    CheckOutcome, Client, ExecutorOptions, IdentityCluster, MatchKind, Site, Username,
+    build_identity_clusters, executor,
+};
 use serde::{Deserialize, Serialize};
 use tokio::sync::{Notify, RwLock, broadcast, mpsc};
 
@@ -75,8 +78,33 @@ pub struct FinishedScan {
     pub summary: Summary,
     /// All outcomes, in completion order (same order as the live stream).
     pub outcomes: Vec<CheckOutcome>,
+    /// Deterministic identity candidates derived from found outcomes
+    /// with structured profile evidence.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub identity_clusters: Vec<IdentityCluster>,
     /// Wall-clock duration of the whole scan, milliseconds.
     pub elapsed_ms: u64,
+}
+
+impl FinishedScan {
+    pub(crate) fn from_outcomes(
+        username: &str,
+        outcomes: Vec<CheckOutcome>,
+        elapsed_ms: u64,
+    ) -> Self {
+        let summary = Summary::from_outcomes(&outcomes);
+        let identity_clusters = build_identity_clusters(username, &outcomes);
+        Self {
+            summary,
+            outcomes,
+            identity_clusters,
+            elapsed_ms,
+        }
+    }
+
+    pub(crate) fn refresh_identity_clusters(&mut self, username: &str) {
+        self.identity_clusters = build_identity_clusters(username, &self.outcomes);
+    }
 }
 
 /// Verdict counts for a finished scan.
@@ -289,6 +317,7 @@ impl ScanHandle {
             finished.outcomes.push(new);
         }
         finished.summary = Summary::from_outcomes(&finished.outcomes);
+        finished.refresh_identity_clusters(self.username());
     }
 }
 
@@ -357,12 +386,7 @@ async fn run(
     let (all_outcomes, ()) = tokio::join!(scan_fut, consume_fut);
 
     let elapsed_ms = u64::try_from(handle.elapsed().as_millis()).unwrap_or(u64::MAX);
-    let summary = Summary::from_outcomes(&all_outcomes);
-    let finished = FinishedScan {
-        summary,
-        outcomes: all_outcomes,
-        elapsed_ms,
-    };
+    let finished = FinishedScan::from_outcomes(username.as_str(), all_outcomes, elapsed_ms);
 
     // Persist before publishing the `done` event so a UI that refreshes
     // immediately after seeing `done` still finds the scan on disk.
@@ -392,7 +416,7 @@ async fn run(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use adler_core::UncertainReason;
+    use adler_core::{ProfileEvidence, UncertainReason};
 
     fn outcome(name: &str, kind: MatchKind) -> CheckOutcome {
         CheckOutcome {
@@ -409,6 +433,19 @@ mod tests {
             transport: None,
             escalations: 0,
         }
+    }
+
+    fn found_with_website(site: &str, website: &str) -> CheckOutcome {
+        let mut outcome = outcome(site, MatchKind::Found);
+        outcome
+            .profile_evidence
+            .push(ProfileEvidence::from_enrichment(
+                site,
+                &outcome.url,
+                "website",
+                website,
+            ));
+        outcome
     }
 
     #[test]
@@ -437,6 +474,22 @@ mod tests {
         );
         // Birthday-collision probability on two 71-bit IDs is negligible.
         assert_ne!(a, b);
+    }
+
+    #[test]
+    fn finished_scan_includes_identity_clusters() {
+        let finished = FinishedScan::from_outcomes(
+            "alice",
+            vec![
+                found_with_website("GitHub", "https://alice.dev"),
+                found_with_website("GitLab", "https://alice.dev"),
+            ],
+            42,
+        );
+
+        assert_eq!(finished.summary.found, 2);
+        assert_eq!(finished.identity_clusters.len(), 1);
+        assert_eq!(finished.identity_clusters[0].members.len(), 2);
     }
 
     #[tokio::test]
@@ -471,15 +524,11 @@ mod tests {
         tokio::task::yield_now().await;
 
         handle
-            .publish(FinishedScan {
-                summary: Summary {
-                    found: 1,
-                    not_found: 0,
-                    uncertain: 0,
-                },
-                outcomes: vec![outcome("GitHub", MatchKind::Found)],
-                elapsed_ms: 42,
-            })
+            .publish(FinishedScan::from_outcomes(
+                "alice",
+                vec![outcome("GitHub", MatchKind::Found)],
+                42,
+            ))
             .await;
 
         waiter.await.unwrap();
@@ -493,15 +542,38 @@ mod tests {
     async fn wait_done_returns_immediately_if_already_finished() {
         let handle = ScanHandle::new("alice", 1, 4);
         handle
-            .publish(FinishedScan {
-                summary: Summary::default(),
-                outcomes: Vec::new(),
-                elapsed_ms: 0,
-            })
+            .publish(FinishedScan::from_outcomes("alice", Vec::new(), 0))
             .await;
         // Should not deadlock — the fast path checks `finished` first.
         tokio::time::timeout(Duration::from_millis(100), handle.wait_done())
             .await
             .expect("wait_done must return immediately when already finished");
+    }
+
+    #[tokio::test]
+    async fn replace_outcome_recomputes_identity_clusters() {
+        let handle = ScanHandle::new("alice", 2, 4);
+        handle
+            .publish(FinishedScan::from_outcomes(
+                "alice",
+                vec![
+                    found_with_website("GitHub", "https://alice.dev"),
+                    outcome("GitLab", MatchKind::NotFound),
+                ],
+                10,
+            ))
+            .await;
+
+        let mut finished = handle.finished().await.expect("finished");
+        assert!(finished.identity_clusters.is_empty());
+
+        handle
+            .replace_outcome(found_with_website("GitLab", "https://alice.dev"))
+            .await;
+
+        finished = handle.finished().await.expect("finished");
+        assert_eq!(finished.summary.found, 2);
+        assert_eq!(finished.identity_clusters.len(), 1);
+        assert_eq!(finished.identity_clusters[0].members.len(), 2);
     }
 }

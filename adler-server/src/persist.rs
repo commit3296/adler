@@ -13,7 +13,7 @@
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-use adler_core::{CheckOutcome, MatchKind, ProfileEvidence, Site};
+use adler_core::{CheckOutcome, IdentityCluster, MatchKind, ProfileEvidence, Site};
 use serde::{Deserialize, Serialize};
 use tokio::fs;
 
@@ -25,7 +25,7 @@ use crate::scan::{FinishedScan, ScanId, Summary};
 /// large enough for any plausible human-driven OSINT session.
 pub(crate) const MAX_PERSISTED_SCANS: usize = 200;
 /// Current on-disk schema version for [`PersistedScan`].
-pub(crate) const PERSISTED_SCAN_SCHEMA_VERSION: u16 = 1;
+pub(crate) const PERSISTED_SCAN_SCHEMA_VERSION: u16 = 2;
 
 /// Self-contained snapshot of a completed scan. Round-trips losslessly
 /// through JSON; tests assert that.
@@ -51,6 +51,10 @@ pub struct PersistedScan {
     pub summary: Summary,
     /// All outcomes, in completion order.
     pub outcomes: Vec<CheckOutcome>,
+    /// Deterministic identity candidates derived from found outcomes
+    /// with structured profile evidence.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub identity_clusters: Vec<IdentityCluster>,
     /// Wall-clock duration, milliseconds.
     pub elapsed_ms: u64,
 }
@@ -65,7 +69,7 @@ impl PersistedScan {
         created_at_ms: u64,
         finished: FinishedScan,
     ) -> Self {
-        Self {
+        let mut scan = Self {
             schema_version: PERSISTED_SCAN_SCHEMA_VERSION,
             scan_id,
             username,
@@ -74,8 +78,11 @@ impl PersistedScan {
             created_at_ms,
             summary: finished.summary,
             outcomes: finished.outcomes,
+            identity_clusters: finished.identity_clusters,
             elapsed_ms: finished.elapsed_ms,
-        }
+        };
+        scan.refresh_derived_fields();
+        scan
     }
 
     /// Attach request-scope metadata to this persisted scan.
@@ -83,6 +90,15 @@ impl PersistedScan {
     pub fn with_request_context(mut self, context: ScanRequestContext) -> Self {
         self.request_context = Some(context);
         self
+    }
+
+    pub(crate) fn refresh_derived_fields(&mut self) {
+        for outcome in &mut self.outcomes {
+            outcome.refresh_confidence();
+        }
+        self.summary = Summary::from_outcomes(&self.outcomes);
+        self.identity_clusters =
+            adler_core::build_identity_clusters(&self.username, &self.outcomes);
     }
 }
 
@@ -637,7 +653,9 @@ pub(crate) async fn save(dir: &Path, scan: &PersistedScan) -> Result<()> {
     fs::create_dir_all(dir).await.map_err(Error::Persist)?;
     let path = dir.join(format!("{}.json", scan.scan_id));
     let tmp = dir.join(format!("{}.json.tmp", scan.scan_id));
-    let body = serde_json::to_vec_pretty(scan).map_err(Error::PersistEncode)?;
+    let mut scan = scan.clone();
+    scan.refresh_derived_fields();
+    let body = serde_json::to_vec_pretty(&scan).map_err(Error::PersistEncode)?;
     fs::write(&tmp, &body).await.map_err(Error::Persist)?;
     fs::rename(&tmp, &path).await.map_err(Error::Persist)?;
     Ok(())
@@ -649,7 +667,9 @@ pub(crate) async fn save(dir: &Path, scan: &PersistedScan) -> Result<()> {
 pub(crate) async fn load(dir: &Path, scan_id: &ScanId) -> Option<PersistedScan> {
     let path = dir.join(format!("{scan_id}.json"));
     let bytes = fs::read(&path).await.ok()?;
-    serde_json::from_slice(&bytes).ok().map(refresh_confidence)
+    serde_json::from_slice(&bytes)
+        .ok()
+        .map(refresh_derived_fields)
 }
 
 /// Enumerate every persisted scan, newest first. Files that fail to
@@ -671,16 +691,14 @@ pub(crate) async fn load_all(dir: &Path) -> Vec<PersistedScan> {
         let Ok(scan) = serde_json::from_slice::<PersistedScan>(&bytes) else {
             continue;
         };
-        out.push(refresh_confidence(scan));
+        out.push(refresh_derived_fields(scan));
     }
     out.sort_by_key(|s| std::cmp::Reverse(s.created_at_ms));
     out
 }
 
-fn refresh_confidence(mut scan: PersistedScan) -> PersistedScan {
-    for outcome in &mut scan.outcomes {
-        outcome.refresh_confidence();
-    }
+fn refresh_derived_fields(mut scan: PersistedScan) -> PersistedScan {
+    scan.refresh_derived_fields();
     scan
 }
 
@@ -704,7 +722,7 @@ pub(crate) async fn prune(dir: &Path, keep_newest: usize) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use adler_core::MatchKind;
+    use adler_core::{MatchKind, ProfileEvidence};
     use std::collections::BTreeMap;
     use tempfile::TempDir;
 
@@ -749,6 +767,7 @@ mod tests {
                     escalations: 0,
                 },
             ],
+            identity_clusters: Vec::new(),
             elapsed_ms: 210,
         }
     }
@@ -767,6 +786,19 @@ mod tests {
             transport: None,
             escalations: 0,
         }
+    }
+
+    fn found_with_website(site: &str, website: &str) -> CheckOutcome {
+        let mut outcome = outcome(site, MatchKind::Found);
+        outcome
+            .profile_evidence
+            .push(ProfileEvidence::from_enrichment(
+                site,
+                &outcome.url,
+                "website",
+                website,
+            ));
+        outcome
     }
 
     #[tokio::test]
@@ -797,6 +829,31 @@ mod tests {
         assert_eq!(
             value["schema_version"],
             serde_json::json!(PERSISTED_SCAN_SCHEMA_VERSION)
+        );
+    }
+
+    #[tokio::test]
+    async fn save_writes_derived_identity_clusters() {
+        let tmp = TempDir::new().unwrap();
+        let mut s = sample("clusters", 1_700_000_000_000);
+        s.outcomes = vec![
+            found_with_website("GitHub", "https://alice.dev"),
+            found_with_website("GitLab", "https://alice.dev"),
+        ];
+
+        save(tmp.path(), &s).await.unwrap();
+
+        let raw = fs::read_to_string(tmp.path().join("clusters.json"))
+            .await
+            .unwrap();
+        let value: serde_json::Value = serde_json::from_str(&raw).unwrap();
+        assert_eq!(value["identity_clusters"].as_array().unwrap().len(), 1);
+        assert_eq!(
+            value["identity_clusters"][0]["members"]
+                .as_array()
+                .unwrap()
+                .len(),
+            2
         );
     }
 
@@ -1073,6 +1130,72 @@ mod tests {
             .await
             .expect("legacy scan loads");
         assert_eq!(loaded.schema_version, PERSISTED_SCAN_SCHEMA_VERSION);
+    }
+
+    #[tokio::test]
+    async fn load_derives_identity_clusters_for_legacy_scan_json() {
+        let tmp = TempDir::new().unwrap();
+        let path = tmp.path().join("legacy-clusters.json");
+        fs::write(
+            &path,
+            br#"{
+                "schema_version": 1,
+                "scan_id": "legacy-clusters",
+                "username": "alice",
+                "site_count": 2,
+                "created_at_ms": 1700000000000,
+                "summary": { "found": 2, "not_found": 0, "uncertain": 0 },
+                "outcomes": [
+                    {
+                        "site": "GitHub",
+                        "url": "https://github.example/alice",
+                        "kind": "found",
+                        "elapsed_ms": 10,
+                        "profile_evidence": [
+                            {
+                                "kind": "external_link",
+                                "field": "website",
+                                "value": "https://alice.dev",
+                                "source": {
+                                    "site": "GitHub",
+                                    "url": "https://github.example/alice",
+                                    "origin": "extractor"
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "site": "GitLab",
+                        "url": "https://gitlab.example/alice",
+                        "kind": "found",
+                        "elapsed_ms": 10,
+                        "profile_evidence": [
+                            {
+                                "kind": "external_link",
+                                "field": "website",
+                                "value": "https://alice.dev/",
+                                "source": {
+                                    "site": "GitLab",
+                                    "url": "https://gitlab.example/alice",
+                                    "origin": "extractor"
+                                }
+                            }
+                        ]
+                    }
+                ],
+                "elapsed_ms": 20
+            }"#,
+        )
+        .await
+        .unwrap();
+
+        let loaded = load(tmp.path(), &ScanId::from("legacy-clusters".to_owned()))
+            .await
+            .expect("legacy scan loads");
+
+        assert_eq!(loaded.identity_clusters.len(), 1);
+        assert_eq!(loaded.identity_clusters[0].members.len(), 2);
+        assert!(!loaded.identity_clusters[0].uncertain);
     }
 
     #[tokio::test]

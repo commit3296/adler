@@ -430,6 +430,7 @@ pub(super) async fn get_scan(
                 finished: crate::scan::FinishedScan {
                     summary: ps.summary,
                     outcomes: ps.outcomes,
+                    identity_clusters: ps.identity_clusters,
                     elapsed_ms: ps.elapsed_ms,
                 },
             }));
@@ -589,7 +590,7 @@ pub(super) async fn retry_site(
             } else {
                 ps.outcomes.push(new_outcome.clone());
             }
-            ps.summary = crate::scan::Summary::from_outcomes(&ps.outcomes);
+            ps.refresh_derived_fields();
             if let Err(err) = crate::persist::save(dir, &ps).await {
                 tracing::warn!(error = %err, scan_id = %scan_id, "failed to patch persisted scan");
             }
@@ -633,6 +634,7 @@ fn persisted_event_stream(
     let finished = crate::scan::FinishedScan {
         summary: ps.summary,
         outcomes: ps.outcomes,
+        identity_clusters: ps.identity_clusters,
         elapsed_ms: ps.elapsed_ms,
     };
     stream! {
