@@ -1280,7 +1280,7 @@ fn is_zero_u8(value: &u8) -> bool {
 mod tests {
     use std::collections::BTreeMap;
 
-    use adler_core::{MatchKind, ProfileEvidence, TransportTier};
+    use adler_core::{EvidenceAccessPath, MatchKind, ProfileEvidence, TransportTier};
 
     use super::*;
 
@@ -1303,6 +1303,85 @@ mod tests {
         };
         outcome.refresh_confidence();
         outcome
+    }
+
+    fn rich_found_with_profile(
+        site: &str,
+        fields: &[(&str, &str)],
+        transport: TransportTier,
+        escalations: u8,
+        authenticated: bool,
+        observed_at_ms: u64,
+    ) -> CheckOutcome {
+        let url = format!("https://{}.example/alice", site.to_lowercase());
+        let profile_evidence = fields
+            .iter()
+            .map(|(field, value)| {
+                ProfileEvidence::from_enrichment_with_source(
+                    site,
+                    &url,
+                    field,
+                    value,
+                    Some(observed_at_ms),
+                    Some(EvidenceAccessPath::new(
+                        transport,
+                        escalations,
+                        authenticated,
+                    )),
+                )
+            })
+            .collect();
+        let enrichment = fields
+            .iter()
+            .map(|(field, value)| ((*field).to_owned(), (*value).to_owned()))
+            .collect();
+        let mut outcome = CheckOutcome {
+            site: site.to_owned(),
+            url,
+            kind: MatchKind::Found,
+            reason: None,
+            elapsed_ms: 42,
+            enrichment,
+            evidence: vec![
+                "HTTP 200 (status_found)".to_owned(),
+                "body matched profile marker".to_owned(),
+            ],
+            profile_evidence,
+            confidence: adler_core::ConfidenceScore::default(),
+            transport: Some(transport),
+            escalations,
+        };
+        outcome.refresh_confidence();
+        outcome
+    }
+
+    fn contract_outcomes() -> Vec<CheckOutcome> {
+        vec![
+            rich_found_with_profile(
+                "GitHub",
+                &[
+                    ("website", "https://alice.dev"),
+                    ("name", "Alice Example"),
+                    ("bio", "Security researcher and maintainer"),
+                ],
+                TransportTier::Browser,
+                1,
+                true,
+                1_781_192_451_000,
+            ),
+            rich_found_with_profile(
+                "GitLab",
+                &[("website", "https://alice.dev"), ("name", "Alice Example")],
+                TransportTier::Impersonate,
+                0,
+                false,
+                1_781_192_452_000,
+            ),
+        ]
+    }
+
+    fn pretty_json<T: serde::Serialize>(value: &T) -> String {
+        serde_json::to_string_pretty(value).unwrap()
     }
 
     #[test]
@@ -1337,5 +1416,44 @@ mod tests {
         assert_eq!(json["confidence"]["label"], "high");
         assert_eq!(json["confidence"]["reasons"][0]["kind"], "found_by_signal");
         assert_eq!(json["transport"], "http");
+    }
+
+    #[test]
+    fn outcome_row_json_contract() {
+        let outcomes = contract_outcomes();
+        let row = OutcomeRow::from(&outcomes[0]);
+
+        insta::assert_snapshot!(pretty_json(&row));
+    }
+
+    #[test]
+    fn scan_output_json_contract() {
+        let outcomes = contract_outcomes();
+        let output = ScanOutput::from_outcomes("alice".to_owned(), 2, &outcomes);
+
+        insta::assert_snapshot!(pretty_json(&output));
+    }
+
+    #[test]
+    fn batch_scan_output_json_contract() {
+        let outcomes = contract_outcomes();
+        let batch = BatchScanOutput {
+            total_usernames: 2,
+            per_username: vec![
+                ScanOutput::from_outcomes("alice".to_owned(), 2, &outcomes),
+                ScanOutput {
+                    username: "bad user".to_owned(),
+                    total_probed: 0,
+                    summary: ScanSummary {
+                        error: Some("invalid username: spaces are not allowed".to_owned()),
+                        ..Default::default()
+                    },
+                    outcomes: Vec::new(),
+                    identity_clusters: Vec::new(),
+                },
+            ],
+        };
+
+        insta::assert_snapshot!(pretty_json(&batch));
     }
 }

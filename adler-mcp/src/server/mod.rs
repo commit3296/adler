@@ -815,7 +815,7 @@ const ADLER_MCP_INSTRUCTIONS: &str = concat!(
 mod tests {
     use super::prompts::PromptSpec;
     use super::*;
-    use adler_core::MatchKind;
+    use adler_core::{EvidenceAccessPath, MatchKind, ProfileEvidence, TransportTier};
 
     #[test]
     fn server_constructs_with_embedded_registry() {
@@ -977,6 +977,49 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn get_scan_history_tool_json_contract() {
+        let tmp = tempfile::tempdir().unwrap();
+        write_contract_scan(
+            tmp.path(),
+            "scan_a",
+            "alice",
+            "2026-06-11T10:00:00Z",
+            1_781_192_451_000,
+            &[
+                contract_found_outcome(
+                    "GitHub",
+                    &[("website", "https://alice.dev"), ("name", "Alice Example")],
+                    1_781_192_451_000,
+                ),
+                mock_outcome("Mastodon", MatchKind::NotFound),
+            ],
+        );
+        write_contract_scan(
+            tmp.path(),
+            "scan_b",
+            "bob",
+            "2026-06-11T11:00:00Z",
+            1_781_196_051_000,
+            &[mock_outcome("GitHub", MatchKind::Uncertain)],
+        );
+        let registry = Arc::new(Registry::default_embedded().unwrap());
+        let client = Arc::new(default_client().unwrap());
+        let server = AdlerMcp::with_components(registry, client, tmp.path().to_path_buf());
+
+        let Json(output) = server
+            .get_scan_history(Parameters(ScanHistoryArgs {
+                limit: Some(10),
+                username: None,
+            }))
+            .await
+            .unwrap();
+        let mut value = serde_json::to_value(&output).unwrap();
+        sort_history_rows_by_id(&mut value);
+
+        insta::assert_snapshot!(pretty_json(&value));
+    }
+
+    #[tokio::test]
     async fn diff_scans_tool_reads_persisted_scans() {
         let tmp = tempfile::tempdir().unwrap();
         write_scan(
@@ -1014,6 +1057,67 @@ mod tests {
         assert_eq!(diff.added_found[0].site, "Mastodon");
         assert_eq!(diff.removed_found[0].site, "Reddit");
         assert_eq!(diff.verdict_changes.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn diff_scans_tool_json_contract() {
+        let tmp = tempfile::tempdir().unwrap();
+        write_contract_scan(
+            tmp.path(),
+            "old",
+            "alice",
+            "2026-06-11T10:00:00Z",
+            1_781_192_451_000,
+            &[
+                contract_found_outcome(
+                    "GitHub",
+                    &[("website", "https://alice.dev"), ("name", "Alice Example")],
+                    1_781_192_451_000,
+                ),
+                contract_found_outcome(
+                    "Reddit",
+                    &[("website", "https://old.example")],
+                    1_781_192_452_000,
+                ),
+            ],
+        );
+        write_contract_scan(
+            tmp.path(),
+            "new",
+            "alice",
+            "2026-06-11T11:00:00Z",
+            1_781_196_051_000,
+            &[
+                contract_found_outcome(
+                    "GitHub",
+                    &[
+                        ("website", "https://alice.dev"),
+                        ("name", "Alice Example"),
+                        ("bio", "Security researcher and maintainer"),
+                    ],
+                    1_781_196_051_000,
+                ),
+                contract_found_outcome(
+                    "Mastodon",
+                    &[("website", "https://alice.dev")],
+                    1_781_196_052_000,
+                ),
+                mock_outcome("Reddit", MatchKind::NotFound),
+            ],
+        );
+        let registry = Arc::new(Registry::default_embedded().unwrap());
+        let client = Arc::new(default_client().unwrap());
+        let server = AdlerMcp::with_components(registry, client, tmp.path().to_path_buf());
+
+        let Json(diff) = server
+            .diff_scans(Parameters(ScanDiffArgs {
+                from_scan_id: "old".to_owned(),
+                to_scan_id: "new".to_owned(),
+            }))
+            .await
+            .unwrap();
+
+        insta::assert_snapshot!(pretty_json(&diff));
     }
 
     #[tokio::test]
@@ -1084,6 +1188,32 @@ mod tests {
         .unwrap();
     }
 
+    fn write_contract_scan(
+        path: &std::path::Path,
+        scan_id: &str,
+        username: &str,
+        started_at: &str,
+        created_at_ms: u64,
+        outcomes: &[CheckOutcome],
+    ) {
+        let identity_clusters = adler_core::build_identity_clusters(username, outcomes);
+        let scan = serde_json::json!({
+            "id": scan_id,
+            "scan_id": scan_id,
+            "schema_version": 2,
+            "username": username,
+            "started_at": started_at,
+            "created_at_ms": created_at_ms,
+            "outcomes": outcomes,
+            "identity_clusters": identity_clusters,
+        });
+        std::fs::write(
+            path.join(format!("{scan_id}.json")),
+            serde_json::to_string_pretty(&scan).unwrap(),
+        )
+        .unwrap();
+    }
+
     fn write_timeline_scan(
         path: &std::path::Path,
         scan_id: &str,
@@ -1103,6 +1233,67 @@ mod tests {
             serde_json::to_string(&scan).unwrap(),
         )
         .unwrap();
+    }
+
+    fn contract_found_outcome(
+        site: &str,
+        fields: &[(&str, &str)],
+        observed_at_ms: u64,
+    ) -> CheckOutcome {
+        let url = format!("https://{}.example/alice", site.to_lowercase());
+        let profile_evidence = fields
+            .iter()
+            .map(|(field, value)| {
+                ProfileEvidence::from_enrichment_with_source(
+                    site,
+                    &url,
+                    field,
+                    value,
+                    Some(observed_at_ms),
+                    Some(EvidenceAccessPath::new(TransportTier::Browser, 1, true)),
+                )
+            })
+            .collect();
+        let enrichment = fields
+            .iter()
+            .map(|(field, value)| ((*field).to_owned(), (*value).to_owned()))
+            .collect();
+        let mut outcome = CheckOutcome {
+            site: site.to_owned(),
+            url,
+            kind: MatchKind::Found,
+            reason: None,
+            elapsed_ms: 42,
+            enrichment,
+            evidence: vec![
+                "HTTP 200 (status_found)".to_owned(),
+                "body matched profile marker".to_owned(),
+            ],
+            profile_evidence,
+            confidence: adler_core::ConfidenceScore::default(),
+            transport: Some(TransportTier::Browser),
+            escalations: 1,
+        };
+        outcome.refresh_confidence();
+        outcome
+    }
+
+    fn pretty_json<T: serde::Serialize>(value: &T) -> String {
+        serde_json::to_string_pretty(value).unwrap()
+    }
+
+    fn sort_history_rows_by_id(value: &mut serde_json::Value) {
+        let Some(rows) = value
+            .get_mut("scans")
+            .and_then(serde_json::Value::as_array_mut)
+        else {
+            return;
+        };
+        rows.sort_by(|left, right| {
+            let left_id = left.get("id").and_then(serde_json::Value::as_str);
+            let right_id = right.get("id").and_then(serde_json::Value::as_str);
+            left_id.cmp(&right_id)
+        });
     }
 
     #[test]
@@ -1358,6 +1549,77 @@ top = 25
     }
 
     #[test]
+    fn scan_by_id_resource_json_contract() {
+        let tmp = tempfile::tempdir().unwrap();
+        write_contract_scan(
+            tmp.path(),
+            "scan123",
+            "alice",
+            "2026-06-11T10:00:00Z",
+            1_781_192_451_000,
+            &[
+                contract_found_outcome(
+                    "GitHub",
+                    &[("website", "https://alice.dev"), ("name", "Alice Example")],
+                    1_781_192_451_000,
+                ),
+                contract_found_outcome(
+                    "GitLab",
+                    &[("website", "https://alice.dev")],
+                    1_781_192_452_000,
+                ),
+            ],
+        );
+        let registry = Arc::new(Registry::default_embedded().unwrap());
+        let client = Arc::new(default_client().unwrap());
+        let server = AdlerMcp::with_components(registry, client, tmp.path().to_path_buf());
+
+        let payload = server.render_resource("adler://scans/scan123").unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&payload).unwrap();
+
+        insta::assert_snapshot!(pretty_json(&parsed));
+    }
+
+    #[test]
+    fn scan_diff_resource_json_contract() {
+        let tmp = tempfile::tempdir().unwrap();
+        write_contract_scan(
+            tmp.path(),
+            "old",
+            "alice",
+            "2026-06-11T10:00:00Z",
+            1_781_192_451_000,
+            &[contract_found_outcome(
+                "Reddit",
+                &[("website", "https://old.example")],
+                1_781_192_451_000,
+            )],
+        );
+        write_contract_scan(
+            tmp.path(),
+            "new",
+            "alice",
+            "2026-06-11T11:00:00Z",
+            1_781_196_051_000,
+            &[contract_found_outcome(
+                "Mastodon",
+                &[("website", "https://alice.dev")],
+                1_781_196_051_000,
+            )],
+        );
+        let registry = Arc::new(Registry::default_embedded().unwrap());
+        let client = Arc::new(default_client().unwrap());
+        let server = AdlerMcp::with_components(registry, client, tmp.path().to_path_buf());
+
+        let payload = server
+            .render_resource("adler://scans/old/diff/new")
+            .unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&payload).unwrap();
+
+        insta::assert_snapshot!(pretty_json(&parsed));
+    }
+
+    #[test]
     fn scan_timeline_resource_reads_persisted_files() {
         let tmp = tempfile::tempdir().unwrap();
         write_timeline_scan(
@@ -1396,6 +1658,52 @@ top = 25
         assert_eq!(parsed["profiles"][0]["present_in_latest"], false);
         assert_eq!(parsed["events"][0]["kind"], "first_seen");
         assert_eq!(parsed["events"][1]["kind"], "disappeared");
+    }
+
+    #[test]
+    fn scan_timeline_resource_json_contract() {
+        let tmp = tempfile::tempdir().unwrap();
+        write_timeline_scan(
+            tmp.path(),
+            "old",
+            "alice",
+            1_781_192_451_000,
+            &[contract_found_outcome(
+                "GitHub",
+                &[("website", "https://alice.dev"), ("name", "Alice Example")],
+                1_781_192_451_000,
+            )],
+        );
+        write_timeline_scan(
+            tmp.path(),
+            "mid",
+            "alice",
+            1_781_196_051_000,
+            &[contract_found_outcome(
+                "GitHub",
+                &[
+                    ("website", "https://alice.dev"),
+                    ("name", "Alice Example"),
+                    ("bio", "Security researcher and maintainer"),
+                ],
+                1_781_196_051_000,
+            )],
+        );
+        write_timeline_scan(
+            tmp.path(),
+            "new",
+            "alice",
+            1_781_199_651_000,
+            &[mock_outcome("GitHub", MatchKind::NotFound)],
+        );
+        let registry = Arc::new(Registry::default_embedded().unwrap());
+        let client = Arc::new(default_client().unwrap());
+        let server = AdlerMcp::with_components(registry, client, tmp.path().to_path_buf());
+
+        let payload = server.render_resource("adler://timelines/alice").unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&payload).unwrap();
+
+        insta::assert_snapshot!(pretty_json(&parsed));
     }
 
     #[test]
@@ -1538,6 +1846,30 @@ top = 25
         // `focus` is optional — empty args should render fine.
         let body = render_prompt(spec, &serde_json::Map::new()).unwrap();
         assert!(body.contains("Focus area: ``"));
+    }
+
+    #[test]
+    fn prompts_and_instructions_keep_identity_contract_guidance() {
+        assert!(ADLER_MCP_INSTRUCTIONS.contains("identity_clusters"));
+        assert!(ADLER_MCP_INSTRUCTIONS.contains("structured profile evidence"));
+
+        let prompt_bodies = PROMPT_SPECS
+            .iter()
+            .map(|spec| spec.body)
+            .collect::<Vec<_>>()
+            .join("\n");
+        for expected in [
+            "identity_clusters",
+            "confidence",
+            "profile_evidence",
+            "evidence",
+            "uncertain=true",
+        ] {
+            assert!(
+                prompt_bodies.contains(expected),
+                "MCP prompts should mention {expected:?}"
+            );
+        }
     }
 
     #[test]

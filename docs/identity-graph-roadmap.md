@@ -179,7 +179,7 @@ issue links.
 
 ## Phase 8: Hardening and release readiness
 
-- [ ] Add compatibility tests for public JSON, Web API, and MCP output.
+- [x] Add compatibility tests for public JSON, Web API, and MCP output.
   ([#79](https://github.com/commit3296/adler/issues/79))
 - [ ] Add UI tests for confidence/evidence rendering.
 - [ ] Add performance checks for large scan artifacts.

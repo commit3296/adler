@@ -64,6 +64,7 @@ dependencies = [
  "adler-core",
  "axum",
  "futures",
+ "insta",
  "reqwest",
  "rmcp",
  "schemars",
