@@ -161,6 +161,7 @@ export const ResultRow: Component<Props> = (props) => {
                 <Show when={confidenceChip()}>
                     <span
                         class={`confidence-chip confidence-${props.outcome.confidence?.label}`}
+                        data-testid="confidence-chip"
                         title={confidenceTitle()}
                     >
                         {confidenceChip()}
@@ -169,6 +170,7 @@ export const ResultRow: Component<Props> = (props) => {
                 <Show when={transportChip()}>
                     <span
                         class={`transport-chip transport-${props.outcome.transport}`}
+                        data-testid="transport-chip"
                         title={transportTitle()}
                     >
                         {transportChip()}
@@ -185,7 +187,7 @@ export const ResultRow: Component<Props> = (props) => {
                 </span>
             </div>
             <Show when={expanded()}>
-                <div class="evidence">
+                <div class="evidence" data-testid="evidence-drawer">
                     <Show when={confidenceChip()}>
                         <div>
                             <span class="evidence-label">Confidence</span>{" "}
