@@ -722,7 +722,9 @@ pub(crate) async fn prune(dir: &Path, keep_newest: usize) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use adler_core::{MatchKind, ProfileEvidence};
+    use adler_core::{
+        EvidenceAccessPath, MatchKind, ProfileEvidence, TransportTier, UncertainReason,
+    };
     use std::collections::BTreeMap;
     use tempfile::TempDir;
 
@@ -799,6 +801,108 @@ mod tests {
                 website,
             ));
         outcome
+    }
+
+    fn large_outcomes(count: usize, generation: usize) -> Vec<CheckOutcome> {
+        (0..count)
+            .map(|idx| large_outcome(idx, generation))
+            .collect()
+    }
+
+    fn large_outcome(idx: usize, generation: usize) -> CheckOutcome {
+        let site = format!("LargeSite{idx:04}");
+        let url = format!("https://large{idx:04}.example/alice");
+        let mut kind = match idx % 20 {
+            0 | 1 => MatchKind::Found,
+            3 => MatchKind::Uncertain,
+            _ => MatchKind::NotFound,
+        };
+        if generation > 0 && idx % 20 == 0 {
+            kind = MatchKind::NotFound;
+        } else if generation > 0 && idx % 20 == 2 {
+            kind = MatchKind::Found;
+        }
+
+        let mut outcome = CheckOutcome {
+            site: site.clone(),
+            url: url.clone(),
+            kind,
+            reason: (kind == MatchKind::Uncertain).then_some(UncertainReason::RateLimited),
+            elapsed_ms: 10 + (idx % 75) as u64,
+            enrichment: BTreeMap::new(),
+            evidence: Vec::new(),
+            profile_evidence: Vec::new(),
+            confidence: adler_core::ConfidenceScore::default(),
+            transport: Some(if idx % 7 == 0 {
+                TransportTier::Browser
+            } else {
+                TransportTier::Http
+            }),
+            escalations: u8::from(idx % 7 == 0),
+        };
+
+        match kind {
+            MatchKind::Found => {
+                let observed_at_ms = 1_781_192_451_000 + generation as u64 * 1_000 + idx as u64;
+                let website = format!("https://identity-{:02}.example", idx % 25);
+                let name = format!("Alice Group {:02}", idx % 50);
+                let bio = if generation > 0 && idx % 20 == 1 {
+                    format!("updated profile generation {generation} for {idx}")
+                } else {
+                    format!("stable profile generation 0 for {idx}")
+                };
+                for (field, value) in [
+                    ("website", website.as_str()),
+                    ("name", name.as_str()),
+                    ("bio", bio.as_str()),
+                ] {
+                    outcome
+                        .enrichment
+                        .insert(field.to_owned(), value.to_owned());
+                    outcome
+                        .profile_evidence
+                        .push(ProfileEvidence::from_enrichment_with_source(
+                            &site,
+                            &url,
+                            field,
+                            value,
+                            Some(observed_at_ms),
+                            Some(EvidenceAccessPath::new(
+                                outcome.transport.unwrap_or(TransportTier::Http),
+                                outcome.escalations,
+                                idx % 11 == 0,
+                            )),
+                        ));
+                }
+                outcome.evidence = vec![
+                    "HTTP 200 (status_found)".to_owned(),
+                    "body matched profile marker".to_owned(),
+                ];
+            }
+            MatchKind::NotFound => {
+                outcome.evidence = vec!["HTTP 404 (status_not_found)".to_owned()];
+            }
+            MatchKind::Uncertain => {}
+        }
+        outcome.refresh_confidence();
+        outcome
+    }
+
+    fn large_persisted_scan(scan_id: &str, generation: usize) -> PersistedScan {
+        let outcomes = large_outcomes(2_500, generation);
+        let finished = FinishedScan {
+            summary: Summary::from_outcomes(&outcomes),
+            identity_clusters: adler_core::build_identity_clusters("alice", &outcomes),
+            elapsed_ms: 30_000 + generation as u64,
+            outcomes,
+        };
+        PersistedScan::from_finished(
+            ScanId::from(scan_id.to_owned()),
+            "alice".to_owned(),
+            2_500,
+            1_781_192_451_000 + generation as u64 * 10_000,
+            finished,
+        )
     }
 
     #[tokio::test]
@@ -1216,6 +1320,39 @@ mod tests {
         assert_eq!(loaded.identity_clusters.len(), 1);
         assert_eq!(loaded.identity_clusters[0].members.len(), 2);
         assert!(!loaded.identity_clusters[0].uncertain);
+    }
+
+    #[test]
+    fn large_scan_artifact_paths_handle_identity_graph_payloads() {
+        let previous = large_persisted_scan("large-old", 0);
+        let current = large_persisted_scan("large-new", 1);
+
+        assert_eq!(previous.outcomes.len(), 2_500);
+        assert_eq!(previous.site_count, 2_500);
+        assert_eq!(
+            previous.summary.found + previous.summary.not_found + previous.summary.uncertain,
+            2_500
+        );
+        assert!(!previous.identity_clusters.is_empty());
+
+        let raw = serde_json::to_string(&previous).unwrap();
+        let decoded: PersistedScan = serde_json::from_str(&raw).unwrap();
+        assert_eq!(decoded.outcomes.len(), 2_500);
+        assert_eq!(
+            decoded.identity_clusters.len(),
+            previous.identity_clusters.len()
+        );
+
+        let diff = diff_scans(&previous, &current);
+        assert!(!diff.added_found.is_empty());
+        assert!(!diff.removed_found.is_empty());
+        assert!(!diff.verdict_changes.is_empty());
+        assert!(!diff.evidence_changes.is_empty());
+
+        let timeline = build_scan_timeline(&[previous, current]);
+        assert_eq!(timeline.scan_count, 2);
+        assert_eq!(timeline.profiles.len(), 375);
+        assert!(timeline.events.len() > timeline.profiles.len());
     }
 
     #[tokio::test]
