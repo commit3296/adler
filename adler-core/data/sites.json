@@ -10166,11 +10166,15 @@
           ]
         },
         {
+          "kind": "body_username",
+          "text": "\"username\":\"{username}\""
+        },
+        {
           "kind": "body_absent",
           "text": "[]"
         }
       ],
-      "known_present": "blue",
+      "known_present": "ghost",
       "tags": [
         "coding",
         "dev"

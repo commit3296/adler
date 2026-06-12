@@ -81,7 +81,7 @@ issue links.
   site, URL, and extraction origin.
 - [x] Extend evidence source metadata with transport/access path and
   timestamp. ([#75](https://github.com/commit3296/adler/issues/75))
-- [ ] Add explicit username-match evidence once the detection pipeline can
+- [x] Add explicit username-match evidence once the detection pipeline can
   distinguish username confirmation from generic positive site signals.
 - [x] Add serde-compatible structs that can be reused by CLI JSON, Web
   API, persisted scan history, and MCP.
@@ -101,8 +101,10 @@ issue links.
 - [x] Account for current negative or weakening signals:
   weak status-only detection, blocked transport, missing session,
   geo-unavailable access, CAPTCHA/rate-limit/browser-budget limits.
-- [ ] Add exact username-match and repeated historical consistency
-  scoring once those signals are modeled explicitly.
+- [x] Add exact username-match scoring once that signal is modeled
+  explicitly.
+- [ ] Add repeated historical consistency scoring once that signal is
+  modeled explicitly.
 - [x] Add tests for representative confidence cases before surfacing the
   score in UI.
 

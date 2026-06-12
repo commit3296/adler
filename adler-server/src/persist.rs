@@ -25,7 +25,7 @@ use crate::scan::{FinishedScan, ScanId, Summary};
 /// large enough for any plausible human-driven OSINT session.
 pub(crate) const MAX_PERSISTED_SCANS: usize = 200;
 /// Current on-disk schema version for [`PersistedScan`].
-pub(crate) const PERSISTED_SCAN_SCHEMA_VERSION: u16 = 2;
+pub(crate) const PERSISTED_SCAN_SCHEMA_VERSION: u16 = 3;
 
 /// Self-contained snapshot of a completed scan. Round-trips losslessly
 /// through JSON; tests assert that.
@@ -1254,6 +1254,46 @@ mod tests {
             .await
             .expect("legacy scan loads");
         assert_eq!(loaded.schema_version, PERSISTED_SCAN_SCHEMA_VERSION);
+    }
+
+    #[tokio::test]
+    async fn load_accepts_v2_scan_json_after_schema_bump() {
+        let tmp = TempDir::new().unwrap();
+        let path = tmp.path().join("v2.json");
+        fs::write(
+            &path,
+            br#"{
+                "schema_version": 2,
+                "scan_id": "v2",
+                "username": "alice",
+                "site_count": 1,
+                "created_at_ms": 1700000000000,
+                "summary": { "found": 1, "not_found": 0, "uncertain": 0 },
+                "outcomes": [
+                    {
+                        "site": "GitHub",
+                        "url": "https://github.example/alice",
+                        "kind": "found",
+                        "elapsed_ms": 10,
+                        "evidence": ["HTTP 200 (status_found)"]
+                    }
+                ],
+                "elapsed_ms": 10
+            }"#,
+        )
+        .await
+        .unwrap();
+
+        let loaded = load(tmp.path(), &ScanId::from("v2".to_owned()))
+            .await
+            .expect("v2 scan loads");
+
+        assert_eq!(loaded.schema_version, 2);
+        assert_eq!(loaded.summary.found, 1);
+        assert_eq!(
+            loaded.outcomes[0].confidence.label,
+            adler_core::ConfidenceLabel::Medium
+        );
     }
 
     #[tokio::test]

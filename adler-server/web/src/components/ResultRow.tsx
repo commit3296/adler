@@ -79,6 +79,10 @@ export const ResultRow: Component<Props> = (props) => {
                     return `${reason.count} signal evidence line${
                         reason.count === 1 ? "" : "s"
                     } recorded`;
+                case "exact_username_match":
+                    return `${reason.count} exact username match${
+                        reason.count === 1 ? "" : "es"
+                    }`;
                 case "authenticated_access":
                     return "authenticated access";
                 case "browser_transport":

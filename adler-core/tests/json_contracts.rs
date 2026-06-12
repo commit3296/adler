@@ -38,6 +38,27 @@ fn evidence(
     )
 }
 
+fn username_evidence(
+    site: &str,
+    url: &str,
+    value: &str,
+    transport: TransportTier,
+    escalations: u8,
+    authenticated: bool,
+) -> ProfileEvidence {
+    ProfileEvidence::from_signal_username(
+        site,
+        url,
+        value,
+        Some(OBSERVED_AT_MS),
+        Some(EvidenceAccessPath::new(
+            transport,
+            escalations,
+            authenticated,
+        )),
+    )
+}
+
 fn found_profile(site: &str, profile_evidence: Vec<ProfileEvidence>) -> CheckOutcome {
     let mut outcome = CheckOutcome {
         site: site.to_owned(),
@@ -62,6 +83,7 @@ fn github_found() -> CheckOutcome {
     let mut outcome = found_profile(
         site,
         vec![
+            username_evidence(site, url, "alice", TransportTier::Browser, 1, true),
             evidence(
                 site,
                 url,
@@ -103,15 +125,18 @@ fn gitlab_found() -> CheckOutcome {
     let url = "https://gitlab.example/alice";
     let mut outcome = found_profile(
         site,
-        vec![evidence(
-            site,
-            url,
-            "website",
-            "https://alice.dev",
-            TransportTier::Http,
-            0,
-            false,
-        )],
+        vec![
+            username_evidence(site, url, "alice", TransportTier::Http, 0, false),
+            evidence(
+                site,
+                url,
+                "website",
+                "https://alice.dev",
+                TransportTier::Http,
+                0,
+                false,
+            ),
+        ],
     );
     url.clone_into(&mut outcome.url);
     outcome.refresh_confidence();

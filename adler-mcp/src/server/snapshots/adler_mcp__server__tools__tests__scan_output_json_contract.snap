@@ -69,6 +69,19 @@ expression: pretty_json(&output)
               "authenticated": true
             }
           }
+        },
+        {
+          "kind": "username",
+          "value": "alice",
+          "source": {
+            "site": "GitHub",
+            "url": "https://github.example/alice",
+            "origin": "signal",
+            "observed_at_ms": 1781192451000,
+            "access_path": {
+              "transport": "http"
+            }
+          }
         }
       ],
       "confidence": {
@@ -89,6 +102,10 @@ expression: pretty_json(&output)
           {
             "kind": "profile_metadata_rich",
             "count": 3
+          },
+          {
+            "kind": "exact_username_match",
+            "count": 1
           },
           {
             "kind": "authenticated_access"
@@ -142,10 +159,23 @@ expression: pretty_json(&output)
               "transport": "impersonate"
             }
           }
+        },
+        {
+          "kind": "username",
+          "value": "alice",
+          "source": {
+            "site": "GitLab",
+            "url": "https://gitlab.example/alice",
+            "origin": "signal",
+            "observed_at_ms": 1781192451000,
+            "access_path": {
+              "transport": "http"
+            }
+          }
         }
       ],
       "confidence": {
-        "score": 90,
+        "score": 100,
         "label": "verified",
         "reasons": [
           {
@@ -158,6 +188,10 @@ expression: pretty_json(&output)
           {
             "kind": "profile_metadata_extracted",
             "count": 2
+          },
+          {
+            "kind": "exact_username_match",
+            "count": 1
           },
           {
             "kind": "impersonate_transport"
@@ -223,6 +257,19 @@ expression: pretty_json(&output)
                   "authenticated": true
                 }
               }
+            },
+            {
+              "kind": "username",
+              "value": "alice",
+              "source": {
+                "site": "GitHub",
+                "url": "https://github.example/alice",
+                "origin": "signal",
+                "observed_at_ms": 1781192451000,
+                "access_path": {
+                  "transport": "http"
+                }
+              }
             }
           ],
           "confidence": {
@@ -243,6 +290,10 @@ expression: pretty_json(&output)
               {
                 "kind": "profile_metadata_rich",
                 "count": 3
+              },
+              {
+                "kind": "exact_username_match",
+                "count": 1
               },
               {
                 "kind": "authenticated_access"
@@ -289,10 +340,23 @@ expression: pretty_json(&output)
                   "transport": "impersonate"
                 }
               }
+            },
+            {
+              "kind": "username",
+              "value": "alice",
+              "source": {
+                "site": "GitLab",
+                "url": "https://gitlab.example/alice",
+                "origin": "signal",
+                "observed_at_ms": 1781192451000,
+                "access_path": {
+                  "transport": "http"
+                }
+              }
             }
           ],
           "confidence": {
-            "score": 90,
+            "score": 100,
             "label": "verified",
             "reasons": [
               {
@@ -307,11 +371,15 @@ expression: pretty_json(&output)
                 "count": 2
               },
               {
+                "kind": "exact_username_match",
+                "count": 1
+              },
+              {
                 "kind": "impersonate_transport"
               }
             ]
           },
-          "observed_at_ms": 1781192452000
+          "observed_at_ms": 1781192451000
         }
       ],
       "confidence": 95,

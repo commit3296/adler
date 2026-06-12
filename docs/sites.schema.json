@@ -214,6 +214,18 @@
           "additionalProperties": false,
           "required": ["kind", "text"],
           "properties": {
+            "kind": { "const": "body_username" },
+            "text": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\{username\\}"
+            }
+          }
+        },
+        {
+          "additionalProperties": false,
+          "required": ["kind", "text"],
+          "properties": {
             "kind": { "const": "body_absent" },
             "text": { "type": "string", "minLength": 1 }
           }
