@@ -1,0 +1,64 @@
+---
+source: adler-mcp/src/server/mod.rs
+assertion_line: 1346
+expression: markdown
+---
+# Adler investigation report: alice
+
+## Summary
+
+- Schema version: 2
+- Report model: 2
+- Outcomes: 2 total, 2 found, 0 not found, 0 uncertain
+- Evidence: 2 found with profile evidence, 3 evidence items
+- Identity clusters: 1 total, 0 uncertain, 2 clustered profiles
+- Timeline events: 2
+- Disabled/parked sites: 0
+
+## High-Confidence Accounts
+
+| Site | URL | Confidence | Transport | Cluster | Evidence |
+| --- | --- | --- | --- | --- | --- |
+| GitHub | <https://github.example/alice> | verified 100% (found by signal; 2 signal evidence line(s); 2 profile metadata field(s); authenticated access; browser transport; escalated transport) | browser (+1 escalation) | identity-0001 | 2 |
+| GitLab | <https://gitlab.example/alice> | verified 100% (found by signal; 2 signal evidence line(s); 1 profile metadata field(s); authenticated access; browser transport; escalated transport) | browser (+1 escalation) | identity-0001 | 1 |
+
+## Found Accounts
+
+| Site | URL | Confidence | Transport | Cluster | Evidence |
+| --- | --- | --- | --- | --- | --- |
+| GitHub | <https://github.example/alice> | verified 100% (found by signal; 2 signal evidence line(s); 2 profile metadata field(s); authenticated access; browser transport; escalated transport) | browser (+1 escalation) | identity-0001 | 2 |
+| GitLab | <https://gitlab.example/alice> | verified 100% (found by signal; 2 signal evidence line(s); 1 profile metadata field(s); authenticated access; browser transport; escalated transport) | browser (+1 escalation) | identity-0001 | 1 |
+
+## Identity Clusters
+
+- `identity-0001`: 90%
+  - Reasons: shared external link: https://alice.dev/
+  - GitHub: https://github.example/alice (verified 100% (found by signal; 2 signal evidence line(s); 2 profile metadata field(s); authenticated access; browser transport; escalated transport))
+  - GitLab: https://gitlab.example/alice (verified 100% (found by signal; 2 signal evidence line(s); 1 profile metadata field(s); authenticated access; browser transport; escalated transport))
+
+## Uncertain Accounts
+
+No uncertain accounts.
+
+## Evidence Table
+
+| Site | Kind | Field | Value | Source URL |
+| --- | --- | --- | --- | --- |
+| GitHub | display_name | name | Alice Example | <https://github.example/alice> |
+| GitHub | external_link | website | https://alice.dev | <https://github.example/alice> |
+| GitLab | external_link | website | https://alice.dev | <https://gitlab.example/alice> |
+
+## Timeline
+
+| At ms | Kind | Site | Scan | Detail |
+| --- | --- | --- | --- | --- |
+| 1781196051000 | added_found | GitHub | scan123 | new found |
+| 1781196051000 | added_found | GitLab | scan123 | new found |
+
+## Parked Or Disabled Sites
+
+No matching disabled sites recorded.
+
+## Limitations
+
+No limitations recorded.

@@ -62,6 +62,7 @@ name = "adler-mcp"
 version = "0.13.0"
 dependencies = [
  "adler-core",
+ "adler-server",
  "axum",
  "futures",
  "insta",

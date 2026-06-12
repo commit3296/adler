@@ -190,8 +190,9 @@ def main() -> int:
         expected = sorted([
             "list_sites", "scan_username", "scan_batch",
             "doctor_check", "get_scan_history", "diff_scans",
+            "get_investigation_report",
         ])
-        ok("tools/list returns all 6", names == expected, f"got {names}")
+        ok("tools/list returns all 7", names == expected, f"got {names}")
 
         resp = call("tools/call", {"name": "list_sites", "arguments": {"tag": ["coding"]}})
         body = parse_sse_response(resp, want_id=resp.req_id)  # type: ignore[attr-defined]
@@ -295,6 +296,10 @@ def main() -> int:
             "resources/templates/list returns timeline",
             any(t["uriTemplate"] == "adler://timelines/{username}" for t in templates),
         )
+        ok(
+            "resources/templates/list returns report",
+            any(t["uriTemplate"] == "adler://reports/{id}" for t in templates),
+        )
 
         for uri in [
             "adler://registry/sites",
@@ -330,6 +335,14 @@ def main() -> int:
             resp.req_id,  # type: ignore[attr-defined]
             "resources/read path-traversal id",
             "",
+        )
+        resp = call("resources/read", {"uri": "adler://reports/../etc/passwd"})
+        body = parse_sse_response(resp, want_id=resp.req_id)  # type: ignore[attr-defined]
+        expect_error(
+            body,
+            resp.req_id,  # type: ignore[attr-defined]
+            "resources/read report path-traversal id",
+            "invalid scan id",
         )
 
         # === prompts ===

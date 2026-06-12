@@ -5,14 +5,15 @@
 //!
 //! - **Tools** — callable agent actions: `list_sites`, `scan_username`
 //!   (with streaming progress notifications), `scan_batch`,
-//!   `doctor_check`, `get_scan_history`, `diff_scans`.
+//!   `doctor_check`, `get_scan_history`, `diff_scans`,
+//!   `get_investigation_report`.
 //! - **Resources** — browsable data: `adler://registry/sites`,
 //!   `adler://registry/tags`, `adler://registry/disabled` (audit
 //!   surface for the `disabled_reason` annotations),
 //!   `adler://scans/recent`, `adler://watchlists/default`, and the
 //!   templated `adler://scans/{id}`
 //!   / `adler://scans/{from}/diff/{to}` /
-//!   `adler://timelines/{username}`.
+//!   `adler://timelines/{username}` / `adler://reports/{id}`.
 //! - **Prompts** — templated OSINT workflows: `investigate_username`,
 //!   `audit_registry_health`, `correlate_accounts`.
 //!

@@ -14,9 +14,10 @@ use std::path::Path;
 
 use adler_core::{
     CheckOutcome, ClusterReason, ConfidenceReason, ConfidenceScore, HistoricalScanRef,
-    IdentityCluster, MatchKind, ObservedProfile, ProfileEvidence, Username,
+    IdentityCluster, InvestigationReport, MatchKind, ObservedProfile, ProfileEvidence, Username,
     build_identity_clusters, historical_consistency_counts,
 };
+use adler_server::{PersistedScan, build_investigation_report};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -163,6 +164,27 @@ pub struct ScanDiffArgs {
     pub from_scan_id: String,
     /// Current persisted scan id (filename stem).
     pub to_scan_id: String,
+}
+
+/// Report format for `get_investigation_report`.
+#[derive(Debug, Clone, Copy, Default, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum InvestigationReportFormat {
+    /// Return structured JSON using Adler's `InvestigationReport` shape.
+    #[default]
+    Json,
+    /// Return rendered Markdown text.
+    Markdown,
+}
+
+/// Parameters for the `get_investigation_report` tool.
+#[derive(Debug, Default, Deserialize, JsonSchema)]
+pub struct InvestigationReportArgs {
+    /// Persisted scan id (filename stem).
+    pub scan_id: String,
+    /// Output format. Defaults to `json`.
+    #[serde(default)]
+    pub format: InvestigationReportFormat,
 }
 
 /// Per-site row inside [`ScanOutput`].
@@ -741,6 +763,26 @@ pub(super) enum ScanTimelineError {
     },
 }
 
+#[derive(Debug, thiserror::Error)]
+pub(super) enum ScanReportError {
+    #[error("invalid scan id {0:?}")]
+    InvalidId(String),
+    #[error("scan {0:?} not found")]
+    NotFound(String),
+    #[error("reading scan {id:?}: {source}")]
+    Io {
+        id: String,
+        #[source]
+        source: std::io::Error,
+    },
+    #[error("parsing scan {id:?}: {source}")]
+    Json {
+        id: String,
+        #[source]
+        source: serde_json::Error,
+    },
+}
+
 #[derive(Debug, Deserialize)]
 struct PersistedScanForDiff {
     #[serde(default)]
@@ -878,6 +920,77 @@ pub(super) fn read_scan_timeline(
             .then_with(|| timeline_scan_id(left).cmp(&timeline_scan_id(right)))
     });
     Ok(build_timeline(username.as_str(), &scans))
+}
+
+/// Read one persisted scan and derive a history-aware investigation report.
+pub(super) fn read_investigation_report(
+    scans_dir: &Path,
+    scan_id: &str,
+) -> Result<InvestigationReport, ScanReportError> {
+    let mut scan = read_scan_for_report(scans_dir, scan_id)?;
+    refresh_report_scan(&mut scan);
+    let related_scans = read_report_related_scans(scans_dir, &scan.username);
+    Ok(build_investigation_report(scan, &related_scans))
+}
+
+fn read_scan_for_report(scans_dir: &Path, scan_id: &str) -> Result<PersistedScan, ScanReportError> {
+    validate_report_scan_id(scan_id)?;
+    let path = scans_dir.join(format!("{scan_id}.json"));
+    let bytes = std::fs::read(&path).map_err(|source| {
+        if source.kind() == std::io::ErrorKind::NotFound {
+            ScanReportError::NotFound(scan_id.to_owned())
+        } else {
+            ScanReportError::Io {
+                id: scan_id.to_owned(),
+                source,
+            }
+        }
+    })?;
+    serde_json::from_slice::<PersistedScan>(&bytes).map_err(|source| ScanReportError::Json {
+        id: scan_id.to_owned(),
+        source,
+    })
+}
+
+fn read_report_related_scans(scans_dir: &Path, username: &str) -> Vec<PersistedScan> {
+    let Ok(entries) = std::fs::read_dir(scans_dir) else {
+        return Vec::new();
+    };
+    entries
+        .filter_map(std::io::Result::ok)
+        .filter_map(|entry| {
+            let path = entry.path();
+            if path.extension().and_then(|s| s.to_str()) != Some("json") {
+                return None;
+            }
+            let bytes = std::fs::read(path).ok()?;
+            let mut scan = serde_json::from_slice::<PersistedScan>(&bytes).ok()?;
+            if scan.username != username {
+                return None;
+            }
+            refresh_report_scan(&mut scan);
+            Some(scan)
+        })
+        .collect()
+}
+
+fn refresh_report_scan(scan: &mut PersistedScan) {
+    for outcome in &mut scan.outcomes {
+        outcome.refresh_confidence();
+    }
+    scan.identity_clusters = build_identity_clusters(&scan.username, &scan.outcomes);
+}
+
+fn validate_report_scan_id(scan_id: &str) -> Result<(), ScanReportError> {
+    if scan_id.is_empty()
+        || scan_id.contains('/')
+        || scan_id.contains('\\')
+        || scan_id == "."
+        || scan_id == ".."
+    {
+        return Err(ScanReportError::InvalidId(scan_id.to_owned()));
+    }
+    Ok(())
 }
 
 fn read_timeline_scans(

@@ -45,11 +45,11 @@ with `ADLER_MCP_PORT=…`.
   [PASS] capability advertised: prompts
 …
 == tools ==
-  [PASS] tools/list returns all 6
+  [PASS] tools/list returns all 7
   [PASS] tools/call list_sites(tag=coding)  32 sites, first 3: ['accounts.eclipse.org', 'BitBucket', 'codeberg.org']
   [PASS] tools/call scan_username(torvalds, top=2, tag=coding)  probed=2, found=1, sites=['GitHub', 'GitLab']
 …
-== summary == 22/22 PASS
+== summary == … PASS
 ```
 
 The scan-related checks make real outbound HTTP requests against
@@ -77,8 +77,8 @@ they're easy to miss writing your own client:
 - **Tool argument validation (both).** Missing required prompt
   arguments yield `invalid_params`; unknown tool / prompt / resource
   names yield `invalid_params` with a descriptive `message`.
-  Path-traversal in `adler://scans/{id}` (anything containing `/` or
-  `\`) is rejected before the file open.
+  Path-traversal in `adler://scans/{id}` / `adler://reports/{id}`
+  (anything containing `/` or `\`) is rejected before the file open.
 
 ## Why not Rust examples?
 

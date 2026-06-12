@@ -13,6 +13,7 @@ readme = "../README.md"
 
 [dependencies]
 adler-core = { path = "../adler-core", version = "0.13.0" }
+adler-server = { path = "../adler-server", version = "0.13.0" }
 rmcp = { workspace = true }
 schemars.workspace = true
 serde.workspace = true

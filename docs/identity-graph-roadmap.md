@@ -177,6 +177,8 @@ issue links.
   limitations.
 - [x] Add JSON report output for downstream tools.
 - [x] Add self-contained HTML export after the report model stabilized.
+- [x] Expose report exports through Web API and finished-scan Web controls.
+- [x] Expose reports through MCP tool/resource surfaces.
 - [x] Add snapshot tests for report rendering.
 
 ## Phase 8: Hardening and release readiness
