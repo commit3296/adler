@@ -63,6 +63,12 @@ pub enum ConfidenceReason {
         /// Number of exact username evidence items.
         count: usize,
     },
+    /// The same site has been observed as a stable Found result in
+    /// previous scans for this username.
+    HistoricalConsistency {
+        /// Number of previous stable Found observations.
+        count: usize,
+    },
     /// The result was produced with an operator-supplied authenticated
     /// access path.
     AuthenticatedAccess,
@@ -92,6 +98,7 @@ pub(crate) struct ConfidenceSignals {
     pub(crate) signal_evidence_count: usize,
     pub(crate) profile_evidence_count: usize,
     pub(crate) username_evidence_count: usize,
+    pub(crate) historical_consistency_count: usize,
     pub(crate) authenticated_access: bool,
     pub(crate) transport: Option<TransportTier>,
     pub(crate) escalations: u8,
@@ -122,6 +129,7 @@ impl ConfidenceScore {
             signal_evidence_count,
             profile_evidence_count,
             username_evidence_count: 0,
+            historical_consistency_count: 0,
             authenticated_access: false,
             transport: None,
             escalations: 0,
@@ -169,6 +177,13 @@ impl ConfidenceScore {
             score = score.saturating_add(10);
             reasons.push(ConfidenceReason::ExactUsernameMatch {
                 count: signals.username_evidence_count,
+            });
+        }
+
+        if signals.kind == MatchKind::Found && signals.historical_consistency_count >= 2 {
+            score = score.saturating_add(4);
+            reasons.push(ConfidenceReason::HistoricalConsistency {
+                count: signals.historical_consistency_count,
             });
         }
 
@@ -278,6 +293,7 @@ mod tests {
             signal_evidence_count: 1,
             profile_evidence_count: 0,
             username_evidence_count: 0,
+            historical_consistency_count: 0,
             authenticated_access: false,
             transport: Some(TransportTier::Http),
             escalations: 0,
@@ -301,6 +317,7 @@ mod tests {
             signal_evidence_count: 1,
             profile_evidence_count: 1,
             username_evidence_count: 0,
+            historical_consistency_count: 0,
             authenticated_access: false,
             transport: Some(TransportTier::Http),
             escalations: 0,
@@ -313,6 +330,7 @@ mod tests {
                 signal_evidence_count: 1,
                 profile_evidence_count: 1,
                 username_evidence_count: 0,
+                historical_consistency_count: 0,
                 authenticated_access: false,
                 transport: Some(TransportTier::Http),
                 escalations: 0,
@@ -336,6 +354,7 @@ mod tests {
             signal_evidence_count: 1,
             profile_evidence_count: 0,
             username_evidence_count: 0,
+            historical_consistency_count: 0,
             authenticated_access: false,
             transport: Some(TransportTier::Browser),
             escalations: 1,
@@ -363,6 +382,7 @@ mod tests {
             signal_evidence_count: 0,
             profile_evidence_count: 0,
             username_evidence_count: 0,
+            historical_consistency_count: 0,
             authenticated_access: false,
             transport: Some(TransportTier::Http),
             escalations: 0,
@@ -404,6 +424,7 @@ mod tests {
             signal_evidence_count: 1,
             profile_evidence_count: 0,
             username_evidence_count: 1,
+            historical_consistency_count: 0,
             authenticated_access: false,
             transport: Some(TransportTier::Http),
             escalations: 0,
@@ -422,5 +443,59 @@ mod tests {
             ConfidenceReason::ProfileMetadataExtracted { .. }
                 | ConfidenceReason::ProfileMetadataRich { .. }
         )));
+    }
+
+    #[test]
+    fn historical_consistency_boosts_found_after_two_prior_observations() {
+        let score = ConfidenceScore::from_signals(&ConfidenceSignals {
+            kind: MatchKind::Found,
+            reason: None,
+            signal_evidence_count: 1,
+            profile_evidence_count: 1,
+            username_evidence_count: 0,
+            historical_consistency_count: 2,
+            authenticated_access: false,
+            transport: Some(TransportTier::Http),
+            escalations: 0,
+        });
+
+        assert_eq!(score.score, 89);
+        assert_eq!(score.label, ConfidenceLabel::High);
+        assert!(
+            score
+                .reasons
+                .iter()
+                .any(|r| matches!(r, ConfidenceReason::HistoricalConsistency { count: 2 }))
+        );
+    }
+
+    #[test]
+    fn weak_status_only_remains_medium_with_history() {
+        let score = ConfidenceScore::from_signals(&ConfidenceSignals {
+            kind: MatchKind::Found,
+            reason: None,
+            signal_evidence_count: 1,
+            profile_evidence_count: 0,
+            username_evidence_count: 0,
+            historical_consistency_count: 3,
+            authenticated_access: false,
+            transport: Some(TransportTier::Http),
+            escalations: 0,
+        });
+
+        assert_eq!(score.score, 70);
+        assert_eq!(score.label, ConfidenceLabel::Medium);
+        assert!(
+            score
+                .reasons
+                .iter()
+                .any(|r| matches!(r, ConfidenceReason::HistoricalConsistency { count: 3 }))
+        );
+        assert!(
+            score
+                .reasons
+                .iter()
+                .any(|r| matches!(r, ConfidenceReason::WeakStatusOnly))
+        );
     }
 }

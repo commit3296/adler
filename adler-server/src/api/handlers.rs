@@ -423,7 +423,9 @@ pub(super) async fn get_scan(
     }
     // Fall back to on-disk archive.
     if let Some(dir) = &state.scans_dir {
-        if let Some(ps) = crate::persist::load(dir, &scan_id).await {
+        if let Some(mut ps) = crate::persist::load(dir, &scan_id).await {
+            let related_scans = crate::persist::load_all(dir).await;
+            crate::persist::apply_historical_confidence_overlay(&mut ps, &related_scans);
             return Ok(Json(ScanSnapshot::Finished {
                 username: ps.username,
                 site_count: ps.site_count,

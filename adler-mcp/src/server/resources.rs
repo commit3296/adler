@@ -9,13 +9,16 @@
 //! against a malicious id that tries to traverse out of `scans_dir`.
 
 use rmcp::model::ResourceContents;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
 use super::{
     AdlerMcp, RECENT_SCANS_LIMIT, SiteEntry, read_scan_diff, read_scan_history, read_scan_timeline,
 };
-use adler_core::{SiteFilter, WatchScope, WatchlistConfig, WatchlistError};
+use adler_core::{
+    CheckOutcome, HistoricalScanRef, SiteFilter, WatchScope, WatchlistConfig, WatchlistError,
+    build_identity_clusters, historical_consistency_counts,
+};
 
 /// MIME type stamped onto every resource Adler exposes — list,
 /// templates, and read all return `application/json`.
@@ -221,10 +224,43 @@ impl AdlerMcp {
         }
         let path = self.scans_dir.join(format!("{id}.json"));
         match std::fs::read_to_string(&path) {
-            Ok(raw) => Ok(raw),
+            Ok(raw) => self.render_scan_by_id_payload(id, &raw),
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Err(ResourceError::Unknown),
             Err(e) => Err(ResourceError::Io(e)),
         }
+    }
+
+    fn render_scan_by_id_payload(
+        &self,
+        fallback_id: &str,
+        raw: &str,
+    ) -> Result<String, ResourceError> {
+        let mut value: serde_json::Value =
+            serde_json::from_str(raw).map_err(ResourceError::Json)?;
+        let Some(mut scan) = OverlayScan::from_value(fallback_id, &value) else {
+            return serde_json::to_string_pretty(&value).map_err(ResourceError::Json);
+        };
+
+        let related_scans = read_overlay_scans(self.scans_dir.as_ref());
+        apply_overlay_scan_confidence(&mut scan, &related_scans);
+
+        if let Some(object) = value.as_object_mut() {
+            object.insert(
+                "outcomes".to_owned(),
+                serde_json::to_value(&scan.outcomes).map_err(ResourceError::Json)?,
+            );
+            let identity_clusters = build_identity_clusters(&scan.username, &scan.outcomes);
+            if identity_clusters.is_empty() {
+                object.remove("identity_clusters");
+            } else {
+                object.insert(
+                    "identity_clusters".to_owned(),
+                    serde_json::to_value(identity_clusters).map_err(ResourceError::Json)?,
+                );
+            }
+        }
+
+        serde_json::to_string_pretty(&value).map_err(ResourceError::Json)
     }
 
     fn render_scan_diff(&self, from: &str, to: &str) -> Result<String, ResourceError> {
@@ -247,6 +283,85 @@ impl AdlerMcp {
         let summary =
             read_default_watchlist_summary(explicit_path).map_err(ResourceError::Watchlist)?;
         serde_json::to_string_pretty(&summary).map_err(ResourceError::Json)
+    }
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct OverlayScan {
+    #[serde(default)]
+    scan_id: Option<String>,
+    #[serde(default)]
+    id: Option<String>,
+    #[serde(default)]
+    username: String,
+    #[serde(default)]
+    created_at_ms: u64,
+    #[serde(default)]
+    outcomes: Vec<CheckOutcome>,
+}
+
+impl OverlayScan {
+    fn from_value(fallback_id: &str, value: &serde_json::Value) -> Option<Self> {
+        let mut scan: Self = serde_json::from_value(value.clone()).ok()?;
+        scan.ensure_id(fallback_id);
+        Some(scan)
+    }
+
+    fn ensure_id(&mut self, fallback_id: &str) {
+        if self.scan_id.is_none() && self.id.is_none() {
+            self.scan_id = Some(fallback_id.to_owned());
+        }
+    }
+
+    fn stable_id(&self) -> &str {
+        self.scan_id.as_deref().or(self.id.as_deref()).unwrap_or("")
+    }
+}
+
+fn read_overlay_scans(scans_dir: &Path) -> Vec<OverlayScan> {
+    let Ok(entries) = std::fs::read_dir(scans_dir) else {
+        return Vec::new();
+    };
+    entries
+        .filter_map(std::io::Result::ok)
+        .filter_map(|entry| {
+            let path = entry.path();
+            if path.extension().and_then(|s| s.to_str()) != Some("json") {
+                return None;
+            }
+            let fallback_id = path.file_stem().and_then(|s| s.to_str())?;
+            let raw = std::fs::read_to_string(&path).ok()?;
+            let value: serde_json::Value = serde_json::from_str(&raw).ok()?;
+            OverlayScan::from_value(fallback_id, &value)
+        })
+        .collect()
+}
+
+fn apply_overlay_scan_confidence(current: &mut OverlayScan, related_scans: &[OverlayScan]) {
+    if current.username.is_empty() {
+        for outcome in &mut current.outcomes {
+            outcome.refresh_confidence();
+        }
+        return;
+    }
+
+    let current_ref = HistoricalScanRef {
+        scan_id: current.stable_id(),
+        username: &current.username,
+        created_at_ms: current.created_at_ms,
+        outcomes: &current.outcomes,
+    };
+    let related_refs = related_scans.iter().map(|scan| HistoricalScanRef {
+        scan_id: scan.stable_id(),
+        username: &scan.username,
+        created_at_ms: scan.created_at_ms,
+        outcomes: &scan.outcomes,
+    });
+    let counts = historical_consistency_counts(current_ref, related_refs);
+
+    for outcome in &mut current.outcomes {
+        let count = counts.get(&outcome.site).copied().unwrap_or(0);
+        outcome.refresh_confidence_with_history(count);
     }
 }
 

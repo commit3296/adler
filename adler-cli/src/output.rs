@@ -151,6 +151,9 @@ fn confidence_reason(reason: &ConfidenceReason) -> String {
         ConfidenceReason::ExactUsernameMatch { count } => {
             format!("{count} exact username match(es)")
         }
+        ConfidenceReason::HistoricalConsistency { count } => {
+            format!("{count} stable historical observation(s)")
+        }
         ConfidenceReason::AuthenticatedAccess => "authenticated access path used".to_owned(),
         ConfidenceReason::BrowserTransport => "browser transport produced verdict".to_owned(),
         ConfidenceReason::ImpersonateTransport => {

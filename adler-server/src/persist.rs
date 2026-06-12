@@ -13,7 +13,9 @@
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-use adler_core::{CheckOutcome, IdentityCluster, MatchKind, ProfileEvidence, Site};
+use adler_core::{
+    CheckOutcome, HistoricalScanRef, IdentityCluster, MatchKind, ProfileEvidence, Site,
+};
 use serde::{Deserialize, Serialize};
 use tokio::fs;
 
@@ -100,6 +102,47 @@ impl PersistedScan {
         self.identity_clusters =
             adler_core::build_identity_clusters(&self.username, &self.outcomes);
     }
+}
+
+/// Apply a non-persisted confidence overlay from previous scans of the same
+/// username.
+///
+/// The on-disk artifact remains the stateless source of truth. This helper is
+/// intended for history-aware read surfaces such as reports and persisted scan
+/// API/resource views.
+pub fn apply_historical_confidence_overlay(
+    current: &mut PersistedScan,
+    related_scans: &[PersistedScan],
+) {
+    current.refresh_derived_fields();
+    let history_counts = historical_consistency_counts(current, related_scans);
+
+    for outcome in &mut current.outcomes {
+        let count = history_counts.get(&outcome.site).copied().unwrap_or(0);
+        outcome.refresh_confidence_with_history(count);
+    }
+
+    current.identity_clusters =
+        adler_core::build_identity_clusters(&current.username, &current.outcomes);
+}
+
+fn historical_consistency_counts(
+    current: &PersistedScan,
+    related_scans: &[PersistedScan],
+) -> BTreeMap<String, usize> {
+    let current_ref = HistoricalScanRef {
+        scan_id: current.scan_id.as_str(),
+        username: &current.username,
+        created_at_ms: current.created_at_ms,
+        outcomes: &current.outcomes,
+    };
+    let related_refs = related_scans.iter().map(|scan| HistoricalScanRef {
+        scan_id: scan.scan_id.as_str(),
+        username: &scan.username,
+        created_at_ms: scan.created_at_ms,
+        outcomes: &scan.outcomes,
+    });
+    adler_core::historical_consistency_counts(current_ref, related_refs)
 }
 
 const fn default_schema_version() -> u16 {
@@ -723,7 +766,8 @@ pub(crate) async fn prune(dir: &Path, keep_newest: usize) -> usize {
 mod tests {
     use super::*;
     use adler_core::{
-        EvidenceAccessPath, MatchKind, ProfileEvidence, TransportTier, UncertainReason,
+        ConfidenceLabel, ConfidenceReason, EvidenceAccessPath, MatchKind, ProfileEvidence,
+        TransportTier, UncertainReason,
     };
     use std::collections::BTreeMap;
     use tempfile::TempDir;
@@ -790,17 +834,56 @@ mod tests {
         }
     }
 
+    fn scan_with_outcomes(
+        scan_id: &str,
+        username: &str,
+        ts: u64,
+        outcomes: Vec<CheckOutcome>,
+    ) -> PersistedScan {
+        PersistedScan {
+            schema_version: PERSISTED_SCAN_SCHEMA_VERSION,
+            scan_id: ScanId::from(scan_id.to_owned()),
+            username: username.to_owned(),
+            request_context: None,
+            site_count: outcomes.len(),
+            created_at_ms: ts,
+            summary: Summary::from_outcomes(&outcomes),
+            outcomes,
+            identity_clusters: Vec::new(),
+            elapsed_ms: 10,
+        }
+    }
+
     fn found_with_website(site: &str, website: &str) -> CheckOutcome {
+        found_with_website_at(site, website, None)
+    }
+
+    fn found_with_website_at(
+        site: &str,
+        website: &str,
+        observed_at_ms: Option<u64>,
+    ) -> CheckOutcome {
         let mut outcome = outcome(site, MatchKind::Found);
         outcome
             .profile_evidence
-            .push(ProfileEvidence::from_enrichment(
+            .push(ProfileEvidence::from_enrichment_with_source(
                 site,
                 &outcome.url,
                 "website",
                 website,
+                observed_at_ms,
+                None,
             ));
         outcome
+    }
+
+    fn has_historical_reason(outcome: &CheckOutcome, count: usize) -> bool {
+        outcome.confidence.reasons.iter().any(|reason| {
+            matches!(
+                reason,
+                ConfidenceReason::HistoricalConsistency { count: actual } if *actual == count
+            )
+        })
     }
 
     fn large_outcomes(count: usize, generation: usize) -> Vec<CheckOutcome> {
@@ -918,6 +1001,187 @@ mod tests {
         assert_eq!(loaded.outcomes.len(), 2);
         assert_eq!(loaded.outcomes[0].site, "GitHub");
         assert_eq!(loaded.summary.found, 1);
+    }
+
+    #[test]
+    fn historical_overlay_adds_reason_after_two_prior_stable_found_observations() {
+        let mut current = scan_with_outcomes(
+            "current",
+            "alice",
+            30,
+            vec![found_with_website("GitHub", "https://alice.dev")],
+        );
+        let previous = scan_with_outcomes(
+            "previous",
+            "alice",
+            20,
+            vec![found_with_website("GitHub", "https://alice.dev")],
+        );
+        let older = scan_with_outcomes(
+            "older",
+            "alice",
+            10,
+            vec![found_with_website("GitHub", "https://alice.dev")],
+        );
+
+        apply_historical_confidence_overlay(&mut current, &[previous, older]);
+
+        assert!(has_historical_reason(&current.outcomes[0], 2));
+        assert_eq!(current.outcomes[0].confidence.score, 79);
+    }
+
+    #[test]
+    fn historical_overlay_ignores_single_prior_found() {
+        let mut current = scan_with_outcomes(
+            "current",
+            "alice",
+            20,
+            vec![found_with_website("GitHub", "https://alice.dev")],
+        );
+        let previous = scan_with_outcomes(
+            "previous",
+            "alice",
+            10,
+            vec![found_with_website("GitHub", "https://alice.dev")],
+        );
+
+        apply_historical_confidence_overlay(&mut current, &[previous]);
+
+        assert!(!has_historical_reason(&current.outcomes[0], 1));
+        assert_eq!(current.outcomes[0].confidence.score, 75);
+    }
+
+    #[test]
+    fn historical_overlay_resets_on_explicit_non_found() {
+        let mut current = scan_with_outcomes(
+            "current",
+            "alice",
+            40,
+            vec![found_with_website("GitHub", "https://alice.dev")],
+        );
+        let previous = scan_with_outcomes(
+            "previous",
+            "alice",
+            30,
+            vec![outcome("GitHub", MatchKind::NotFound)],
+        );
+        let older = scan_with_outcomes(
+            "older",
+            "alice",
+            20,
+            vec![found_with_website("GitHub", "https://alice.dev")],
+        );
+        let oldest = scan_with_outcomes(
+            "oldest",
+            "alice",
+            10,
+            vec![found_with_website("GitHub", "https://alice.dev")],
+        );
+
+        apply_historical_confidence_overlay(&mut current, &[previous, older, oldest]);
+
+        assert!(!has_historical_reason(&current.outcomes[0], 2));
+        assert_eq!(current.outcomes[0].confidence.score, 75);
+    }
+
+    #[test]
+    fn historical_overlay_ignores_source_timestamp_changes() {
+        let mut current = scan_with_outcomes(
+            "current",
+            "alice",
+            30,
+            vec![found_with_website_at(
+                "GitHub",
+                "https://alice.dev",
+                Some(30),
+            )],
+        );
+        let previous = scan_with_outcomes(
+            "previous",
+            "alice",
+            20,
+            vec![found_with_website_at(
+                "GitHub",
+                "https://alice.dev",
+                Some(20),
+            )],
+        );
+        let older = scan_with_outcomes(
+            "older",
+            "alice",
+            10,
+            vec![found_with_website_at(
+                "GitHub",
+                "https://alice.dev",
+                Some(10),
+            )],
+        );
+
+        apply_historical_confidence_overlay(&mut current, &[previous, older]);
+
+        assert!(has_historical_reason(&current.outcomes[0], 2));
+    }
+
+    #[test]
+    fn weak_status_only_result_remains_medium_capped_with_history() {
+        let mut current_outcome = outcome("GitHub", MatchKind::Found);
+        current_outcome.evidence = vec!["HTTP 200 (status_found)".to_owned()];
+        let mut previous_outcome = outcome("GitHub", MatchKind::Found);
+        previous_outcome.evidence = current_outcome.evidence.clone();
+        let mut older_outcome = outcome("GitHub", MatchKind::Found);
+        older_outcome.evidence = current_outcome.evidence.clone();
+
+        let mut current = scan_with_outcomes("current", "alice", 30, vec![current_outcome]);
+        let previous = scan_with_outcomes("previous", "alice", 20, vec![previous_outcome]);
+        let older = scan_with_outcomes("older", "alice", 10, vec![older_outcome]);
+
+        apply_historical_confidence_overlay(&mut current, &[previous, older]);
+
+        assert!(has_historical_reason(&current.outcomes[0], 2));
+        assert_eq!(
+            current.outcomes[0].confidence.label,
+            ConfidenceLabel::Medium
+        );
+        assert_eq!(current.outcomes[0].confidence.score, 70);
+    }
+
+    #[tokio::test]
+    async fn historical_overlay_does_not_rewrite_persisted_json() {
+        let tmp = TempDir::new().unwrap();
+        let current = scan_with_outcomes(
+            "current",
+            "alice",
+            30,
+            vec![found_with_website("GitHub", "https://alice.dev")],
+        );
+        let previous = scan_with_outcomes(
+            "previous",
+            "alice",
+            20,
+            vec![found_with_website("GitHub", "https://alice.dev")],
+        );
+        let older = scan_with_outcomes(
+            "older",
+            "alice",
+            10,
+            vec![found_with_website("GitHub", "https://alice.dev")],
+        );
+        save(tmp.path(), &current).await.unwrap();
+        save(tmp.path(), &previous).await.unwrap();
+        save(tmp.path(), &older).await.unwrap();
+
+        let current_path = tmp.path().join("current.json");
+        let before = fs::read(&current_path).await.unwrap();
+        let related = load_all(tmp.path()).await;
+        let mut loaded = load(tmp.path(), &ScanId::from("current".to_owned()))
+            .await
+            .unwrap();
+
+        apply_historical_confidence_overlay(&mut loaded, &related);
+
+        let after = fs::read(&current_path).await.unwrap();
+        assert_eq!(before, after);
+        assert!(has_historical_reason(&loaded.outcomes[0], 2));
     }
 
     #[tokio::test]
