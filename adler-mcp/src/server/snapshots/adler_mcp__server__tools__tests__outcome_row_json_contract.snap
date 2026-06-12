@@ -60,6 +60,19 @@ expression: pretty_json(&row)
           "authenticated": true
         }
       }
+    },
+    {
+      "kind": "username",
+      "value": "alice",
+      "source": {
+        "site": "GitHub",
+        "url": "https://github.example/alice",
+        "origin": "signal",
+        "observed_at_ms": 1781192451000,
+        "access_path": {
+          "transport": "http"
+        }
+      }
     }
   ],
   "confidence": {
@@ -80,6 +93,10 @@ expression: pretty_json(&row)
       {
         "kind": "profile_metadata_rich",
         "count": 3
+      },
+      {
+        "kind": "exact_username_match",
+        "count": 1
       },
       {
         "kind": "authenticated_access"

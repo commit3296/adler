@@ -3,7 +3,7 @@ source: adler-core/tests/json_contracts.rs
 expression: pretty_json(&report)
 ---
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "username": "alice",
   "generated_at_ms": 1781192452000,
   "summary": {
@@ -13,7 +13,7 @@ expression: pretty_json(&report)
     "uncertain": 1,
     "high_confidence_found": 2,
     "found_with_profile_evidence": 2,
-    "profile_evidence_items": 4,
+    "profile_evidence_items": 6,
     "identity_clusters": 1,
     "uncertain_identity_clusters": 0,
     "clustered_profiles": 2,
@@ -44,6 +44,10 @@ expression: pretty_json(&report)
             "count": 3
           },
           {
+            "kind": "exact_username_match",
+            "count": 1
+          },
+          {
             "kind": "authenticated_access"
           },
           {
@@ -58,6 +62,21 @@ expression: pretty_json(&report)
         "HTTP 200 (status_found)"
       ],
       "profile_evidence": [
+        {
+          "kind": "username",
+          "value": "alice",
+          "source": {
+            "site": "GitHub",
+            "url": "https://github.example/alice",
+            "origin": "signal",
+            "observed_at_ms": 1781192451000,
+            "access_path": {
+              "transport": "browser",
+              "escalated": true,
+              "authenticated": true
+            }
+          }
+        },
         {
           "kind": "display_name",
           "field": "name",
@@ -118,8 +137,8 @@ expression: pretty_json(&report)
       "site": "GitLab",
       "url": "https://gitlab.example/alice",
       "confidence": {
-        "score": 85,
-        "label": "high",
+        "score": 95,
+        "label": "verified",
         "reasons": [
           {
             "kind": "found_by_signal"
@@ -131,6 +150,10 @@ expression: pretty_json(&report)
           {
             "kind": "profile_metadata_extracted",
             "count": 1
+          },
+          {
+            "kind": "exact_username_match",
+            "count": 1
           }
         ]
       },
@@ -138,6 +161,19 @@ expression: pretty_json(&report)
         "HTTP 200 (status_found)"
       ],
       "profile_evidence": [
+        {
+          "kind": "username",
+          "value": "alice",
+          "source": {
+            "site": "GitLab",
+            "url": "https://gitlab.example/alice",
+            "origin": "signal",
+            "observed_at_ms": 1781192451000,
+            "access_path": {
+              "transport": "http"
+            }
+          }
+        },
         {
           "kind": "external_link",
           "field": "website",
@@ -184,6 +220,10 @@ expression: pretty_json(&report)
             "count": 3
           },
           {
+            "kind": "exact_username_match",
+            "count": 1
+          },
+          {
             "kind": "authenticated_access"
           },
           {
@@ -198,6 +238,21 @@ expression: pretty_json(&report)
         "HTTP 200 (status_found)"
       ],
       "profile_evidence": [
+        {
+          "kind": "username",
+          "value": "alice",
+          "source": {
+            "site": "GitHub",
+            "url": "https://github.example/alice",
+            "origin": "signal",
+            "observed_at_ms": 1781192451000,
+            "access_path": {
+              "transport": "browser",
+              "escalated": true,
+              "authenticated": true
+            }
+          }
+        },
         {
           "kind": "display_name",
           "field": "name",
@@ -258,8 +313,8 @@ expression: pretty_json(&report)
       "site": "GitLab",
       "url": "https://gitlab.example/alice",
       "confidence": {
-        "score": 85,
-        "label": "high",
+        "score": 95,
+        "label": "verified",
         "reasons": [
           {
             "kind": "found_by_signal"
@@ -271,6 +326,10 @@ expression: pretty_json(&report)
           {
             "kind": "profile_metadata_extracted",
             "count": 1
+          },
+          {
+            "kind": "exact_username_match",
+            "count": 1
           }
         ]
       },
@@ -278,6 +337,19 @@ expression: pretty_json(&report)
         "HTTP 200 (status_found)"
       ],
       "profile_evidence": [
+        {
+          "kind": "username",
+          "value": "alice",
+          "source": {
+            "site": "GitLab",
+            "url": "https://gitlab.example/alice",
+            "origin": "signal",
+            "observed_at_ms": 1781192451000,
+            "access_path": {
+              "transport": "http"
+            }
+          }
+        },
         {
           "kind": "external_link",
           "field": "website",
@@ -322,6 +394,23 @@ expression: pretty_json(&report)
     }
   ],
   "evidence_table": [
+    {
+      "site": "GitHub",
+      "url": "https://github.example/alice",
+      "kind": "username",
+      "value": "alice",
+      "source": {
+        "site": "GitHub",
+        "url": "https://github.example/alice",
+        "origin": "signal",
+        "observed_at_ms": 1781192451000,
+        "access_path": {
+          "transport": "browser",
+          "escalated": true,
+          "authenticated": true
+        }
+      }
+    },
     {
       "site": "GitHub",
       "url": "https://github.example/alice",
@@ -379,6 +468,21 @@ expression: pretty_json(&report)
     {
       "site": "GitLab",
       "url": "https://gitlab.example/alice",
+      "kind": "username",
+      "value": "alice",
+      "source": {
+        "site": "GitLab",
+        "url": "https://gitlab.example/alice",
+        "origin": "signal",
+        "observed_at_ms": 1781192451000,
+        "access_path": {
+          "transport": "http"
+        }
+      }
+    },
+    {
+      "site": "GitLab",
+      "url": "https://gitlab.example/alice",
       "kind": "external_link",
       "field": "website",
       "value": "https://alice.dev",
@@ -402,6 +506,21 @@ expression: pretty_json(&report)
           "username": "alice",
           "url": "https://github.example/alice",
           "evidence": [
+            {
+              "kind": "username",
+              "value": "alice",
+              "source": {
+                "site": "GitHub",
+                "url": "https://github.example/alice",
+                "origin": "signal",
+                "observed_at_ms": 1781192451000,
+                "access_path": {
+                  "transport": "browser",
+                  "escalated": true,
+                  "authenticated": true
+                }
+              }
+            },
             {
               "kind": "display_name",
               "field": "name",
@@ -471,6 +590,10 @@ expression: pretty_json(&report)
                 "count": 3
               },
               {
+                "kind": "exact_username_match",
+                "count": 1
+              },
+              {
                 "kind": "authenticated_access"
               },
               {
@@ -489,6 +612,19 @@ expression: pretty_json(&report)
           "url": "https://gitlab.example/alice",
           "evidence": [
             {
+              "kind": "username",
+              "value": "alice",
+              "source": {
+                "site": "GitLab",
+                "url": "https://gitlab.example/alice",
+                "origin": "signal",
+                "observed_at_ms": 1781192451000,
+                "access_path": {
+                  "transport": "http"
+                }
+              }
+            },
+            {
               "kind": "external_link",
               "field": "website",
               "value": "https://alice.dev",
@@ -504,8 +640,8 @@ expression: pretty_json(&report)
             }
           ],
           "confidence": {
-            "score": 85,
-            "label": "high",
+            "score": 95,
+            "label": "verified",
             "reasons": [
               {
                 "kind": "found_by_signal"
@@ -516,6 +652,10 @@ expression: pretty_json(&report)
               },
               {
                 "kind": "profile_metadata_extracted",
+                "count": 1
+              },
+              {
+                "kind": "exact_username_match",
                 "count": 1
               }
             ]

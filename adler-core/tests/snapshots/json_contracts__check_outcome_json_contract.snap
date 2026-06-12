@@ -12,6 +12,21 @@ expression: pretty_json(&github_found())
   ],
   "profile_evidence": [
     {
+      "kind": "username",
+      "value": "alice",
+      "source": {
+        "site": "GitHub",
+        "url": "https://github.example/alice",
+        "origin": "signal",
+        "observed_at_ms": 1781192451000,
+        "access_path": {
+          "transport": "browser",
+          "escalated": true,
+          "authenticated": true
+        }
+      }
+    },
+    {
       "kind": "display_name",
       "field": "name",
       "value": "Alice Liddell",
@@ -78,6 +93,10 @@ expression: pretty_json(&github_found())
       {
         "kind": "profile_metadata_rich",
         "count": 3
+      },
+      {
+        "kind": "exact_username_match",
+        "count": 1
       },
       {
         "kind": "authenticated_access"

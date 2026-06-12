@@ -1308,6 +1308,16 @@ mod tests {
         outcome
     }
 
+    fn username_evidence(site: &str, url: &str) -> ProfileEvidence {
+        ProfileEvidence::from_signal_username(
+            site,
+            url,
+            "alice",
+            Some(1_781_192_451_000),
+            Some(EvidenceAccessPath::new(TransportTier::Http, 0, false)),
+        )
+    }
+
     fn rich_found_with_profile(
         site: &str,
         fields: &[(&str, &str)],
@@ -1333,6 +1343,7 @@ mod tests {
                     )),
                 )
             })
+            .chain(std::iter::once(username_evidence(site, &url)))
             .collect();
         let enrichment = fields
             .iter()

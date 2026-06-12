@@ -43,6 +43,7 @@ export type MatchKind = "found" | "not_found" | "uncertain";
 export type TransportTier = "http" | "impersonate" | "browser";
 
 export type ProfileEvidenceKind =
+    | "username"
     | "display_name"
     | "bio"
     | "avatar_url"
@@ -60,7 +61,7 @@ export interface ProfileEvidence {
     source: {
         site: string;
         url: string;
-        origin: "extractor";
+        origin: "signal" | "extractor";
         observed_at_ms?: number;
         access_path?: EvidenceAccessPath;
     };
@@ -84,6 +85,7 @@ export interface ConfidenceScore {
         | { kind: "profile_metadata_extracted"; count: number }
         | { kind: "profile_metadata_rich"; count: number }
         | { kind: "signal_evidence"; count: number }
+        | { kind: "exact_username_match"; count: number }
         | { kind: "authenticated_access" }
         | { kind: "browser_transport" }
         | { kind: "impersonate_transport" }

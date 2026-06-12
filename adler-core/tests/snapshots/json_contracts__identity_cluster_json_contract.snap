@@ -12,6 +12,21 @@ expression: pretty_json(&clusters)
         "url": "https://github.example/alice",
         "evidence": [
           {
+            "kind": "username",
+            "value": "alice",
+            "source": {
+              "site": "GitHub",
+              "url": "https://github.example/alice",
+              "origin": "signal",
+              "observed_at_ms": 1781192451000,
+              "access_path": {
+                "transport": "browser",
+                "escalated": true,
+                "authenticated": true
+              }
+            }
+          },
+          {
             "kind": "display_name",
             "field": "name",
             "value": "Alice Liddell",
@@ -80,6 +95,10 @@ expression: pretty_json(&clusters)
               "count": 3
             },
             {
+              "kind": "exact_username_match",
+              "count": 1
+            },
+            {
               "kind": "authenticated_access"
             },
             {
@@ -98,6 +117,19 @@ expression: pretty_json(&clusters)
         "url": "https://gitlab.example/alice",
         "evidence": [
           {
+            "kind": "username",
+            "value": "alice",
+            "source": {
+              "site": "GitLab",
+              "url": "https://gitlab.example/alice",
+              "origin": "signal",
+              "observed_at_ms": 1781192451000,
+              "access_path": {
+                "transport": "http"
+              }
+            }
+          },
+          {
             "kind": "external_link",
             "field": "website",
             "value": "https://alice.dev",
@@ -113,8 +145,8 @@ expression: pretty_json(&clusters)
           }
         ],
         "confidence": {
-          "score": 85,
-          "label": "high",
+          "score": 95,
+          "label": "verified",
           "reasons": [
             {
               "kind": "found_by_signal"
@@ -125,6 +157,10 @@ expression: pretty_json(&clusters)
             },
             {
               "kind": "profile_metadata_extracted",
+              "count": 1
+            },
+            {
+              "kind": "exact_username_match",
               "count": 1
             }
           ]

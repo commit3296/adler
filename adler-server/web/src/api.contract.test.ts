@@ -49,6 +49,21 @@ function fullOutcome(): CheckOutcome {
                     },
                 },
             },
+            {
+                kind: "username",
+                value: "alice",
+                source: {
+                    site: "GitHub",
+                    url: "https://github.com/alice",
+                    origin: "signal",
+                    observed_at_ms: 1781192451000,
+                    access_path: {
+                        transport: "browser",
+                        escalated: true,
+                        authenticated: true,
+                    },
+                },
+            },
         ],
         confidence: {
             score: 95,
@@ -57,6 +72,7 @@ function fullOutcome(): CheckOutcome {
                 { kind: "found_by_signal" },
                 { kind: "signal_evidence", count: 1 },
                 { kind: "profile_metadata_extracted", count: 1 },
+                { kind: "exact_username_match", count: 1 },
                 { kind: "browser_transport" },
                 { kind: "escalated_transport" },
             ],
@@ -309,6 +325,9 @@ describe("adler-server HTTP API contract", () => {
         });
         expect(snapshot.identity_clusters?.[0]?.members[0]?.evidence?.[0]?.kind).toBe(
             "external_link",
+        );
+        expect(snapshot.identity_clusters?.[0]?.members[0]?.evidence?.[1]?.source.origin).toBe(
+            "signal",
         );
         expect(snapshot.identity_clusters?.[0]?.members[0]?.confidence.label).toBe(
             "high",
