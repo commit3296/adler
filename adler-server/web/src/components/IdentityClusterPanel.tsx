@@ -11,7 +11,11 @@ export const IdentityClusterPanel: Component = () => {
 
     return (
         <Show when={clusters().length > 0}>
-            <section class="identity-clusters" aria-label="Identity clusters">
+            <section
+                class="identity-clusters"
+                data-testid="identity-cluster-panel"
+                aria-label="Identity clusters"
+            >
                 <div class="identity-clusters-head">
                     <span class="identity-title">Clusters</span>
                     <span class="identity-count">{clusters().length}</span>
@@ -29,7 +33,7 @@ export const IdentityClusterPanel: Component = () => {
 const IdentityClusterCard: Component<{ cluster: IdentityCluster }> = (props) => {
     const reasons = createMemo(() => props.cluster.reasons ?? []);
     return (
-        <article class="identity-cluster-card">
+        <article class="identity-cluster-card" data-testid="identity-cluster-card">
             <div class="identity-card-top">
                 <span class="identity-id">{props.cluster.id}</span>
                 <span class="identity-confidence">{props.cluster.confidence}%</span>
