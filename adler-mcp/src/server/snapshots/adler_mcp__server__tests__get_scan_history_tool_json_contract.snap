@@ -1,0 +1,29 @@
+---
+source: adler-mcp/src/server/mod.rs
+expression: pretty_json(&value)
+---
+{
+  "total": 2,
+  "scans": [
+    {
+      "id": "scan_a",
+      "schema_version": 2,
+      "username": "alice",
+      "started_at": "2026-06-11T10:00:00Z",
+      "total": 2,
+      "found": 1,
+      "not_found": 1,
+      "uncertain": 0
+    },
+    {
+      "id": "scan_b",
+      "schema_version": 2,
+      "username": "bob",
+      "started_at": "2026-06-11T11:00:00Z",
+      "total": 1,
+      "found": 0,
+      "not_found": 0,
+      "uncertain": 1
+    }
+  ]
+}

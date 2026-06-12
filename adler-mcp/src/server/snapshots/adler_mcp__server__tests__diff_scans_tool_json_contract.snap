@@ -1,0 +1,145 @@
+---
+source: adler-mcp/src/server/mod.rs
+expression: pretty_json(&diff)
+---
+{
+  "from_scan_id": "old",
+  "to_scan_id": "new",
+  "added_found": [
+    {
+      "site": "Mastodon",
+      "kind": "Found",
+      "url": "https://mastodon.example/alice",
+      "elapsed_ms": 42,
+      "reason": null,
+      "evidence": [
+        "HTTP 200 (status_found)",
+        "body matched profile marker"
+      ],
+      "profile_evidence": [
+        {
+          "kind": "external_link",
+          "field": "website",
+          "value": "https://alice.dev",
+          "source": {
+            "site": "Mastodon",
+            "url": "https://mastodon.example/alice",
+            "origin": "extractor",
+            "observed_at_ms": 1781196052000,
+            "access_path": {
+              "transport": "browser",
+              "escalated": true,
+              "authenticated": true
+            }
+          }
+        }
+      ],
+      "confidence": {
+        "score": 100,
+        "label": "verified",
+        "reasons": [
+          {
+            "kind": "found_by_signal"
+          },
+          {
+            "kind": "signal_evidence",
+            "count": 2
+          },
+          {
+            "kind": "profile_metadata_extracted",
+            "count": 1
+          },
+          {
+            "kind": "authenticated_access"
+          },
+          {
+            "kind": "browser_transport"
+          },
+          {
+            "kind": "escalated_transport"
+          }
+        ]
+      },
+      "transport": "browser",
+      "escalations": 1
+    }
+  ],
+  "removed_found": [
+    {
+      "site": "Reddit",
+      "kind": "Found",
+      "url": "https://reddit.example/alice",
+      "elapsed_ms": 42,
+      "reason": null,
+      "evidence": [
+        "HTTP 200 (status_found)",
+        "body matched profile marker"
+      ],
+      "profile_evidence": [
+        {
+          "kind": "external_link",
+          "field": "website",
+          "value": "https://old.example",
+          "source": {
+            "site": "Reddit",
+            "url": "https://reddit.example/alice",
+            "origin": "extractor",
+            "observed_at_ms": 1781192452000,
+            "access_path": {
+              "transport": "browser",
+              "escalated": true,
+              "authenticated": true
+            }
+          }
+        }
+      ],
+      "confidence": {
+        "score": 100,
+        "label": "verified",
+        "reasons": [
+          {
+            "kind": "found_by_signal"
+          },
+          {
+            "kind": "signal_evidence",
+            "count": 2
+          },
+          {
+            "kind": "profile_metadata_extracted",
+            "count": 1
+          },
+          {
+            "kind": "authenticated_access"
+          },
+          {
+            "kind": "browser_transport"
+          },
+          {
+            "kind": "escalated_transport"
+          }
+        ]
+      },
+      "transport": "browser",
+      "escalations": 1
+    }
+  ],
+  "verdict_changes": [
+    {
+      "site": "Reddit",
+      "before": "Found",
+      "after": "NotFound"
+    }
+  ],
+  "evidence_changes": [
+    {
+      "site": "GitHub",
+      "changed_fields": [
+        "bio",
+        "name",
+        "website"
+      ],
+      "before_profile_evidence_count": 2,
+      "after_profile_evidence_count": 3
+    }
+  ]
+}

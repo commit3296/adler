@@ -1,0 +1,56 @@
+---
+source: adler-mcp/src/server/mod.rs
+expression: pretty_json(&parsed)
+---
+{
+  "username": "alice",
+  "scan_count": 3,
+  "from_ms": 1781192451000,
+  "to_ms": 1781199651000,
+  "profiles": [
+    {
+      "site": "GitHub",
+      "url": "https://GitHub.example/u",
+      "first_seen_ms": 1781192451000,
+      "last_seen_ms": 1781196051000,
+      "present_in_latest": false,
+      "last_verdict": "NotFound"
+    }
+  ],
+  "events": [
+    {
+      "scan_id": "old",
+      "at_ms": 1781192451000,
+      "site": "GitHub",
+      "url": "https://github.example/alice",
+      "kind": "first_seen",
+      "before": null,
+      "after": "Found",
+      "changed_fields": []
+    },
+    {
+      "scan_id": "mid",
+      "at_ms": 1781196051000,
+      "site": "GitHub",
+      "url": "https://github.example/alice",
+      "kind": "evidence_changed",
+      "before": "Found",
+      "after": "Found",
+      "changed_fields": [
+        "bio",
+        "name",
+        "website"
+      ]
+    },
+    {
+      "scan_id": "new",
+      "at_ms": 1781199651000,
+      "site": "GitHub",
+      "url": "https://GitHub.example/u",
+      "kind": "disappeared",
+      "before": "Found",
+      "after": "NotFound",
+      "changed_fields": []
+    }
+  ]
+}
