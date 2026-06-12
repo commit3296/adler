@@ -13,7 +13,8 @@ use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
 use super::{
-    AdlerMcp, RECENT_SCANS_LIMIT, SiteEntry, read_scan_diff, read_scan_history, read_scan_timeline,
+    AdlerMcp, RECENT_SCANS_LIMIT, ScanReportError, SiteEntry, read_investigation_report,
+    read_scan_diff, read_scan_history, read_scan_timeline,
 };
 use adler_core::{
     CheckOutcome, HistoricalScanRef, SiteFilter, WatchScope, WatchlistConfig, WatchlistError,
@@ -85,6 +86,7 @@ pub(super) enum ResourceError {
     Json(serde_json::Error),
     Diff(super::ScanDiffError),
     Timeline(super::ScanTimelineError),
+    Report(ScanReportError),
     Watchlist(WatchlistResourceError),
 }
 
@@ -123,21 +125,22 @@ impl AdlerMcp {
             "adler://registry/disabled" => self.render_registry_disabled(),
             "adler://scans/recent" => self.render_scans_recent(),
             "adler://watchlists/default" => self.render_watchlist_default(),
-            other => other.strip_prefix("adler://timelines/").map_or_else(
-                || {
-                    other.strip_prefix("adler://scans/").map_or(
-                        Err(ResourceError::Unknown),
-                        |tail| {
-                            if let Some((from, to)) = tail.split_once("/diff/") {
-                                self.render_scan_diff(from, to)
-                            } else {
-                                self.render_scan_by_id(tail)
-                            }
-                        },
-                    )
-                },
-                |username| self.render_scan_timeline(username),
-            ),
+            other => {
+                if let Some(id) = other.strip_prefix("adler://reports/") {
+                    return self.render_report_by_id(id);
+                }
+                if let Some(username) = other.strip_prefix("adler://timelines/") {
+                    return self.render_scan_timeline(username);
+                }
+                let Some(tail) = other.strip_prefix("adler://scans/") else {
+                    return Err(ResourceError::Unknown);
+                };
+                if let Some((from, to)) = tail.split_once("/diff/") {
+                    self.render_scan_diff(from, to)
+                } else {
+                    self.render_scan_by_id(tail)
+                }
+            }
         }
     }
 
@@ -273,6 +276,12 @@ impl AdlerMcp {
         let timeline = read_scan_timeline(self.scans_dir.as_ref(), username)
             .map_err(ResourceError::Timeline)?;
         serde_json::to_string_pretty(&timeline).map_err(ResourceError::Json)
+    }
+
+    fn render_report_by_id(&self, id: &str) -> Result<String, ResourceError> {
+        let report = read_investigation_report(self.scans_dir.as_ref(), id)
+            .map_err(ResourceError::Report)?;
+        serde_json::to_string_pretty(&report).map_err(ResourceError::Json)
     }
 
     fn render_watchlist_default(&self) -> Result<String, ResourceError> {

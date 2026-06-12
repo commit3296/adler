@@ -145,8 +145,9 @@ def main() -> int:
         expected = sorted([
             "list_sites", "scan_username", "scan_batch",
             "doctor_check", "get_scan_history", "diff_scans",
+            "get_investigation_report",
         ])
-        ok("tools/list returns all 6", tool_names == expected, f"got {tool_names}")
+        ok("tools/list returns all 7", tool_names == expected, f"got {tool_names}")
 
         resp = call("tools/call", {"name": "list_sites", "arguments": {"tag": ["coding"]}})
         sc = resp["result"]["structuredContent"]
@@ -234,6 +235,10 @@ def main() -> int:
             "resources/templates/list returns timeline",
             any(t["uriTemplate"] == "adler://timelines/{username}" for t in templates),
         )
+        ok(
+            "resources/templates/list returns report",
+            any(t["uriTemplate"] == "adler://reports/{id}" for t in templates),
+        )
 
         for uri in [
             "adler://registry/sites",
@@ -265,6 +270,11 @@ def main() -> int:
         ok(
             "resources/read path-traversal id → rejected",
             "error" in resp,
+        )
+        resp = call("resources/read", {"uri": "adler://reports/../etc/passwd"})
+        ok(
+            "resources/read report path-traversal id → rejected",
+            "error" in resp and "invalid scan id" in resp["error"]["message"].lower(),
         )
 
         # === prompts ===

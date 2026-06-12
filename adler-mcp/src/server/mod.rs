@@ -17,10 +17,12 @@ use resources::{
     JSON_MIME, ResourceError, STATIC_RESOURCES, WatchlistResourceError, json_resource_contents,
 };
 use tools::{
-    BatchScanOutput, DisabledSiteEntry, DoctorCheckArgs, DoctorCheckOutput, ListSitesArgs,
-    ListSitesOutput, ScanBatchArgs, ScanDiffArgs, ScanDiffError, ScanDiffOutput, ScanFilter,
-    ScanHistoryArgs, ScanHistoryOutput, ScanOutput, ScanSummary, ScanTimelineError,
-    ScanUsernameArgs, SiteEntry, read_scan_diff, read_scan_history, read_scan_timeline,
+    BatchScanOutput, DisabledSiteEntry, DoctorCheckArgs, DoctorCheckOutput,
+    InvestigationReportArgs, InvestigationReportFormat, ListSitesArgs, ListSitesOutput,
+    ScanBatchArgs, ScanDiffArgs, ScanDiffError, ScanDiffOutput, ScanFilter, ScanHistoryArgs,
+    ScanHistoryOutput, ScanOutput, ScanReportError, ScanSummary, ScanTimelineError,
+    ScanUsernameArgs, SiteEntry, read_investigation_report, read_scan_diff, read_scan_history,
+    read_scan_timeline,
 };
 
 use std::num::NonZeroUsize;
@@ -29,7 +31,10 @@ use std::time::Duration;
 
 use adler_core::doctor::{self, DoctorReport};
 use adler_core::executor;
-use adler_core::{CheckOutcome, Client, ExecutorOptions, Registry, SiteFilter, Username};
+use adler_core::{
+    CheckOutcome, Client, ExecutorOptions, Registry, SiteFilter, Username,
+    render_investigation_report_markdown,
+};
 use rmcp::Peer;
 use rmcp::RoleServer;
 use rmcp::ServerHandler;
@@ -37,6 +42,8 @@ use rmcp::handler::server::router::tool::ToolRouter;
 use rmcp::handler::server::wrapper::Json;
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::model::Annotated;
+use rmcp::model::CallToolResult;
+use rmcp::model::Content;
 use rmcp::model::GetPromptRequestParams;
 use rmcp::model::GetPromptResult;
 use rmcp::model::Implementation;
@@ -468,6 +475,35 @@ impl AdlerMcp {
         .map_err(scan_diff_error)?;
         Ok(Json(diff))
     }
+
+    /// Build an investigation report from one finished persisted scan.
+    #[tool(
+        name = "get_investigation_report",
+        description = "Read one persisted scan by id and derive a case-level \
+                       InvestigationReport. Defaults to structured JSON; \
+                       format=\"markdown\" returns rendered Markdown text. \
+                       Reports include evidence, confidence, identity clusters, \
+                       and persisted-scan timeline context when available."
+    )]
+    pub async fn get_investigation_report(
+        &self,
+        Parameters(args): Parameters<InvestigationReportArgs>,
+    ) -> Result<CallToolResult, rmcp::ErrorData> {
+        let report = read_investigation_report(self.scans_dir.as_ref(), &args.scan_id)
+            .map_err(scan_report_error)?;
+        match args.format {
+            InvestigationReportFormat::Json => {
+                let value = serde_json::to_value(&report)
+                    .map_err(|e| internal_error_chain("serialising investigation report", &e))?;
+                Ok(CallToolResult::structured(value))
+            }
+            InvestigationReportFormat::Markdown => {
+                Ok(CallToolResult::success(vec![Content::text(
+                    render_investigation_report_markdown(&report),
+                )]))
+            }
+        }
+    }
 }
 
 impl AdlerMcp {
@@ -618,6 +654,20 @@ fn scan_timeline_error(err: ScanTimelineError) -> rmcp::ErrorData {
     }
 }
 
+fn scan_report_error(err: ScanReportError) -> rmcp::ErrorData {
+    match err {
+        ScanReportError::InvalidId(id) => {
+            rmcp::ErrorData::invalid_params(format!("invalid scan id {id:?}"), None)
+        }
+        ScanReportError::NotFound(id) => {
+            rmcp::ErrorData::invalid_params(format!("scan {id:?} not found"), None)
+        }
+        ScanReportError::Io { .. } | ScanReportError::Json { .. } => {
+            internal_error_chain("reading investigation report", &err)
+        }
+    }
+}
+
 fn watchlist_resource_error(err: &WatchlistResourceError) -> rmcp::ErrorData {
     match err {
         WatchlistResourceError::Io { .. } => {
@@ -754,8 +804,19 @@ impl ServerHandler for AdlerMcp {
                 .with_mime_type(JSON_MIME.to_owned()),
             None,
         );
+        let investigation_report = Annotated::new(
+            RawResourceTemplate::new("adler://reports/{id}", "investigation_report")
+                .with_description(
+                    "Read one persisted scan by id and return the derived JSON \
+                     InvestigationReport with evidence, confidence, identity clusters, \
+                     and timeline context."
+                        .to_owned(),
+                )
+                .with_mime_type(JSON_MIME.to_owned()),
+            None,
+        );
         Ok(ListResourceTemplatesResult {
-            resource_templates: vec![scan_by_id, scan_diff, scan_timeline],
+            resource_templates: vec![scan_by_id, scan_diff, scan_timeline, investigation_report],
             ..Default::default()
         })
     }
@@ -777,6 +838,7 @@ impl ServerHandler for AdlerMcp {
             }
             ResourceError::Diff(err) => scan_diff_error(err),
             ResourceError::Timeline(err) => scan_timeline_error(err),
+            ResourceError::Report(err) => scan_report_error(err),
             ResourceError::Watchlist(err) => watchlist_resource_error(&err),
         })?;
         let contents = json_resource_contents(payload, &req.uri);
@@ -791,10 +853,13 @@ const ADLER_MCP_INSTRUCTIONS: &str = concat!(
     "username scan with streaming progress notifications), `scan_batch` (sequential ",
     "multi-username scan), `doctor_check` (health probe for one named site), ",
     "`get_scan_history` (recent persisted scans from the web server's history dir), ",
-    "`diff_scans` (compare two persisted scan ids). `scan_username` and ",
-    "`scan_batch` return per-site `outcomes` plus `identity_clusters` derived ",
-    "from structured profile evidence; use cluster `uncertain=true` as a ",
-    "caution flag, not proof.\n\n",
+    "`diff_scans` (compare two persisted scan ids), `get_investigation_report` ",
+    "(case-level report for one persisted scan as JSON or Markdown). ",
+    "`scan_username` and `scan_batch` return per-site `outcomes` plus ",
+    "`identity_clusters` derived from structured profile evidence; use cluster ",
+    "`uncertain=true` as a caution flag, not proof. Prefer investigation reports ",
+    "for case-level summaries because they combine evidence, confidence, ",
+    "identity clusters, and persisted timeline context.\n\n",
     "Resources: `adler://registry/sites` (full enabled registry), ",
     "`adler://registry/tags` (tags with site counts), `adler://registry/disabled` ",
     "(disabled entries + reasons — audit surface), `adler://scans/recent` (recent ",
@@ -802,7 +867,8 @@ const ADLER_MCP_INSTRUCTIONS: &str = concat!(
     "`adler://scans/{id}` (one scan by id), ",
     "`adler://scans/{from}/diff/{to}` (scan-to-scan diff), ",
     "`adler://timelines/{username}` (persisted first-seen / disappeared / ",
-    "reappeared timeline).\n\n",
+    "reappeared timeline), `adler://reports/{id}` (JSON InvestigationReport ",
+    "for one scan).\n\n",
     "Prompts: `investigate_username` (full OSINT walk for one username), ",
     "`audit_registry_health` (doctor + dedup + disabled audit), `correlate_accounts` ",
     "(scan a list and look for shared profile signal).\n\n",
@@ -1143,6 +1209,166 @@ mod tests {
         );
     }
 
+    #[tokio::test]
+    async fn get_investigation_report_tool_json_contract() {
+        let tmp = tempfile::tempdir().unwrap();
+        write_report_scan(
+            tmp.path(),
+            "older",
+            "alice",
+            1_781_188_851_000,
+            &[
+                contract_found_outcome(
+                    "GitHub",
+                    &[("website", "https://alice.dev"), ("name", "Alice Example")],
+                    1_781_188_851_000,
+                ),
+                contract_found_outcome(
+                    "GitLab",
+                    &[("website", "https://alice.dev")],
+                    1_781_188_852_000,
+                ),
+            ],
+        );
+        write_report_scan(
+            tmp.path(),
+            "previous",
+            "alice",
+            1_781_192_451_000,
+            &[
+                contract_found_outcome(
+                    "GitHub",
+                    &[("website", "https://alice.dev"), ("name", "Alice Example")],
+                    1_781_192_451_000,
+                ),
+                contract_found_outcome(
+                    "GitLab",
+                    &[("website", "https://alice.dev")],
+                    1_781_192_452_000,
+                ),
+            ],
+        );
+        write_report_scan(
+            tmp.path(),
+            "current",
+            "alice",
+            1_781_196_051_000,
+            &[
+                contract_found_outcome(
+                    "GitHub",
+                    &[
+                        ("website", "https://alice.dev"),
+                        ("name", "Alice Example"),
+                        ("bio", "Security researcher and maintainer"),
+                    ],
+                    1_781_196_051_000,
+                ),
+                contract_found_outcome(
+                    "GitLab",
+                    &[("website", "https://alice.dev")],
+                    1_781_196_052_000,
+                ),
+                mock_outcome("Reddit", MatchKind::Uncertain),
+            ],
+        );
+        write_report_scan(
+            tmp.path(),
+            "bob",
+            "bob",
+            1_781_196_053_000,
+            &[contract_found_outcome(
+                "GitHub",
+                &[("website", "https://bob.dev")],
+                1_781_196_053_000,
+            )],
+        );
+        let registry = Arc::new(Registry::default_embedded().unwrap());
+        let client = Arc::new(default_client().unwrap());
+        let server = AdlerMcp::with_components(registry, client, tmp.path().to_path_buf());
+
+        let result = server
+            .get_investigation_report(Parameters(InvestigationReportArgs {
+                scan_id: "current".to_owned(),
+                format: InvestigationReportFormat::Json,
+            }))
+            .await
+            .unwrap();
+        let value = result
+            .structured_content
+            .expect("JSON report should be structured content");
+
+        insta::assert_snapshot!(pretty_json(&value));
+    }
+
+    #[tokio::test]
+    async fn get_investigation_report_tool_markdown_contract() {
+        let tmp = tempfile::tempdir().unwrap();
+        write_report_scan(
+            tmp.path(),
+            "scan123",
+            "alice",
+            1_781_196_051_000,
+            &[
+                contract_found_outcome(
+                    "GitHub",
+                    &[("website", "https://alice.dev"), ("name", "Alice Example")],
+                    1_781_196_051_000,
+                ),
+                contract_found_outcome(
+                    "GitLab",
+                    &[("website", "https://alice.dev")],
+                    1_781_196_052_000,
+                ),
+            ],
+        );
+        let registry = Arc::new(Registry::default_embedded().unwrap());
+        let client = Arc::new(default_client().unwrap());
+        let server = AdlerMcp::with_components(registry, client, tmp.path().to_path_buf());
+
+        let result = server
+            .get_investigation_report(Parameters(InvestigationReportArgs {
+                scan_id: "scan123".to_owned(),
+                format: InvestigationReportFormat::Markdown,
+            }))
+            .await
+            .unwrap();
+
+        assert!(
+            result.structured_content.is_none(),
+            "Markdown report should be text content, not structured JSON",
+        );
+        let markdown = result.content[0]
+            .as_text()
+            .expect("Markdown report content should be text")
+            .text
+            .clone();
+
+        insta::assert_snapshot!(markdown);
+    }
+
+    #[tokio::test]
+    async fn get_investigation_report_tool_rejects_path_traversal_ids() {
+        let tmp = tempfile::tempdir().unwrap();
+        let registry = Arc::new(Registry::default_embedded().unwrap());
+        let client = Arc::new(default_client().unwrap());
+        let server = AdlerMcp::with_components(registry, client, tmp.path().to_path_buf());
+
+        let result = server
+            .get_investigation_report(Parameters(InvestigationReportArgs {
+                scan_id: "../current".to_owned(),
+                format: InvestigationReportFormat::Json,
+            }))
+            .await;
+        let Err(err) = result else {
+            panic!("expected invalid scan id");
+        };
+
+        assert!(
+            err.message.contains("invalid scan id"),
+            "expected invalid id error, got {err:?}",
+        );
+    }
+
     #[test]
     fn scan_summary_counts_each_kind() {
         let outcomes = vec![
@@ -1206,6 +1432,32 @@ mod tests {
             "created_at_ms": created_at_ms,
             "outcomes": outcomes,
             "identity_clusters": identity_clusters,
+        });
+        std::fs::write(
+            path.join(format!("{scan_id}.json")),
+            serde_json::to_string_pretty(&scan).unwrap(),
+        )
+        .unwrap();
+    }
+
+    fn write_report_scan(
+        path: &std::path::Path,
+        scan_id: &str,
+        username: &str,
+        created_at_ms: u64,
+        outcomes: &[CheckOutcome],
+    ) {
+        let identity_clusters = adler_core::build_identity_clusters(username, outcomes);
+        let scan = serde_json::json!({
+            "scan_id": scan_id,
+            "schema_version": 3,
+            "username": username,
+            "site_count": outcomes.len(),
+            "created_at_ms": created_at_ms,
+            "summary": adler_server::Summary::from_outcomes(outcomes),
+            "outcomes": outcomes,
+            "identity_clusters": identity_clusters,
+            "elapsed_ms": 123,
         });
         std::fs::write(
             path.join(format!("{scan_id}.json")),
@@ -1581,6 +1833,93 @@ top = 25
     }
 
     #[test]
+    fn investigation_report_resource_json_contract() {
+        let tmp = tempfile::tempdir().unwrap();
+        write_report_scan(
+            tmp.path(),
+            "older",
+            "alice",
+            1_781_188_851_000,
+            &[
+                contract_found_outcome(
+                    "GitHub",
+                    &[("website", "https://alice.dev"), ("name", "Alice Example")],
+                    1_781_188_851_000,
+                ),
+                contract_found_outcome(
+                    "GitLab",
+                    &[("website", "https://alice.dev")],
+                    1_781_188_852_000,
+                ),
+            ],
+        );
+        write_report_scan(
+            tmp.path(),
+            "previous",
+            "alice",
+            1_781_192_451_000,
+            &[
+                contract_found_outcome(
+                    "GitHub",
+                    &[("website", "https://alice.dev"), ("name", "Alice Example")],
+                    1_781_192_451_000,
+                ),
+                contract_found_outcome(
+                    "GitLab",
+                    &[("website", "https://alice.dev")],
+                    1_781_192_452_000,
+                ),
+            ],
+        );
+        write_report_scan(
+            tmp.path(),
+            "current",
+            "alice",
+            1_781_196_051_000,
+            &[
+                contract_found_outcome(
+                    "GitHub",
+                    &[
+                        ("website", "https://alice.dev"),
+                        ("name", "Alice Example"),
+                        ("bio", "Security researcher and maintainer"),
+                    ],
+                    1_781_196_051_000,
+                ),
+                contract_found_outcome(
+                    "GitLab",
+                    &[("website", "https://alice.dev")],
+                    1_781_196_052_000,
+                ),
+            ],
+        );
+        let registry = Arc::new(Registry::default_embedded().unwrap());
+        let client = Arc::new(default_client().unwrap());
+        let server = AdlerMcp::with_components(registry, client, tmp.path().to_path_buf());
+
+        let payload = server.render_resource("adler://reports/current").unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&payload).unwrap();
+
+        insta::assert_snapshot!(pretty_json(&parsed));
+    }
+
+    #[test]
+    fn investigation_report_resource_rejects_path_traversal_ids() {
+        let tmp = tempfile::tempdir().unwrap();
+        let registry = Arc::new(Registry::default_embedded().unwrap());
+        let client = Arc::new(default_client().unwrap());
+        let server = AdlerMcp::with_components(registry, client, tmp.path().to_path_buf());
+
+        let err = server
+            .render_resource("adler://reports/../current")
+            .unwrap_err();
+        assert!(matches!(
+            err,
+            ResourceError::Report(ScanReportError::InvalidId(_))
+        ));
+    }
+
+    #[test]
     fn scan_diff_resource_json_contract() {
         let tmp = tempfile::tempdir().unwrap();
         write_contract_scan(
@@ -1852,6 +2191,8 @@ top = 25
     fn prompts_and_instructions_keep_identity_contract_guidance() {
         assert!(ADLER_MCP_INSTRUCTIONS.contains("identity_clusters"));
         assert!(ADLER_MCP_INSTRUCTIONS.contains("structured profile evidence"));
+        assert!(ADLER_MCP_INSTRUCTIONS.contains("get_investigation_report"));
+        assert!(ADLER_MCP_INSTRUCTIONS.contains("adler://reports/{id}"));
 
         let prompt_bodies = PROMPT_SPECS
             .iter()
@@ -1864,6 +2205,8 @@ top = 25
             "profile_evidence",
             "evidence",
             "uncertain=true",
+            "get_investigation_report",
+            "adler://reports/{id}",
         ] {
             assert!(
                 prompt_bodies.contains(expected),

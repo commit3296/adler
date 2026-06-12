@@ -68,7 +68,10 @@ Found account, report the canonical URL, `confidence.label`, \
 `confidence.score`, and the strongest `evidence` / `profile_evidence` values \
 available. If `identity_clusters` is non-empty, summarize the cluster \
 members, cluster confidence, reasons, and whether `uncertain` is true.
-5. If any sites came back Uncertain, note them but do not infer existence \
+5. For persisted scan ids, prefer `get_investigation_report` or \
+`adler://reports/{id}` for the final case-level summary; those report outputs \
+combine evidence, confidence, identity clusters, and timeline context.
+6. If any sites came back Uncertain, note them but do not infer existence \
 either way — cite their `confidence` reasons and any session/transport \
 limitations instead.
 

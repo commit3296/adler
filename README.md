@@ -297,14 +297,14 @@ with `npm ci && npm run build` in `adler-server/web/`).
 ## MCP server
 
 Adler exposes its OSINT surface to AI assistants over the
-[Model Context Protocol](https://modelcontextprotocol.io/). Six
+[Model Context Protocol](https://modelcontextprotocol.io/). Seven
 **tools** the agent can call (`list_sites`, `scan_username` with
 streamed progress, `scan_batch`, `doctor_check`, `get_scan_history`,
-`diff_scans`),
-eight **resources** it can browse (`adler://registry/{sites,tags,
+`diff_scans`, `get_investigation_report`),
+nine **resources** it can browse (`adler://registry/{sites,tags,
 disabled}`, `adler://scans/recent`, `adler://watchlists/default`,
 `adler://scans/{id}` / `adler://scans/{from}/diff/{to}` /
-`adler://timelines/{username}` templates),
+`adler://timelines/{username}` / `adler://reports/{id}` templates),
 and three **prompts** with templated OSINT workflows
 (`investigate_username`, `audit_registry_health`,
 `correlate_accounts`). Two transports — pick whichever fits how the
@@ -339,9 +339,9 @@ Adler stores local artifacts only for surfaces that need reuse:
 one-shot scans may use the result cache, `--watch` keeps a previous
 found-account snapshot, and `adler --web` writes finished scan JSON
 under `$XDG_CACHE_HOME/adler/scans/` (falling back to
-`$HOME/.cache/adler/scans/`). MCP history, diff, and timeline resources
-read that same web history directory but do not create scan history by
-themselves.
+`$HOME/.cache/adler/scans/`). MCP history, diff, timeline, and report
+surfaces read that same web history directory but do not create scan
+history by themselves.
 
 Use `--no-cache` for one-shot scans that should not touch the result
 cache, `adler --cache-clear` to remove the cache file, a temporary
