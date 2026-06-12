@@ -173,7 +173,7 @@ issue links.
 - [x] Include sections for summary, high-confidence accounts, uncertain
   accounts, evidence table, timeline, parked/disabled sites, and known
   limitations.
-- [ ] Add JSON report output for downstream tools.
+- [x] Add JSON report output for downstream tools.
 - [ ] Consider HTML export after the report model stabilizes.
 - [x] Add snapshot tests for report rendering.
 
