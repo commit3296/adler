@@ -9,6 +9,24 @@ pre-1.0 bump rules.
 
 ## [Unreleased]
 
+### Added
+- *(identity graph)* expose evidence, confidence, identity clusters, timelines,
+  and investigation reports across CLI, Web API, Web UI, and MCP surfaces where
+  applicable.
+- *(cli)* support JSON investigation reports with
+  `--report-scan --report-format json`.
+
+### Changed
+- *(hardening)* add public JSON/Web/MCP contract snapshots, Web UI smoke
+  coverage, and large scan artifact performance checks for Phase 8 release
+  readiness.
+
+### Docs
+- document identity graph privacy and retention expectations, including
+  evidence access metadata, local scan ids, and Markdown/JSON report outputs.
+- add README guidance for evidence, confidence, identity clusters, and
+  investigation reports.
+
 ## [0.12.3](https://github.com/commit3296/adler/compare/adler-mcp-v0.12.2...adler-mcp-v0.12.3) - 2026-06-08
 
 ### Added

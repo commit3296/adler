@@ -181,11 +181,11 @@ issue links.
 
 - [x] Add compatibility tests for public JSON, Web API, and MCP output.
   ([#79](https://github.com/commit3296/adler/issues/79))
-- [ ] Add UI tests for confidence/evidence rendering.
-- [ ] Add performance checks for large scan artifacts.
+- [x] Add UI tests for confidence/evidence rendering.
+- [x] Add performance checks for large scan artifacts.
 - [x] Document privacy, retention, and responsible-use considerations.
 - [x] Update `README.md` once the first user-visible slice ships.
-- [ ] Update `CHANGELOG.md` only when implementation lands in a release.
+- [x] Update `CHANGELOG.md` only when implementation lands in a release.
 
 ## Suggested first implementation slice
 
