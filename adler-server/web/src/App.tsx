@@ -18,6 +18,7 @@ import { HistoryDrawer } from "./components/HistoryDrawer";
 import { IconSprite } from "./components/Icons";
 import { IdentityClusterPanel } from "./components/IdentityClusterPanel";
 import { NotFound } from "./components/NotFound";
+import { ReportExportPanel } from "./components/ReportExportPanel";
 import { ResultsList } from "./components/ResultsList";
 import { ResultsToolbar } from "./components/ResultsToolbar";
 import { ScanHeader } from "./components/ScanHeader";
@@ -185,6 +186,7 @@ export const App: Component = () => {
                                 </Show>
                                 <Show when={store.scan}>
                                     <ResultsToolbar onExport={handleExport} />
+                                    <ReportExportPanel />
                                     <IdentityClusterPanel />
                                     <DatacenterHint />
                                     <ResultsList />

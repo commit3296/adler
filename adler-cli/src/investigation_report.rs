@@ -4,14 +4,10 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 
 use adler_core::{
-    InvestigationReport, MatchKind, ReportDisabledSite, ReportTimelineEvent,
-    ReportTimelineEventKind, build_identity_clusters, render_investigation_report_html,
+    InvestigationReport, build_identity_clusters, render_investigation_report_html,
     render_investigation_report_markdown,
 };
-use adler_server::{
-    PersistedScan, TimelineEvent, TimelineEventKind, apply_historical_confidence_overlay,
-    build_scan_timeline,
-};
+use adler_server::{PersistedScan, build_investigation_report};
 use anyhow::{Context as _, Result, bail};
 use clap::ValueEnum;
 
@@ -63,30 +59,7 @@ fn write_report(
 fn report_from_scan(dir: &Path, mut scan: PersistedScan) -> InvestigationReport {
     refresh_scan(&mut scan);
     let related_scans = load_related_scans(dir, &scan.username);
-    apply_historical_confidence_overlay(&mut scan, &related_scans);
-    let timeline = report_timeline_from_scans(related_scans, &scan);
-    let disabled_sites = scan
-        .request_context
-        .as_ref()
-        .map(|context| {
-            context
-                .disabled_matches
-                .iter()
-                .map(|site| ReportDisabledSite {
-                    name: site.name.clone(),
-                    url: site.url.clone(),
-                    tags: site.tags.clone(),
-                    disabled_reason: site.disabled_reason.clone(),
-                })
-                .collect()
-        })
-        .unwrap_or_default();
-
-    InvestigationReport::builder(scan.username, &scan.outcomes)
-        .identity_clusters(scan.identity_clusters)
-        .timeline(timeline)
-        .disabled_sites(disabled_sites)
-        .build()
+    build_investigation_report(scan, &related_scans)
 }
 
 fn load_scan(dir: &Path, scan_id: &str) -> Result<PersistedScan> {
@@ -94,21 +67,6 @@ fn load_scan(dir: &Path, scan_id: &str) -> Result<PersistedScan> {
     let bytes = std::fs::read(&path).with_context(|| format!("reading {}", path.display()))?;
     serde_json::from_slice::<PersistedScan>(&bytes)
         .with_context(|| format!("parsing persisted scan {}", path.display()))
-}
-
-fn report_timeline_from_scans(
-    mut scans: Vec<PersistedScan>,
-    current: &PersistedScan,
-) -> Vec<ReportTimelineEvent> {
-    if !scans.iter().any(|scan| scan.scan_id == current.scan_id) {
-        scans.push(current.clone());
-    }
-    let timeline = build_scan_timeline(&scans);
-    timeline
-        .events
-        .into_iter()
-        .map(report_timeline_event)
-        .collect()
 }
 
 fn load_related_scans(dir: &Path, username: &str) -> Vec<PersistedScan> {
@@ -127,30 +85,6 @@ fn load_related_scans(dir: &Path, username: &str) -> Vec<PersistedScan> {
             scan
         })
         .collect()
-}
-
-fn report_timeline_event(event: TimelineEvent) -> ReportTimelineEvent {
-    ReportTimelineEvent {
-        kind: match event.kind {
-            TimelineEventKind::FirstSeen => ReportTimelineEventKind::AddedFound,
-            TimelineEventKind::Disappeared => ReportTimelineEventKind::RemovedFound,
-            TimelineEventKind::Reappeared => ReportTimelineEventKind::Reappeared,
-            TimelineEventKind::EvidenceChanged => ReportTimelineEventKind::EvidenceChanged,
-        },
-        site: Some(event.site),
-        scan_id: Some(event.scan_id.to_string()),
-        observed_at_ms: Some(event.at_ms),
-        detail: Some(timeline_detail(event.before, event.after)),
-    }
-}
-
-fn timeline_detail(before: Option<MatchKind>, after: Option<MatchKind>) -> String {
-    match (before, after) {
-        (Some(before), Some(after)) => format!("{} -> {}", kind_label(before), kind_label(after)),
-        (None, Some(after)) => format!("new {}", kind_label(after)),
-        (Some(before), None) => format!("after {}", kind_label(before)),
-        (None, None) => "changed".to_owned(),
-    }
 }
 
 fn refresh_scan(scan: &mut PersistedScan) {
@@ -176,14 +110,6 @@ fn validate_scan_id(scan_id: &str) -> Result<()> {
     Ok(())
 }
 
-fn kind_label(kind: MatchKind) -> &'static str {
-    match kind {
-        MatchKind::Found => "found",
-        MatchKind::NotFound => "not_found",
-        MatchKind::Uncertain => "uncertain",
-    }
-}
-
 /// Render a deterministic Markdown report. Public inside the crate for unit
 /// tests; CLI users reach it through `--report-scan`.
 pub(crate) fn render_markdown(report: &InvestigationReport) -> String {
@@ -195,8 +121,9 @@ mod tests {
     use std::collections::BTreeMap;
 
     use adler_core::{
-        CheckOutcome, ConfidenceScore, MatchKind, ProfileEvidence, ReportLimitation,
-        ReportLimitationKind, TransportTier, build_identity_clusters,
+        CheckOutcome, ConfidenceScore, MatchKind, ProfileEvidence, ReportDisabledSite,
+        ReportLimitation, ReportLimitationKind, ReportTimelineEvent, ReportTimelineEventKind,
+        TransportTier, build_identity_clusters,
     };
     use adler_server::{PersistedScan, ScanId, Summary};
     use tempfile::tempdir;

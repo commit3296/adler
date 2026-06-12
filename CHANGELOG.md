@@ -12,6 +12,8 @@ pre-1.0 bump rules.
 ### Added
 - *(cli)* support self-contained HTML investigation reports with
   `--report-scan --report-format html`.
+- *(server/web)* expose investigation report exports through
+  `/api/scan/:id/report` and finished-scan Web download controls.
 
 ## [0.13.0](https://github.com/commit3296/adler/compare/adler-mcp-v0.12.3...adler-mcp-v0.13.0) - 2026-06-12
 

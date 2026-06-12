@@ -9,6 +9,7 @@ import type {
     CheckOutcome,
     DisabledSiteSummary,
     FinishedScan,
+    InvestigationReport,
     RefilterBody,
     RefilterResponse,
     RetryResponse,
@@ -20,6 +21,8 @@ import type {
     StartScanBody,
     StartScanResponse,
 } from "./types";
+
+export type ReportFormat = "json" | "markdown" | "html";
 
 export class ApiClientError extends Error {
     code: string;
@@ -70,6 +73,10 @@ export const api = {
     scanDiff: (from: string, to: string) =>
         request<ScanDiff>(`/api/scans/${from}/diff/${to}`),
     scan: (id: string) => request<ScanSnapshot>(`/api/scan/${id}`),
+    reportUrl: (id: string, format: ReportFormat = "json") =>
+        `/api/scan/${encodeURIComponent(id)}/report?format=${format}`,
+    investigationReport: (id: string) =>
+        request<InvestigationReport>(api.reportUrl(id, "json")),
     startScan: (body: StartScanBody) =>
         request<StartScanResponse>("/api/scan", {
             method: "POST",

@@ -3,12 +3,18 @@ use std::convert::Infallible;
 use std::sync::Arc;
 use std::time::Duration;
 
-use adler_core::{ExecutorOptions, Site, Username};
+use adler_core::{
+    ExecutorOptions, Site, Username, render_investigation_report_html,
+    render_investigation_report_markdown,
+};
 use async_stream::stream;
 use axum::Json;
-use axum::extract::{Path as AxumPath, State};
+use axum::extract::{Path as AxumPath, Query, State};
+use axum::http::header;
 use axum::response::sse::{Event, KeepAlive, KeepAliveStream, Sse};
+use axum::response::{IntoResponse, Response};
 use futures::Stream;
+use serde::Deserialize;
 
 use super::dto::{
     AccessSummary, DisabledSiteSummary, Health, RefilterRequest, RefilterResponse, RetryRequest,
@@ -442,6 +448,58 @@ pub(super) async fn get_scan(
         "scan_not_found",
         "no scan with that ID",
     ))
+}
+
+#[derive(Debug, Deserialize)]
+pub(super) struct ReportQuery {
+    format: Option<String>,
+}
+
+pub(super) async fn get_scan_report(
+    State(state): State<AppState>,
+    AxumPath(id): AxumPath<String>,
+    Query(query): Query<ReportQuery>,
+) -> Result<Response, ApiError> {
+    let format = ReportResponseFormat::parse(query.format.as_deref())?;
+    let scan_id = ScanId::from(id);
+    let scan = load_finished_scan(&state, &scan_id).await?;
+    let related_scans = load_finished_scans_for_username(&state, &scan.username).await;
+    let report = crate::persist::build_investigation_report(scan, &related_scans);
+
+    Ok(match format {
+        ReportResponseFormat::Json => Json(report).into_response(),
+        ReportResponseFormat::Markdown => (
+            [(header::CONTENT_TYPE, "text/markdown; charset=utf-8")],
+            render_investigation_report_markdown(&report),
+        )
+            .into_response(),
+        ReportResponseFormat::Html => (
+            [(header::CONTENT_TYPE, "text/html; charset=utf-8")],
+            render_investigation_report_html(&report),
+        )
+            .into_response(),
+    })
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ReportResponseFormat {
+    Json,
+    Markdown,
+    Html,
+}
+
+impl ReportResponseFormat {
+    fn parse(value: Option<&str>) -> Result<Self, ApiError> {
+        match value.unwrap_or("json") {
+            "json" => Ok(Self::Json),
+            "markdown" => Ok(Self::Markdown),
+            "html" => Ok(Self::Html),
+            _ => Err(ApiError::bad_request(
+                "invalid_report_format",
+                "report format must be json, markdown, or html",
+            )),
+        }
+    }
 }
 
 pub(super) async fn diff_scans(

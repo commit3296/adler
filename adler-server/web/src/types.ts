@@ -171,6 +171,107 @@ export interface IdentityCluster {
     uncertain: boolean;
 }
 
+export interface ReportSummary {
+    total: number;
+    found: number;
+    not_found: number;
+    uncertain: number;
+    high_confidence_found: number;
+    found_with_profile_evidence: number;
+    profile_evidence_items: number;
+    identity_clusters: number;
+    uncertain_identity_clusters: number;
+    clustered_profiles: number;
+    timeline_events: number;
+    disabled_sites: number;
+}
+
+export interface ReportAccount {
+    site: string;
+    url: string;
+    confidence: ConfidenceScore;
+    signal_evidence?: string[];
+    profile_evidence?: ProfileEvidence[];
+    cluster_ids?: string[];
+    transport?: TransportTier;
+    escalations?: number;
+    elapsed_ms: number;
+}
+
+export interface ReportUncertainAccount {
+    site: string;
+    url: string;
+    reason?: UncertainReason;
+    confidence: ConfidenceScore;
+    transport?: TransportTier;
+    escalations?: number;
+    elapsed_ms: number;
+}
+
+export interface ReportEvidence {
+    site: string;
+    url: string;
+    kind: ProfileEvidenceKind;
+    field?: string;
+    value: string;
+    source: ProfileEvidence["source"];
+}
+
+export type ReportTimelineEventKind =
+    | "added_found"
+    | "removed_found"
+    | "verdict_changed"
+    | "evidence_changed"
+    | "reappeared";
+
+export interface ReportTimelineEvent {
+    kind: ReportTimelineEventKind;
+    site?: string;
+    scan_id?: string;
+    observed_at_ms?: number;
+    detail?: string;
+}
+
+export interface ReportDisabledSite {
+    name: string;
+    url: string;
+    tags?: string[];
+    disabled_reason: string;
+}
+
+export type ReportLimitationKind =
+    | "low_confidence_found"
+    | "missing_profile_evidence"
+    | "uncertain_outcome"
+    | "session_required"
+    | "geo_unavailable"
+    | "captcha"
+    | "rate_limited"
+    | "browser_budget"
+    | "transport_blocked"
+    | "disabled_site_omitted";
+
+export interface ReportLimitation {
+    kind: ReportLimitationKind;
+    site?: string;
+    detail?: string;
+}
+
+export interface InvestigationReport {
+    schema_version: number;
+    username: string;
+    generated_at_ms?: number;
+    summary: ReportSummary;
+    found_accounts?: ReportAccount[];
+    high_confidence_accounts?: ReportAccount[];
+    uncertain_accounts?: ReportUncertainAccount[];
+    evidence_table?: ReportEvidence[];
+    identity_clusters?: IdentityCluster[];
+    timeline?: ReportTimelineEvent[];
+    disabled_sites?: ReportDisabledSite[];
+    limitations?: ReportLimitation[];
+}
+
 export interface FinishedScan {
     summary: Summary;
     outcomes: CheckOutcome[];
