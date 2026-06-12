@@ -179,7 +179,10 @@ pub use error::{Error, Result};
 pub use escalation::{EscalationBudget, TransportTier};
 pub use executor::ExecutorOptions;
 pub use history::{HistoricalScanRef, historical_consistency_counts};
-pub use identity::{ClusterReason, IdentityCluster, ObservedProfile, build_identity_clusters};
+pub use identity::{
+    ClusterReason, IdentityCluster, ObservedProfile, build_identity_clusters,
+    build_identity_clusters_with_history,
+};
 pub use permute::{MAX_VARIANTS, PermuteLevel, permute};
 pub use profile::{
     EvidenceAccessPath, EvidenceOrigin, EvidenceSource, ProfileEvidence, ProfileEvidenceKind,

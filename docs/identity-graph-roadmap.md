@@ -139,8 +139,10 @@ issue links.
 - [x] Build deterministic correlation rules before considering any ML:
   shared external link, avatar URL equality, display name, bio phrase, and
   location.
-- [ ] Add avatar hashing and historical co-occurrence once image/history
-  inputs are available.
+- [x] Add historical co-occurrence as a read-time support signal for
+  already-linked profiles.
+- [ ] Add avatar hashing once image fetch, cache, privacy, and hashing
+  policy are designed.
 - [x] Assign cluster confidence separately from per-profile confidence.
 - [x] Make uncertain clusters explicit instead of silently merging weakly
   related accounts.

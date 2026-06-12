@@ -123,8 +123,7 @@ pub fn apply_historical_confidence_overlay(
         outcome.refresh_confidence_with_history(count);
     }
 
-    current.identity_clusters =
-        adler_core::build_identity_clusters(&current.username, &current.outcomes);
+    current.identity_clusters = historical_identity_clusters(current, related_scans);
 }
 
 /// Build a history-aware investigation report from a scan artifact.
@@ -226,6 +225,25 @@ fn historical_consistency_counts(
         outcomes: &scan.outcomes,
     });
     adler_core::historical_consistency_counts(current_ref, related_refs)
+}
+
+fn historical_identity_clusters(
+    current: &PersistedScan,
+    related_scans: &[PersistedScan],
+) -> Vec<IdentityCluster> {
+    let current_ref = HistoricalScanRef {
+        scan_id: current.scan_id.as_str(),
+        username: &current.username,
+        created_at_ms: current.created_at_ms,
+        outcomes: &current.outcomes,
+    };
+    let related_refs = related_scans.iter().map(|scan| HistoricalScanRef {
+        scan_id: scan.scan_id.as_str(),
+        username: &scan.username,
+        created_at_ms: scan.created_at_ms,
+        outcomes: &scan.outcomes,
+    });
+    adler_core::build_identity_clusters_with_history(current_ref, related_refs)
 }
 
 const fn default_schema_version() -> u16 {
@@ -1203,6 +1221,47 @@ mod tests {
         apply_historical_confidence_overlay(&mut current, &[previous, older]);
 
         assert!(has_historical_reason(&current.outcomes[0], 2));
+    }
+
+    #[test]
+    fn historical_overlay_adds_cluster_co_occurrence_reason() {
+        let mut current = scan_with_outcomes(
+            "current",
+            "alice",
+            30,
+            vec![
+                found_with_website("GitHub", "https://alice.dev"),
+                found_with_website("GitLab", "https://alice.dev"),
+            ],
+        );
+        let previous = scan_with_outcomes(
+            "previous",
+            "alice",
+            20,
+            vec![
+                found_with_website("GitHub", "https://alice.dev"),
+                found_with_website("GitLab", "https://alice.dev"),
+            ],
+        );
+        let older = scan_with_outcomes(
+            "older",
+            "alice",
+            10,
+            vec![
+                found_with_website("GitHub", "https://alice.dev"),
+                found_with_website("GitLab", "https://alice.dev"),
+            ],
+        );
+
+        apply_historical_confidence_overlay(&mut current, &[previous, older]);
+
+        assert_eq!(current.identity_clusters.len(), 1);
+        assert_eq!(current.identity_clusters[0].confidence, 95);
+        assert!(
+            current.identity_clusters[0]
+                .reasons
+                .contains(&adler_core::ClusterReason::HistoricalCoOccurrence)
+        );
     }
 
     #[test]
