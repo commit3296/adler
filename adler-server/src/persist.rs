@@ -833,6 +833,26 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn save_skips_empty_identity_clusters() {
+        let tmp = TempDir::new().unwrap();
+        let s = sample("empty-clusters", 1_700_000_000_000);
+        save(tmp.path(), &s).await.unwrap();
+
+        let raw = fs::read_to_string(tmp.path().join("empty-clusters.json"))
+            .await
+            .unwrap();
+        let value: serde_json::Value = serde_json::from_str(&raw).unwrap();
+        assert_eq!(
+            value["schema_version"],
+            serde_json::json!(PERSISTED_SCAN_SCHEMA_VERSION)
+        );
+        assert!(
+            value.get("identity_clusters").is_none(),
+            "empty cluster cache should stay absent from persisted JSON"
+        );
+    }
+
+    #[tokio::test]
     async fn save_writes_derived_identity_clusters() {
         let tmp = TempDir::new().unwrap();
         let mut s = sample("clusters", 1_700_000_000_000);

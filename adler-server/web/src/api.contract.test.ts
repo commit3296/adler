@@ -25,6 +25,79 @@ function jsonBody(init: RequestInit | undefined): unknown {
     return JSON.parse(init!.body as string);
 }
 
+function fullOutcome(): CheckOutcome {
+    return {
+        site: "GitHub",
+        url: "https://github.com/alice",
+        kind: "found",
+        elapsed_ms: 11,
+        evidence: ["HTTP 200 (status_found)"],
+        profile_evidence: [
+            {
+                kind: "external_link",
+                field: "website",
+                value: "https://alice.dev",
+                source: {
+                    site: "GitHub",
+                    url: "https://github.com/alice",
+                    origin: "extractor",
+                    observed_at_ms: 1781192451000,
+                    access_path: {
+                        transport: "browser",
+                        escalated: true,
+                        authenticated: true,
+                    },
+                },
+            },
+        ],
+        confidence: {
+            score: 95,
+            label: "high",
+            reasons: [
+                { kind: "found_by_signal" },
+                { kind: "signal_evidence", count: 1 },
+                { kind: "profile_metadata_extracted", count: 1 },
+                { kind: "browser_transport" },
+                { kind: "escalated_transport" },
+            ],
+        },
+        transport: "browser",
+        escalations: 1,
+    };
+}
+
+function finishedScan(): FinishedScan {
+    const outcome = fullOutcome();
+    return {
+        summary: { found: 1, not_found: 0, uncertain: 0 },
+        outcomes: [outcome],
+        elapsed_ms: 25,
+        identity_clusters: [
+            {
+                id: "identity-0001",
+                confidence: 90,
+                uncertain: false,
+                reasons: [
+                    {
+                        kind: "shared_external_link",
+                        value: "https://alice.dev/",
+                    },
+                ],
+                members: [
+                    {
+                        site: "GitHub",
+                        username: "alice",
+                        url: "https://github.com/alice",
+                        evidence: outcome.profile_evidence,
+                        confidence: outcome.confidence!,
+                        observed_at_ms: 1781192451000,
+                    },
+                ],
+            },
+        ],
+    };
+}
+
 describe("adler-server HTTP API contract", () => {
     let fetchMock: ReturnType<typeof vi.fn>;
 
@@ -207,6 +280,57 @@ describe("adler-server HTTP API contract", () => {
         expect(err).toBeInstanceOf(ApiClientError);
         expect(err.disabledMatches[0].name).toBe("TikTok");
     });
+
+    it("accepts finished scan snapshots with evidence, confidence, and clusters", async () => {
+        const finished = finishedScan();
+        fetchMock.mockResolvedValueOnce(
+            okJson({
+                status: "finished",
+                username: "alice",
+                site_count: 1,
+                ...finished,
+            }),
+        );
+
+        const snapshot = await api.scan("scan_1");
+
+        expect(snapshot.status).toBe("finished");
+        if (snapshot.status !== "finished") throw new Error("expected finished scan");
+        expect(snapshot.outcomes[0]).toEqual(finished.outcomes[0]);
+        expect(snapshot.outcomes[0]?.profile_evidence?.[0]?.source.access_path).toEqual(
+            {
+                transport: "browser",
+                escalated: true,
+                authenticated: true,
+            },
+        );
+        expect(snapshot.outcomes[0]?.confidence?.reasons).toContainEqual({
+            kind: "escalated_transport",
+        });
+        expect(snapshot.identity_clusters?.[0]?.members[0]?.evidence?.[0]?.kind).toBe(
+            "external_link",
+        );
+        expect(snapshot.identity_clusters?.[0]?.members[0]?.confidence.label).toBe(
+            "high",
+        );
+    });
+
+    it("preserves retry outcome evidence, confidence, and transport fields", async () => {
+        const outcome = fullOutcome();
+        fetchMock.mockResolvedValueOnce(okJson({ outcome }));
+
+        const retry = await api.retrySite("scan_1", "GitHub");
+
+        expect(retry.outcome).toEqual(outcome);
+        expect(retry.outcome.profile_evidence?.[0]?.source.observed_at_ms).toBe(
+            1781192451000,
+        );
+        expect(retry.outcome.confidence?.reasons).toContainEqual({
+            kind: "browser_transport",
+        });
+        expect(retry.outcome.transport).toBe("browser");
+        expect(retry.outcome.escalations).toBe(1);
+    });
 });
 
 describe("adler-server SSE scan contract", () => {
@@ -252,65 +376,8 @@ describe("adler-server SSE scan contract", () => {
         const onDone = vi.fn();
         const close = streamScan("scan_1", { onStart, onOutcome, onDone });
         const source = instances[0]!;
-        const outcome: CheckOutcome = {
-            site: "GitHub",
-            url: "https://github.com/alice",
-            kind: "found",
-            elapsed_ms: 11,
-        };
-        const finished: FinishedScan = {
-            summary: { found: 1, not_found: 0, uncertain: 0 },
-            outcomes: [outcome],
-            elapsed_ms: 25,
-            identity_clusters: [
-                {
-                    id: "identity-0001",
-                    confidence: 90,
-                    uncertain: false,
-                    reasons: [
-                        {
-                            kind: "shared_external_link",
-                            value: "https://alice.dev",
-                        },
-                    ],
-                    members: [
-                        {
-                            site: "GitHub",
-                            username: "alice",
-                            url: "https://github.com/alice",
-                            evidence: [
-                                {
-                                    kind: "external_link",
-                                    field: "website",
-                                    value: "https://alice.dev",
-                                    source: {
-                                        site: "GitHub",
-                                        url: "https://github.com/alice",
-                                        origin: "extractor",
-                                        observed_at_ms: 1781192451000,
-                                        access_path: {
-                                            transport: "http",
-                                        },
-                                    },
-                                },
-                            ],
-                            confidence: {
-                                score: 85,
-                                label: "high",
-                                reasons: [
-                                    { kind: "found_by_signal" },
-                                    {
-                                        kind: "profile_metadata_rich",
-                                        count: 3,
-                                    },
-                                ],
-                            },
-                            observed_at_ms: 1781192451000,
-                        },
-                    ],
-                },
-            ],
-        };
+        const outcome = fullOutcome();
+        const finished = finishedScan();
 
         expect(source.url).toBe("/api/scan/scan_1/stream");
         source.emit("start", { username: "alice" });
@@ -320,6 +387,11 @@ describe("adler-server SSE scan contract", () => {
         expect(onStart).toHaveBeenCalledWith({ username: "alice" });
         expect(onOutcome).toHaveBeenCalledWith(outcome);
         expect(onDone).toHaveBeenCalledWith(finished);
+        const done = onDone.mock.calls[0]?.[0];
+        expect(
+            done?.identity_clusters?.[0]?.members[0]?.evidence?.[0]?.source
+                .access_path?.transport,
+        ).toBe("browser");
         expect(source.closed).toBe(true);
 
         source.closed = false;
