@@ -148,6 +148,9 @@ fn confidence_reason(reason: &ConfidenceReason) -> String {
         ConfidenceReason::SignalEvidence { count } => {
             format!("{count} signal evidence line(s) recorded")
         }
+        ConfidenceReason::ExactUsernameMatch { count } => {
+            format!("{count} exact username match(es)")
+        }
         ConfidenceReason::AuthenticatedAccess => "authenticated access path used".to_owned(),
         ConfidenceReason::BrowserTransport => "browser transport produced verdict".to_owned(),
         ConfidenceReason::ImpersonateTransport => {
@@ -172,6 +175,7 @@ trait ProfileEvidenceLabel {
 impl ProfileEvidenceLabel for adler_core::ProfileEvidenceKind {
     fn kind_label(&self) -> &'static str {
         match self {
+            Self::Username => "username",
             Self::DisplayName => "display_name",
             Self::Bio => "bio",
             Self::AvatarUrl => "avatar_url",

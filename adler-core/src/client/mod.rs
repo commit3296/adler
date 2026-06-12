@@ -189,7 +189,9 @@ mod tests {
     use super::*;
     use crate::browser::RenderedPage;
     use crate::check::{MatchKind, UncertainReason};
+    use crate::confidence::ConfidenceReason;
     use crate::error::{Error, Result};
+    use crate::profile::{EvidenceOrigin, ProfileEvidenceKind};
     use crate::site::{Extractor, HttpMethod, ProtectionKind, Signal, Site, UrlTemplate};
     use crate::username::Username;
     use std::time::Instant;
@@ -488,6 +490,79 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn body_username_signal_creates_exact_username_evidence_without_enrich() {
+        let server = MockServer::start().await;
+        Mock::given(any())
+            .and(path("/johndoe"))
+            .respond_with(ResponseTemplate::new(200).set_body_string(r#"{"handle":"johndoe"}"#))
+            .mount(&server)
+            .await;
+        let mut site = site_with(
+            &server,
+            vec![Signal::BodyUsername {
+                text: r#""handle":"{username}""#.into(),
+            }],
+        );
+        site.strip_bad_char = Some(".".into());
+
+        let outcome = build_client()
+            .check(&site, &Username::new("john.doe").unwrap())
+            .await;
+
+        assert_eq!(outcome.kind, MatchKind::Found);
+        assert!(outcome.enrichment.is_empty());
+        assert_eq!(outcome.profile_evidence.len(), 1);
+        let evidence = &outcome.profile_evidence[0];
+        assert_eq!(evidence.kind, ProfileEvidenceKind::Username);
+        assert_eq!(evidence.field, None);
+        assert_eq!(evidence.value, "johndoe");
+        assert_eq!(evidence.source.origin, EvidenceOrigin::Signal);
+        assert!(evidence.source.observed_at_ms.is_some());
+        assert!(
+            evidence
+                .source
+                .access_path
+                .as_ref()
+                .is_some_and(|path| path.transport == crate::TransportTier::Http)
+        );
+        assert!(
+            outcome
+                .confidence
+                .reasons
+                .iter()
+                .any(|reason| matches!(reason, ConfidenceReason::ExactUsernameMatch { count: 1 }))
+        );
+    }
+
+    #[tokio::test]
+    async fn generic_body_present_does_not_create_username_evidence() {
+        let server = MockServer::start().await;
+        Mock::given(any())
+            .and(path("/alice"))
+            .respond_with(ResponseTemplate::new(200).set_body_string(r#"{"username":"alice"}"#))
+            .mount(&server)
+            .await;
+        let site = site_with(
+            &server,
+            vec![Signal::BodyPresent {
+                text: "username".into(),
+            }],
+        );
+
+        let outcome = build_client().check(&site, &user()).await;
+
+        assert_eq!(outcome.kind, MatchKind::Found);
+        assert!(outcome.profile_evidence.is_empty());
+        assert!(
+            !outcome
+                .confidence
+                .reasons
+                .iter()
+                .any(|reason| matches!(reason, ConfidenceReason::ExactUsernameMatch { .. }))
+        );
+    }
+
+    #[tokio::test]
     async fn status_signal_pair_reports_not_found_on_404() {
         let server = MockServer::start().await;
         Mock::given(any())
@@ -506,6 +581,35 @@ mod tests {
         assert_eq!(outcome.kind, MatchKind::NotFound);
         // Only the NotFound-voting signal is cited as evidence.
         assert_eq!(outcome.evidence, ["HTTP 404 (status_not_found)"]);
+    }
+
+    #[tokio::test]
+    async fn conflicting_not_found_does_not_attach_username_evidence() {
+        let server = MockServer::start().await;
+        Mock::given(any())
+            .and(path("/alice"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_string(r#"{"username":"alice","error":"missing"}"#),
+            )
+            .mount(&server)
+            .await;
+        let site = site_with(
+            &server,
+            vec![
+                Signal::BodyUsername {
+                    text: r#""username":"{username}""#.into(),
+                },
+                Signal::BodyAbsent {
+                    text: r#""error":"missing""#.into(),
+                },
+            ],
+        );
+
+        let outcome = build_client().check(&site, &user()).await;
+
+        assert_eq!(outcome.kind, MatchKind::NotFound);
+        assert!(outcome.profile_evidence.is_empty());
     }
 
     #[tokio::test]

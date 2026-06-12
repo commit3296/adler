@@ -347,6 +347,9 @@ impl From<&ConfidenceReason> for ConfidenceReasonRow {
                 ("profile_metadata_rich", Some(*count))
             }
             ConfidenceReason::SignalEvidence { count } => ("signal_evidence", Some(*count)),
+            ConfidenceReason::ExactUsernameMatch { count } => {
+                ("exact_username_match", Some(*count))
+            }
             ConfidenceReason::AuthenticatedAccess => ("authenticated_access", None),
             ConfidenceReason::BrowserTransport => ("browser_transport", None),
             ConfidenceReason::ImpersonateTransport => ("impersonate_transport", None),

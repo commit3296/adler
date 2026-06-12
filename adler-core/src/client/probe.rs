@@ -232,6 +232,7 @@ impl Client {
                     let mut outcome = match fetcher.fetch(&req).await {
                         Ok(resp) => self.finish(
                             site,
+                            username,
                             url,
                             started,
                             &resp,
@@ -285,6 +286,7 @@ impl Client {
                 let mut primary = match fetcher.fetch(&req).await {
                     Ok(resp) => self.finish(
                         site,
+                        username,
                         url.clone(),
                         started,
                         &resp,
@@ -298,7 +300,7 @@ impl Client {
                 };
                 primary.transport = Some(TransportTier::Impersonate);
                 return self
-                    .maybe_escalate(site, &url, headers, authenticated, primary)
+                    .maybe_escalate(site, username, &url, headers, authenticated, primary)
                     .await;
             }
         }
@@ -376,6 +378,7 @@ impl Client {
         let mut primary = match egress.fetch(&req).await {
             Ok(resp) => self.finish(
                 site,
+                username,
                 url.clone(),
                 started,
                 &resp,
@@ -388,7 +391,7 @@ impl Client {
             Err(FetchError(reason)) => uncertain(&site.name, url.clone(), started, reason),
         };
         primary.transport = Some(TransportTier::Http);
-        self.maybe_escalate(site, &url, headers, authenticated, primary)
+        self.maybe_escalate(site, username, &url, headers, authenticated, primary)
             .await
     }
 
@@ -399,6 +402,7 @@ impl Client {
     async fn maybe_escalate(
         &self,
         site: &Site,
+        username: &Username,
         url: &str,
         headers: &BTreeMap<String, String>,
         authenticated: bool,
@@ -435,6 +439,7 @@ impl Client {
         let mut escalated = match fetcher.fetch(&req).await {
             Ok(resp) => self.finish(
                 site,
+                username,
                 url.to_owned(),
                 started,
                 &resp,
@@ -457,15 +462,18 @@ impl Client {
     fn finish(
         &self,
         site: &Site,
+        username: &Username,
         url: String,
         started: Instant,
         resp: &crate::transport::FetchResponse,
         context: ProbeEvidenceContext,
     ) -> CheckOutcome {
+        let canonical_username = site.canonical_username(username);
         let probe = Probe {
             status: resp.status,
             final_url: &resp.final_url,
             body: &resp.body,
+            username: &canonical_username,
         };
         let votes: Vec<(&Signal, SignalVerdict)> = site
             .signals
@@ -488,6 +496,27 @@ impl Client {
                 .filter(|(_, v)| *v == want)
                 .map(|(s, _)| s.describe_match(&probe))
                 .collect();
+        }
+        let username_confirmed = kind == MatchKind::Found
+            && votes
+                .iter()
+                .any(|(s, v)| *v == SignalVerdict::Found && s.confirms_username());
+        if username_confirmed {
+            let observed_at_ms = unix_epoch_ms();
+            let access_path = crate::EvidenceAccessPath::new(
+                context.transport,
+                context.escalations,
+                context.authenticated,
+            );
+            result
+                .profile_evidence
+                .push(crate::ProfileEvidence::from_signal_username(
+                    &result.site,
+                    &result.url,
+                    &canonical_username,
+                    Some(observed_at_ms),
+                    Some(access_path),
+                ));
         }
         if self.enrich && kind == MatchKind::Found && !site.extract.is_empty() {
             result.enrichment = crate::enrich::extract(&resp.body, &site.extract);

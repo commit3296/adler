@@ -27,6 +27,8 @@ pub struct ProfileEvidence {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ProfileEvidenceKind {
+    /// Exact username value confirmed by a site-authored detection signal.
+    Username,
     /// A displayed human name.
     DisplayName,
     /// Profile biography or description text.
@@ -102,6 +104,8 @@ impl EvidenceAccessPath {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum EvidenceOrigin {
+    /// Evidence came from a detection signal that matched the concrete probe.
+    Signal,
     /// Evidence came from a registry extractor rule.
     Extractor,
 }
@@ -132,6 +136,30 @@ impl ProfileEvidence {
                 site: site.to_owned(),
                 url: url.to_owned(),
                 origin: EvidenceOrigin::Extractor,
+                observed_at_ms,
+                access_path,
+            },
+        }
+    }
+
+    /// Build exact username evidence from a signal that matched the concrete
+    /// probed username.
+    #[must_use]
+    pub fn from_signal_username(
+        site: &str,
+        url: &str,
+        username: &str,
+        observed_at_ms: Option<u64>,
+        access_path: Option<EvidenceAccessPath>,
+    ) -> Self {
+        Self {
+            kind: ProfileEvidenceKind::Username,
+            field: None,
+            value: username.to_owned(),
+            source: EvidenceSource {
+                site: site.to_owned(),
+                url: url.to_owned(),
+                origin: EvidenceOrigin::Signal,
                 observed_at_ms,
                 access_path,
             },
@@ -196,6 +224,25 @@ mod tests {
         assert_eq!(json["source"]["origin"], "extractor");
         assert!(json["source"].get("observed_at_ms").is_none());
         assert!(json["source"].get("access_path").is_none());
+    }
+
+    #[test]
+    fn signal_username_evidence_serializes_as_signal_origin_without_field() {
+        let ev = ProfileEvidence::from_signal_username(
+            "GitLab",
+            "https://gitlab.com/api/v4/users?username=alice",
+            "alice",
+            Some(123),
+            Some(EvidenceAccessPath::new(TransportTier::Http, 0, false)),
+        );
+
+        let json = serde_json::to_value(&ev).unwrap();
+        assert_eq!(json["kind"], "username");
+        assert_eq!(json["value"], "alice");
+        assert!(json.get("field").is_none());
+        assert_eq!(json["source"]["origin"], "signal");
+        assert_eq!(json["source"]["observed_at_ms"], 123);
+        assert_eq!(json["source"]["access_path"]["transport"], "http");
     }
 
     #[test]

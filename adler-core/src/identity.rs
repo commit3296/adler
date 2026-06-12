@@ -605,6 +605,33 @@ mod tests {
     }
 
     #[test]
+    fn username_evidence_only_matches_do_not_cluster() {
+        let mut github = found("GitHub", &[]);
+        github.profile_evidence = vec![ProfileEvidence::from_signal_username(
+            "GitHub",
+            &github.url,
+            "alice",
+            Some(100),
+            None,
+        )];
+        github.refresh_confidence();
+
+        let mut gitlab = found("GitLab", &[]);
+        gitlab.profile_evidence = vec![ProfileEvidence::from_signal_username(
+            "GitLab",
+            &gitlab.url,
+            "alice",
+            Some(100),
+            None,
+        )];
+        gitlab.refresh_confidence();
+
+        let clusters = build_identity_clusters("alice", &[github, gitlab]);
+
+        assert!(clusters.is_empty());
+    }
+
+    #[test]
     fn unrelated_profiles_remain_separate() {
         let clusters = build_identity_clusters(
             "alice",

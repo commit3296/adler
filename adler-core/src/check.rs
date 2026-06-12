@@ -6,7 +6,7 @@ use std::fmt;
 use serde::{Deserialize, Serialize};
 
 use crate::confidence::{ConfidenceScore, ConfidenceSignals};
-use crate::profile::ProfileEvidence;
+use crate::profile::{ProfileEvidence, ProfileEvidenceKind};
 
 /// Outcome of a single site probe.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -163,11 +163,21 @@ impl CheckOutcome {
         let authenticated_access = access_paths.clone().any(|path| path.authenticated);
         let metadata_transport = access_paths.clone().map(|path| path.transport).next();
         let metadata_escalated = access_paths.clone().any(|path| path.escalated);
+        let username_evidence_count = self
+            .profile_evidence
+            .iter()
+            .filter(|evidence| evidence.kind == ProfileEvidenceKind::Username)
+            .count();
+        let profile_evidence_count = self
+            .profile_evidence
+            .len()
+            .saturating_sub(username_evidence_count);
         self.confidence = ConfidenceScore::from_signals(&ConfidenceSignals {
             kind: self.kind,
             reason: self.reason.clone(),
             signal_evidence_count: self.evidence.len(),
-            profile_evidence_count: self.profile_evidence.len(),
+            profile_evidence_count,
+            username_evidence_count,
             authenticated_access,
             transport: metadata_transport.or(self.transport),
             escalations: if metadata_escalated && self.escalations == 0 {
