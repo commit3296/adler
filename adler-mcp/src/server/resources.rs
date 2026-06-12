@@ -17,8 +17,8 @@ use super::{
     read_scan_diff, read_scan_history, read_scan_timeline,
 };
 use adler_core::{
-    CheckOutcome, HistoricalScanRef, SiteFilter, WatchScope, WatchlistConfig, WatchlistError,
-    build_identity_clusters, historical_consistency_counts,
+    CheckOutcome, HistoricalScanRef, IdentityCluster, SiteFilter, WatchScope, WatchlistConfig,
+    WatchlistError, build_identity_clusters_with_history, historical_consistency_counts,
 };
 
 /// MIME type stamped onto every resource Adler exposes — list,
@@ -252,7 +252,7 @@ impl AdlerMcp {
                 "outcomes".to_owned(),
                 serde_json::to_value(&scan.outcomes).map_err(ResourceError::Json)?,
             );
-            let identity_clusters = build_identity_clusters(&scan.username, &scan.outcomes);
+            let identity_clusters = build_overlay_identity_clusters(&scan, &related_scans);
             if identity_clusters.is_empty() {
                 object.remove("identity_clusters");
             } else {
@@ -372,6 +372,25 @@ fn apply_overlay_scan_confidence(current: &mut OverlayScan, related_scans: &[Ove
         let count = counts.get(&outcome.site).copied().unwrap_or(0);
         outcome.refresh_confidence_with_history(count);
     }
+}
+
+fn build_overlay_identity_clusters(
+    current: &OverlayScan,
+    related_scans: &[OverlayScan],
+) -> Vec<IdentityCluster> {
+    let current_ref = HistoricalScanRef {
+        scan_id: current.stable_id(),
+        username: &current.username,
+        created_at_ms: current.created_at_ms,
+        outcomes: &current.outcomes,
+    };
+    let related_refs = related_scans.iter().map(|scan| HistoricalScanRef {
+        scan_id: scan.stable_id(),
+        username: &scan.username,
+        created_at_ms: scan.created_at_ms,
+        outcomes: &scan.outcomes,
+    });
+    build_identity_clusters_with_history(current_ref, related_refs)
 }
 
 #[derive(Debug, Serialize)]

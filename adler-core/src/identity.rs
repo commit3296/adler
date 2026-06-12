@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::check::{CheckOutcome, MatchKind};
 use crate::confidence::ConfidenceScore;
+use crate::history::{HistoricalScanRef, profile_evidence_signature, scan_is_before};
 use crate::profile::{ProfileEvidence, ProfileEvidenceKind};
 
 const LINK_THRESHOLD: u8 = 60;
@@ -19,10 +20,12 @@ const AVATAR_URL_SCORE: u8 = 85;
 const DISPLAY_NAME_SCORE: u8 = 60;
 const BIO_PHRASE_SCORE: u8 = 65;
 const LOCATION_SCORE: u8 = 45;
+const HISTORICAL_CO_OCCURRENCE_SCORE: u8 = 10;
 const MAX_CLUSTER_CONFIDENCE: u8 = 95;
 const MIN_DISPLAY_NAME_CHARS: usize = 8;
 const MIN_DISPLAY_NAME_TOKENS: usize = 2;
 const MIN_BIO_PHRASE_TOKENS: usize = 3;
+const MIN_HISTORICAL_CO_OCCURRENCES: usize = 2;
 
 const BIO_STOP_WORDS: &[&str] = &[
     "about", "and", "are", "for", "from", "has", "have", "into", "that", "the", "this", "was",
@@ -142,10 +145,41 @@ pub fn build_identity_clusters(username: &str, outcomes: &[CheckOutcome]) -> Vec
             .then_with(|| left.url.cmp(&right.url))
     });
 
-    cluster_observed_profiles(&profiles)
+    cluster_observed_profiles(&profiles, &BTreeMap::new())
 }
 
-fn cluster_observed_profiles(profiles: &[ObservedProfile]) -> Vec<IdentityCluster> {
+/// Build deterministic identity clusters with historical co-occurrence support.
+///
+/// Historical co-occurrence is deliberately conservative: it can reinforce a
+/// pair that already links on current profile evidence, but it never creates a
+/// cluster by itself and never lifts a below-threshold current link over the
+/// threshold. This keeps repeated scans of the same username from becoming an
+/// identity signal on their own.
+#[must_use]
+pub fn build_identity_clusters_with_history<'a>(
+    current: HistoricalScanRef<'a>,
+    related_scans: impl IntoIterator<Item = HistoricalScanRef<'a>>,
+) -> Vec<IdentityCluster> {
+    let mut profiles: Vec<ObservedProfile> = current
+        .outcomes
+        .iter()
+        .filter_map(|outcome| ObservedProfile::from_outcome(current.username, outcome))
+        .collect();
+
+    profiles.sort_by(|left, right| {
+        left.site
+            .cmp(&right.site)
+            .then_with(|| left.url.cmp(&right.url))
+    });
+
+    let historical_pairs = historical_co_occurrence_pairs(current, related_scans);
+    cluster_observed_profiles(&profiles, &historical_pairs)
+}
+
+fn cluster_observed_profiles(
+    profiles: &[ObservedProfile],
+    historical_pairs: &BTreeMap<SitePair, usize>,
+) -> Vec<IdentityCluster> {
     if profiles.len() < 2 {
         return Vec::new();
     }
@@ -155,7 +189,16 @@ fn cluster_observed_profiles(profiles: &[ObservedProfile]) -> Vec<IdentityCluste
 
     for left in 0..profiles.len() {
         for right in (left + 1)..profiles.len() {
-            if let Some(link) = profile_link(left, right, &profiles[left], &profiles[right]) {
+            if let Some(link) = profile_link(
+                left,
+                right,
+                &profiles[left],
+                &profiles[right],
+                historical_pairs
+                    .get(&SitePair::new(&profiles[left].site, &profiles[right].site))
+                    .copied()
+                    .unwrap_or(0),
+            ) {
                 union_find.union(left, right);
                 links.push(link);
             }
@@ -253,6 +296,7 @@ fn profile_link(
     right: usize,
     left_profile: &ObservedProfile,
     right_profile: &ObservedProfile,
+    historical_co_occurrences: usize,
 ) -> Option<ProfileLink> {
     let mut signals = Vec::new();
 
@@ -318,14 +362,27 @@ fn profile_link(
     }
 
     let strong = signals.iter().any(|signal| signal.strong);
+    let base_score = signals
+        .iter()
+        .map(|signal| signal.score)
+        .fold(0_u8, u8::saturating_add)
+        .min(MAX_CLUSTER_CONFIDENCE);
+    if base_score < LINK_THRESHOLD {
+        return None;
+    }
+
+    if historical_co_occurrences >= MIN_HISTORICAL_CO_OCCURRENCES {
+        signals.push(LinkSignal::weak(
+            HISTORICAL_CO_OCCURRENCE_SCORE,
+            ClusterReason::HistoricalCoOccurrence,
+        ));
+    }
+
     let score = signals
         .iter()
         .map(|signal| signal.score)
         .fold(0_u8, u8::saturating_add)
         .min(MAX_CLUSTER_CONFIDENCE);
-    if score < LINK_THRESHOLD {
-        return None;
-    }
 
     Some(ProfileLink {
         left,
@@ -334,6 +391,123 @@ fn profile_link(
         reasons: signals.into_iter().map(|signal| signal.reason).collect(),
         strong,
     })
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+struct SitePair(String, String);
+
+impl SitePair {
+    fn new(left: &str, right: &str) -> Self {
+        if left <= right {
+            Self(left.to_owned(), right.to_owned())
+        } else {
+            Self(right.to_owned(), left.to_owned())
+        }
+    }
+}
+
+fn historical_co_occurrence_pairs<'a>(
+    current: HistoricalScanRef<'a>,
+    related_scans: impl IntoIterator<Item = HistoricalScanRef<'a>>,
+) -> BTreeMap<SitePair, usize> {
+    let mut prior_scans: Vec<_> = related_scans
+        .into_iter()
+        .filter(|scan| scan.username == current.username)
+        .filter(|scan| scan.scan_id != current.scan_id)
+        .filter(|scan| scan_is_before(*scan, current))
+        .collect();
+    prior_scans.sort_by(|left, right| {
+        right
+            .created_at_ms
+            .cmp(&left.created_at_ms)
+            .then_with(|| right.scan_id.cmp(left.scan_id))
+    });
+
+    let current_found: Vec<&CheckOutcome> = current
+        .outcomes
+        .iter()
+        .filter(|outcome| outcome.kind == MatchKind::Found)
+        .filter(|outcome| has_identity_evidence(outcome))
+        .collect();
+    let mut pairs = BTreeMap::new();
+
+    for left in 0..current_found.len() {
+        for right in (left + 1)..current_found.len() {
+            let left_outcome = current_found[left];
+            let right_outcome = current_found[right];
+            let count =
+                stable_pair_history_count(left_outcome, right_outcome, prior_scans.as_slice());
+            if count >= MIN_HISTORICAL_CO_OCCURRENCES {
+                pairs.insert(
+                    SitePair::new(&left_outcome.site, &right_outcome.site),
+                    count,
+                );
+            }
+        }
+    }
+
+    pairs
+}
+
+fn stable_pair_history_count(
+    left_current: &CheckOutcome,
+    right_current: &CheckOutcome,
+    prior_scans: &[HistoricalScanRef<'_>],
+) -> usize {
+    let left_signature = profile_evidence_signature(left_current);
+    let right_signature = profile_evidence_signature(right_current);
+    let mut count = 0;
+
+    for scan in prior_scans {
+        let left_previous = scan
+            .outcomes
+            .iter()
+            .find(|outcome| outcome.site == left_current.site);
+        let right_previous = scan
+            .outcomes
+            .iter()
+            .find(|outcome| outcome.site == right_current.site);
+
+        match (left_previous, right_previous) {
+            (Some(left), Some(right))
+                if left.kind == MatchKind::Found
+                    && right.kind == MatchKind::Found
+                    && profile_evidence_signature(left) == left_signature
+                    && profile_evidence_signature(right) == right_signature =>
+            {
+                count += 1;
+            }
+            (Some(left), Some(right))
+                if left.kind == MatchKind::Found && right.kind == MatchKind::Found =>
+            {
+                break;
+            }
+            (Some(outcome), _) if outcome.kind != MatchKind::Found => break,
+            (_, Some(outcome)) if outcome.kind != MatchKind::Found => break,
+            (Some(outcome), None)
+                if outcome.kind == MatchKind::Found
+                    && profile_evidence_signature(outcome) != left_signature =>
+            {
+                break;
+            }
+            (None, Some(outcome))
+                if outcome.kind == MatchKind::Found
+                    && profile_evidence_signature(outcome) != right_signature =>
+            {
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    count
+}
+
+fn has_identity_evidence(outcome: &CheckOutcome) -> bool {
+    outcome
+        .profile_evidence
+        .iter()
+        .any(|evidence| evidence.kind != ProfileEvidenceKind::Username)
 }
 
 #[derive(Debug, Clone)]
@@ -539,6 +713,19 @@ mod tests {
         outcome
     }
 
+    fn historical_scan<'a>(
+        scan_id: &'a str,
+        created_at_ms: u64,
+        outcomes: &'a [CheckOutcome],
+    ) -> HistoricalScanRef<'a> {
+        HistoricalScanRef {
+            scan_id,
+            username: "alice",
+            created_at_ms,
+            outcomes,
+        }
+    }
+
     #[test]
     fn shared_external_link_clusters_profiles() {
         let clusters = build_identity_clusters(
@@ -734,5 +921,139 @@ mod tests {
 
         assert_eq!(json["kind"], "shared_avatar_url");
         assert_eq!(json["value"], "https://cdn.example/avatar.png");
+    }
+
+    #[test]
+    fn historical_co_occurrence_reinforces_existing_current_link() {
+        let current = [
+            found("GitHub", &[("website", "https://alice.dev")]),
+            found("GitLab", &[("website", "https://alice.dev")]),
+        ];
+        let previous = [
+            found("GitHub", &[("website", "https://alice.dev")]),
+            found("GitLab", &[("website", "https://alice.dev")]),
+        ];
+        let older = [
+            found("GitHub", &[("website", "https://alice.dev")]),
+            found("GitLab", &[("website", "https://alice.dev")]),
+        ];
+
+        let clusters = build_identity_clusters_with_history(
+            historical_scan("current", 30, &current),
+            [
+                historical_scan("previous", 20, &previous),
+                historical_scan("older", 10, &older),
+            ],
+        );
+
+        assert_eq!(clusters.len(), 1);
+        assert_eq!(clusters[0].confidence, 95);
+        assert!(!clusters[0].uncertain);
+        assert!(
+            clusters[0]
+                .reasons
+                .contains(&ClusterReason::HistoricalCoOccurrence)
+        );
+    }
+
+    #[test]
+    fn historical_co_occurrence_does_not_create_standalone_merge() {
+        let current = [
+            found("GitHub", &[("website", "https://alice.dev")]),
+            found("GitLab", &[("website", "https://gitlab.example/alice")]),
+        ];
+        let previous = [
+            found("GitHub", &[("website", "https://alice.dev")]),
+            found("GitLab", &[("website", "https://gitlab.example/alice")]),
+        ];
+        let older = [
+            found("GitHub", &[("website", "https://alice.dev")]),
+            found("GitLab", &[("website", "https://gitlab.example/alice")]),
+        ];
+
+        let clusters = build_identity_clusters_with_history(
+            historical_scan("current", 30, &current),
+            [
+                historical_scan("previous", 20, &previous),
+                historical_scan("older", 10, &older),
+            ],
+        );
+
+        assert!(clusters.is_empty());
+    }
+
+    #[test]
+    fn historical_co_occurrence_resets_on_explicit_non_found() {
+        let current = [
+            found("GitHub", &[("website", "https://alice.dev")]),
+            found("GitLab", &[("website", "https://alice.dev")]),
+        ];
+        let previous = [found("GitHub", &[("website", "https://alice.dev")]), {
+            let mut outcome = found("GitLab", &[("website", "https://alice.dev")]);
+            outcome.kind = MatchKind::NotFound;
+            outcome
+        }];
+        let older = [
+            found("GitHub", &[("website", "https://alice.dev")]),
+            found("GitLab", &[("website", "https://alice.dev")]),
+        ];
+        let oldest = [
+            found("GitHub", &[("website", "https://alice.dev")]),
+            found("GitLab", &[("website", "https://alice.dev")]),
+        ];
+
+        let clusters = build_identity_clusters_with_history(
+            historical_scan("current", 40, &current),
+            [
+                historical_scan("previous", 30, &previous),
+                historical_scan("older", 20, &older),
+                historical_scan("oldest", 10, &oldest),
+            ],
+        );
+
+        assert_eq!(clusters.len(), 1);
+        assert_eq!(clusters[0].confidence, 90);
+        assert!(
+            !clusters[0]
+                .reasons
+                .contains(&ClusterReason::HistoricalCoOccurrence)
+        );
+    }
+
+    #[test]
+    fn historical_co_occurrence_resets_on_profile_evidence_change() {
+        let current = [
+            found("GitHub", &[("website", "https://alice.dev")]),
+            found("GitLab", &[("website", "https://alice.dev")]),
+        ];
+        let previous = [
+            found("GitHub", &[("website", "https://alice.dev")]),
+            found("GitLab", &[("website", "https://other.example")]),
+        ];
+        let older = [
+            found("GitHub", &[("website", "https://alice.dev")]),
+            found("GitLab", &[("website", "https://alice.dev")]),
+        ];
+        let oldest = [
+            found("GitHub", &[("website", "https://alice.dev")]),
+            found("GitLab", &[("website", "https://alice.dev")]),
+        ];
+
+        let clusters = build_identity_clusters_with_history(
+            historical_scan("current", 40, &current),
+            [
+                historical_scan("previous", 30, &previous),
+                historical_scan("older", 20, &older),
+                historical_scan("oldest", 10, &oldest),
+            ],
+        );
+
+        assert_eq!(clusters.len(), 1);
+        assert_eq!(clusters[0].confidence, 90);
+        assert!(
+            !clusters[0]
+                .reasons
+                .contains(&ClusterReason::HistoricalCoOccurrence)
+        );
     }
 }

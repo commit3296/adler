@@ -52,7 +52,7 @@ pub fn historical_consistency_counts<'a>(
         .collect()
 }
 
-fn scan_is_before(left: HistoricalScanRef<'_>, right: HistoricalScanRef<'_>) -> bool {
+pub(crate) fn scan_is_before(left: HistoricalScanRef<'_>, right: HistoricalScanRef<'_>) -> bool {
     (left.created_at_ms, left.scan_id) < (right.created_at_ms, right.scan_id)
 }
 
@@ -86,7 +86,9 @@ fn stable_found_history_count(
     count
 }
 
-fn profile_evidence_signature(outcome: &CheckOutcome) -> Vec<(u8, Option<String>, String)> {
+pub(crate) fn profile_evidence_signature(
+    outcome: &CheckOutcome,
+) -> Vec<(u8, Option<String>, String)> {
     let mut signature: Vec<_> = outcome
         .profile_evidence
         .iter()
