@@ -20,18 +20,34 @@ clients inspect previous work.
   `get_scan_history`, `diff_scans`, `adler://scans/{id}`,
   `adler://scans/{from}/diff/{to}`, and
   `adler://timelines/{username}`.
+- Investigation reports: `adler --report-scan <ID>` reads a persisted
+  scan and writes a Markdown or JSON report to stdout. If you redirect
+  it to a file, that file contains the same case material in a more
+  portable form.
 
 Persisted scan files include the scanned username, request scope,
 summary counts, per-site outcomes, URLs, evidence strings, normalized
-profile evidence, elapsed timings, and disabled-site context when the
-scan was launched through the Web API.
+profile evidence, confidence scores and reasons, identity cluster
+candidates, elapsed timings, and disabled-site context when the scan was
+launched through the Web API. Timelines, diffs, watch output, and
+investigation reports are derived from these artifacts.
+
+Evidence access metadata is deliberately coarse. It can record the
+transport tier, whether Adler escalated to a heavier route, whether an
+authenticated access path was used, and when evidence was observed. It
+does not store session names, cookie values, header values, proxy URLs,
+or egress names. Persisted Web request context may still record the
+operator-selected egress names for a scan so later reports can explain
+scope.
 
 ## Retention
 
 The web persistence layer keeps a bounded local history and prunes older
 scan JSON files on save. Treat the scan directory as operator-owned
 local data: move or delete it when a case ends, and use a temporary
-`XDG_CACHE_HOME` for short-lived investigations.
+`XDG_CACHE_HOME` for short-lived investigations. Markdown and JSON
+reports are not pruned by Adler because they are ordinary files wherever
+the operator redirects stdout.
 
 Examples:
 
@@ -47,8 +63,22 @@ surface to `0.0.0.0` exposes scan APIs, history, diffs, timelines, and
 resource metadata to the network without Adler-provided authentication.
 Only do this behind your own access control on a trusted network.
 
+Scan ids are not passwords, but they are capability-like local tokens:
+any client that can reach the Web API or MCP resource surface and knows a
+scan id can read that scan artifact. Do not share scan ids or report
+files outside the authorization boundary for the investigation.
+
 MCP over stdio is local to the launched process, but the client receives
 the same history resources the server can read from disk.
+
+## Responsible use
+
+Adler aggregates public profile URLs and evidence, and aggregation can
+make sensitive patterns easier to see. Use it only for your own accounts,
+authorized security testing, bug-bounty work, defensive research, or
+investigations with a lawful basis. Do not use persisted artifacts,
+timelines, reports, or clusters to harass, dox, stalk, or surveil people
+without authorization.
 
 ## Operator checklist
 
@@ -57,7 +87,11 @@ the same history resources the server can read from disk.
 - Use a temporary `XDG_CACHE_HOME` for throwaway Web or MCP sessions.
 - Delete `$XDG_CACHE_HOME/adler/scans/` or override it with
   `--scans-dir` when a case needs separate retention.
+- Treat redirected Markdown/JSON reports as case files and delete or
+  move them with the same retention policy as the underlying scan
+  artifacts.
 - Keep non-loopback `--web-bind` and `--mcp-http` deployments behind
   authentication and transport security that you control.
+- Keep scan ids inside the same trust boundary as the scan files.
 - Avoid storing scan artifacts longer than the authorization or
   investigation need requires.

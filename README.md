@@ -73,6 +73,22 @@ browser, Chrome handshake emulation, per-site geo / IP-type egress, operator-
 supplied sessions. We do not solve CAPTCHAs or evade human-verification (see
 [*Ethics & responsible use*](#ethics--responsible-use)).
 
+## Evidence, confidence, and reports
+
+Recent Adler builds carry more than a Found/NotFound verdict. JSON,
+Web/API, MCP, and investigation-report surfaces can expose the detection
+evidence behind a result, normalized profile evidence such as display
+names or external links, confidence scores with machine-readable
+reasons, and deterministic identity-cluster candidates when multiple
+found profiles share strong structured evidence.
+
+Use `adler --report-scan <SCAN_ID>` for a Markdown investigation report,
+or `adler --report-scan <SCAN_ID> --report-format json` when another
+tool should consume the report model directly. These reports are derived
+from local scan artifacts; see [Privacy and retention](docs/privacy-retention.md)
+for what gets stored and how to handle scan ids, evidence, clusters, and
+report files.
+
 ## Detection rate
 
 Recall depends on where you scan from. The last apples-to-apples published

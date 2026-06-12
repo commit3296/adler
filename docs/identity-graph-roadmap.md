@@ -183,8 +183,8 @@ issue links.
   ([#79](https://github.com/commit3296/adler/issues/79))
 - [ ] Add UI tests for confidence/evidence rendering.
 - [ ] Add performance checks for large scan artifacts.
-- [ ] Document privacy, retention, and responsible-use considerations.
-- [ ] Update `README.md` once the first user-visible slice ships.
+- [x] Document privacy, retention, and responsible-use considerations.
+- [x] Update `README.md` once the first user-visible slice ships.
 - [ ] Update `CHANGELOG.md` only when implementation lands in a release.
 
 ## Suggested first implementation slice
