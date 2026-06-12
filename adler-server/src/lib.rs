@@ -41,6 +41,7 @@
 //! | `/api/sites`                       | GET    | site catalogue                       |
 //! | `/api/scan`                        | POST   | start a scan, returns a `scan_id`    |
 //! | `/api/scan/{id}`                   | GET    | poll status / final aggregate        |
+//! | `/api/scan/{id}/report`            | GET    | investigation report export          |
 //! | `/api/scan/{id}/stream`            | GET    | Server-Sent Events                   |
 //! | `/api/scan/{id}/retry`             | POST   | retry one site in a scan             |
 //! | `/api/scan/{id}/refilter`          | POST   | cancel and restart with new filters  |
@@ -75,8 +76,8 @@ pub use api::router;
 pub use error::{Error, Result};
 pub use persist::{
     EvidenceChange, PersistedScan, ScanDiff, ScanTimeline, TimelineEvent, TimelineEventKind,
-    TimelineProfile, VerdictChange, apply_historical_confidence_overlay, build_scan_timeline,
-    default_dir as default_scans_dir, diff_scans,
+    TimelineProfile, VerdictChange, apply_historical_confidence_overlay,
+    build_investigation_report, build_scan_timeline, default_dir as default_scans_dir, diff_scans,
 };
 pub use scan::{FinishedScan, ScanHandle, ScanId, Summary};
 pub use state::AppState;

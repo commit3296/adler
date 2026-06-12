@@ -9,6 +9,7 @@
 //! - `GET  /api/scans/:from/diff/:to` — diff two finished scans.
 //! - `POST /api/scan`             — start a scan; returns a [`ScanId`].
 //! - `GET  /api/scan/:id`         — final aggregate (or 404 / 202 in-progress).
+//! - `GET  /api/scan/:id/report`  — derived investigation report.
 //! - `GET  /api/scan/:id/stream`  — Server-Sent Events stream of outcomes.
 //!
 //! All endpoints emit JSON. Errors carry a stable `{ "error": "<code>",
@@ -26,8 +27,8 @@ mod filter;
 mod handlers;
 
 use self::handlers::{
-    diff_scans, get_scan, health, list_access, list_scan_timeline, list_scans, list_sites,
-    refilter_scan, retry_site, start_scan, stream_scan,
+    diff_scans, get_scan, get_scan_report, health, list_access, list_scan_timeline, list_scans,
+    list_sites, refilter_scan, retry_site, start_scan, stream_scan,
 };
 use crate::state::AppState;
 
@@ -43,6 +44,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/scans/{from}/diff/{to}", get(diff_scans))
         .route("/api/scan", post(start_scan))
         .route("/api/scan/{id}", get(get_scan))
+        .route("/api/scan/{id}/report", get(get_scan_report))
         .route("/api/scan/{id}/stream", get(stream_scan))
         .route("/api/scan/{id}/retry", post(retry_site))
         .route("/api/scan/{id}/refilter", post(refilter_scan))
@@ -1100,6 +1102,304 @@ mod tests {
         let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
 
         let reasons = v["outcomes"][0]["confidence"]["reasons"]
+            .as_array()
+            .unwrap();
+        assert!(
+            reasons.iter().any(|reason| {
+                reason["kind"] == "historical_consistency" && reason["count"] == 2
+            })
+        );
+        let raw_after = tokio::fs::read(tmp.path().join("current.json"))
+            .await
+            .unwrap();
+        assert_eq!(raw_before, raw_after);
+    }
+
+    #[tokio::test]
+    async fn scan_report_returns_json_markdown_and_html_from_persisted_scan() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let current = persisted_scan(
+            "scan123",
+            3_000,
+            vec![
+                found_with_website("GitHub", "https://alice.dev"),
+                found_with_website("GitLab", "https://alice.dev"),
+            ],
+        );
+        crate::persist::save(tmp.path(), &current).await.unwrap();
+
+        let client = Client::builder()
+            .timeout(Duration::from_secs(2))
+            .min_request_interval(Duration::ZERO)
+            .build()
+            .unwrap();
+        let state = AppState::new(Vec::new(), client, 16).with_scans_dir(tmp.path().to_owned());
+        let app = router(state);
+
+        let json_resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/api/scan/scan123/report")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(json_resp.status(), StatusCode::OK);
+        assert_eq!(
+            json_resp.headers()[header::CONTENT_TYPE],
+            "application/json"
+        );
+        let json_body = to_bytes(json_resp.into_body(), 65536).await.unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&json_body).unwrap();
+        assert_eq!(json["username"], "alice");
+        assert_eq!(json["identity_clusters"][0]["id"], "identity-0001");
+        assert_eq!(json["evidence_table"].as_array().unwrap().len(), 2);
+
+        let markdown_resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/api/scan/scan123/report?format=markdown")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(markdown_resp.status(), StatusCode::OK);
+        assert_eq!(
+            markdown_resp.headers()[header::CONTENT_TYPE],
+            "text/markdown; charset=utf-8"
+        );
+        let markdown = String::from_utf8(
+            to_bytes(markdown_resp.into_body(), 65536)
+                .await
+                .unwrap()
+                .to_vec(),
+        )
+        .unwrap();
+        assert!(markdown.contains("# Adler investigation report: alice"));
+        assert!(markdown.contains("identity-0001"));
+
+        let html_resp = app
+            .oneshot(
+                Request::builder()
+                    .uri("/api/scan/scan123/report?format=html")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(html_resp.status(), StatusCode::OK);
+        assert_eq!(
+            html_resp.headers()[header::CONTENT_TYPE],
+            "text/html; charset=utf-8"
+        );
+        let html = String::from_utf8(
+            to_bytes(html_resp.into_body(), 65536)
+                .await
+                .unwrap()
+                .to_vec(),
+        )
+        .unwrap();
+        assert!(html.contains("<!doctype html>"));
+        assert!(html.contains("<h2>Identity Clusters</h2>"));
+        assert!(!html.contains("<script"));
+    }
+
+    #[tokio::test]
+    async fn scan_report_supports_finished_in_memory_scan() {
+        let client = Client::builder()
+            .timeout(Duration::from_secs(2))
+            .min_request_interval(Duration::ZERO)
+            .build()
+            .unwrap();
+        let state = AppState::new(Vec::new(), client, 16);
+        let scan_id = ScanId::from("live".to_owned());
+        let handle = ScanHandle::new("alice", 1, 16);
+        handle
+            .publish(crate::scan::FinishedScan::from_outcomes(
+                "alice",
+                vec![found_with_website("GitHub", "https://alice.dev")],
+                20,
+            ))
+            .await;
+        state.insert_scan(scan_id, handle).await;
+        let app = router(state);
+
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .uri("/api/scan/live/report")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let body = to_bytes(resp.into_body(), 65536).await.unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(json["username"], "alice");
+        assert_eq!(json["summary"]["found"], 1);
+        assert_eq!(json["found_accounts"][0]["site"], "GitHub");
+    }
+
+    #[tokio::test]
+    async fn scan_report_rejects_running_unknown_and_invalid_format() {
+        let client = Client::builder()
+            .timeout(Duration::from_secs(2))
+            .min_request_interval(Duration::ZERO)
+            .build()
+            .unwrap();
+        let state = AppState::new(Vec::new(), client, 16);
+        state
+            .insert_scan(
+                ScanId::from("running".to_owned()),
+                ScanHandle::new("alice", 1, 16),
+            )
+            .await;
+        let app = router(state);
+
+        let running = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/api/scan/running/report")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(running.status(), StatusCode::BAD_REQUEST);
+        let body = to_bytes(running.into_body(), 1024).await.unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(json["error"], "scan_not_finished");
+
+        let unknown = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/api/scan/missing/report")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(unknown.status(), StatusCode::NOT_FOUND);
+        let body = to_bytes(unknown.into_body(), 1024).await.unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(json["error"], "scan_not_found");
+
+        let invalid_format = app
+            .oneshot(
+                Request::builder()
+                    .uri("/api/scan/running/report?format=pdf")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(invalid_format.status(), StatusCode::BAD_REQUEST);
+        let body = to_bytes(invalid_format.into_body(), 1024).await.unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(json["error"], "invalid_report_format");
+    }
+
+    #[tokio::test]
+    async fn scan_report_derives_clusters_from_legacy_persisted_scan() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let outcomes = vec![
+            found_with_website("GitHub", "https://alice.dev"),
+            found_with_website("GitLab", "https://alice.dev"),
+        ];
+        let legacy = serde_json::json!({
+            "schema_version": 1,
+            "scan_id": "legacy",
+            "username": "alice",
+            "site_count": 2,
+            "created_at_ms": 3_000,
+            "summary": { "found": 2, "not_found": 0, "uncertain": 0 },
+            "outcomes": outcomes,
+            "elapsed_ms": 20
+        });
+        tokio::fs::write(
+            tmp.path().join("legacy.json"),
+            serde_json::to_vec_pretty(&legacy).unwrap(),
+        )
+        .await
+        .unwrap();
+
+        let client = Client::builder()
+            .timeout(Duration::from_secs(2))
+            .min_request_interval(Duration::ZERO)
+            .build()
+            .unwrap();
+        let state = AppState::new(Vec::new(), client, 16).with_scans_dir(tmp.path().to_owned());
+        let app = router(state);
+
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .uri("/api/scan/legacy/report")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let body = to_bytes(resp.into_body(), 65536).await.unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(json["identity_clusters"][0]["id"], "identity-0001");
+        assert_eq!(json["summary"]["identity_clusters"], 1);
+    }
+
+    #[tokio::test]
+    async fn scan_report_applies_historical_overlay_without_rewriting_json() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let older = persisted_scan(
+            "older",
+            1_000,
+            vec![found_with_website("GitHub", "https://alice.dev")],
+        );
+        let previous = persisted_scan(
+            "previous",
+            2_000,
+            vec![found_with_website("GitHub", "https://alice.dev")],
+        );
+        let current = persisted_scan(
+            "current",
+            3_000,
+            vec![found_with_website("GitHub", "https://alice.dev")],
+        );
+        crate::persist::save(tmp.path(), &older).await.unwrap();
+        crate::persist::save(tmp.path(), &previous).await.unwrap();
+        crate::persist::save(tmp.path(), &current).await.unwrap();
+
+        let raw_before = tokio::fs::read(tmp.path().join("current.json"))
+            .await
+            .unwrap();
+        let client = Client::builder()
+            .timeout(Duration::from_secs(2))
+            .min_request_interval(Duration::ZERO)
+            .build()
+            .unwrap();
+        let state = AppState::new(Vec::new(), client, 16).with_scans_dir(tmp.path().to_owned());
+        let app = router(state);
+
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .uri("/api/scan/current/report")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let body = to_bytes(resp.into_body(), 65536).await.unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        let reasons = json["found_accounts"][0]["confidence"]["reasons"]
             .as_array()
             .unwrap();
         assert!(

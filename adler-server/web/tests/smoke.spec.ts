@@ -312,6 +312,20 @@ test("routed finished scan renders snapshot results", async ({ page }) => {
             .getByRole("link", { name: "https://github.com/alice" }),
     ).toBeVisible();
     await expect(page.getByText("1 not_found hidden")).toBeVisible();
+    const exports = page.getByTestId("report-export-panel");
+    await expect(exports).toBeVisible();
+    await expect(exports.getByRole("link", { name: /JSON/ })).toHaveAttribute(
+        "href",
+        "/api/scan/finished123/report?format=json",
+    );
+    await expect(exports.getByRole("link", { name: /Markdown/ })).toHaveAttribute(
+        "href",
+        "/api/scan/finished123/report?format=markdown",
+    );
+    await expect(exports.getByRole("link", { name: /HTML/ })).toHaveAttribute(
+        "href",
+        "/api/scan/finished123/report?format=html",
+    );
 });
 
 test("routed finished scan renders confidence, evidence, and clusters", async ({

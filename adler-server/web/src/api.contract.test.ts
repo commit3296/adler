@@ -1,7 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiClientError, api, streamScan } from "./api";
-import type { CheckOutcome, FinishedScan, StartScanBody } from "./types";
+import type {
+    CheckOutcome,
+    FinishedScan,
+    InvestigationReport,
+    StartScanBody,
+} from "./types";
 
 const jsonHeaders = { "Content-Type": "application/json" };
 
@@ -115,6 +120,72 @@ function finishedScan(): FinishedScan {
     };
 }
 
+function investigationReport(): InvestigationReport {
+    const finished = finishedScan();
+    return {
+        schema_version: 2,
+        username: "alice",
+        summary: {
+            total: 1,
+            found: 1,
+            not_found: 0,
+            uncertain: 0,
+            high_confidence_found: 1,
+            found_with_profile_evidence: 1,
+            profile_evidence_items: 2,
+            identity_clusters: 1,
+            uncertain_identity_clusters: 0,
+            clustered_profiles: 1,
+            timeline_events: 1,
+            disabled_sites: 0,
+        },
+        found_accounts: [
+            {
+                site: "GitHub",
+                url: "https://github.com/alice",
+                confidence: finished.outcomes[0]!.confidence!,
+                signal_evidence: ["HTTP 200 (status_found)"],
+                profile_evidence: finished.outcomes[0]!.profile_evidence,
+                cluster_ids: ["identity-0001"],
+                transport: "browser",
+                escalations: 1,
+                elapsed_ms: 11,
+            },
+        ],
+        high_confidence_accounts: [
+            {
+                site: "GitHub",
+                url: "https://github.com/alice",
+                confidence: finished.outcomes[0]!.confidence!,
+                profile_evidence: finished.outcomes[0]!.profile_evidence,
+                cluster_ids: ["identity-0001"],
+                elapsed_ms: 11,
+            },
+        ],
+        evidence_table: [
+            {
+                site: "GitHub",
+                url: "https://github.com/alice",
+                kind: "external_link",
+                field: "website",
+                value: "https://alice.dev",
+                source: finished.outcomes[0]!.profile_evidence![0]!.source,
+            },
+        ],
+        identity_clusters: finished.identity_clusters,
+        timeline: [
+            {
+                kind: "added_found",
+                site: "GitHub",
+                scan_id: "scan_1",
+                observed_at_ms: 1781192451000,
+                detail: "new found",
+            },
+        ],
+        limitations: [],
+    };
+}
+
 describe("adler-server HTTP API contract", () => {
     let fetchMock: ReturnType<typeof vi.fn>;
 
@@ -151,7 +222,8 @@ describe("adler-server HTTP API contract", () => {
                     elapsed_ms: 7,
                     partial: [],
                 }),
-            );
+            )
+            .mockResolvedValueOnce(okJson(investigationReport()));
 
         await api.health();
         expect(await api.sites()).toEqual({ sites: [], disabled: [] });
@@ -159,6 +231,7 @@ describe("adler-server HTTP API contract", () => {
         await api.scans();
         await api.scanDiff("old", "new");
         await api.scan("scan_123");
+        await api.investigationReport("scan_123");
 
         expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
             "/api/health",
@@ -167,9 +240,35 @@ describe("adler-server HTTP API contract", () => {
             "/api/scans",
             "/api/scans/old/diff/new",
             "/api/scan/scan_123",
+            "/api/scan/scan_123/report?format=json",
         ]);
         expect(fetchMock.mock.calls.every(([, init]) => init === undefined)).toBe(
             true,
+        );
+    });
+
+    it("builds report export URLs for browser downloads", () => {
+        expect(api.reportUrl("scan_1", "json")).toBe(
+            "/api/scan/scan_1/report?format=json",
+        );
+        expect(api.reportUrl("scan 1", "markdown")).toBe(
+            "/api/scan/scan%201/report?format=markdown",
+        );
+        expect(api.reportUrl("scan_1", "html")).toBe(
+            "/api/scan/scan_1/report?format=html",
+        );
+    });
+
+    it("accepts direct InvestigationReport JSON from the report endpoint", async () => {
+        const report = investigationReport();
+        fetchMock.mockResolvedValueOnce(okJson(report));
+
+        const response = await api.investigationReport("scan_1");
+
+        expect(response).toEqual(report);
+        expect(response.identity_clusters?.[0]?.id).toBe("identity-0001");
+        expect(response.evidence_table?.[0]?.source.access_path?.transport).toBe(
+            "browser",
         );
     });
 

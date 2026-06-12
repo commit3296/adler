@@ -14,7 +14,8 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use adler_core::{
-    CheckOutcome, HistoricalScanRef, IdentityCluster, MatchKind, ProfileEvidence, Site,
+    CheckOutcome, HistoricalScanRef, IdentityCluster, InvestigationReport, MatchKind,
+    ProfileEvidence, ReportDisabledSite, ReportTimelineEvent, ReportTimelineEventKind, Site,
 };
 use serde::{Deserialize, Serialize};
 use tokio::fs;
@@ -124,6 +125,88 @@ pub fn apply_historical_confidence_overlay(
 
     current.identity_clusters =
         adler_core::build_identity_clusters(&current.username, &current.outcomes);
+}
+
+/// Build a history-aware investigation report from a scan artifact.
+///
+/// The input scan is consumed and enriched in memory only. Persisted JSON files
+/// are never rewritten by this helper.
+#[must_use]
+pub fn build_investigation_report(
+    mut scan: PersistedScan,
+    related_scans: &[PersistedScan],
+) -> InvestigationReport {
+    apply_historical_confidence_overlay(&mut scan, related_scans);
+    let timeline = report_timeline_from_scans(related_scans, &scan);
+    let disabled_sites = scan
+        .request_context
+        .as_ref()
+        .map(|context| {
+            context
+                .disabled_matches
+                .iter()
+                .map(|site| ReportDisabledSite {
+                    name: site.name.clone(),
+                    url: site.url.clone(),
+                    tags: site.tags.clone(),
+                    disabled_reason: site.disabled_reason.clone(),
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+
+    InvestigationReport::builder(scan.username, &scan.outcomes)
+        .identity_clusters(scan.identity_clusters)
+        .timeline(timeline)
+        .disabled_sites(disabled_sites)
+        .build()
+}
+
+fn report_timeline_from_scans(
+    related_scans: &[PersistedScan],
+    current: &PersistedScan,
+) -> Vec<ReportTimelineEvent> {
+    let mut scans = related_scans.to_vec();
+    if !scans.iter().any(|scan| scan.scan_id == current.scan_id) {
+        scans.push(current.clone());
+    }
+    build_scan_timeline(&scans)
+        .events
+        .into_iter()
+        .map(report_timeline_event)
+        .collect()
+}
+
+fn report_timeline_event(event: TimelineEvent) -> ReportTimelineEvent {
+    ReportTimelineEvent {
+        kind: match event.kind {
+            TimelineEventKind::FirstSeen => ReportTimelineEventKind::AddedFound,
+            TimelineEventKind::Disappeared => ReportTimelineEventKind::RemovedFound,
+            TimelineEventKind::Reappeared => ReportTimelineEventKind::Reappeared,
+            TimelineEventKind::EvidenceChanged => ReportTimelineEventKind::EvidenceChanged,
+        },
+        site: Some(event.site),
+        scan_id: Some(event.scan_id.to_string()),
+        observed_at_ms: Some(event.at_ms),
+        detail: Some(timeline_detail(event.before, event.after)),
+    }
+}
+
+fn timeline_detail(before: Option<MatchKind>, after: Option<MatchKind>) -> String {
+    match (before, after) {
+        (Some(before), Some(after)) => format!("{} -> {}", kind_label(before), kind_label(after)),
+        (None, Some(after)) => format!("new {}", kind_label(after)),
+        (Some(before), None) => format!("after {}", kind_label(before)),
+        (None, None) => "changed".to_owned(),
+    }
+}
+
+fn kind_label(kind: MatchKind) -> &'static str {
+    match kind {
+        MatchKind::Found => "found",
+        MatchKind::NotFound => "not_found",
+        MatchKind::Uncertain => "uncertain",
+    }
 }
 
 fn historical_consistency_counts(
