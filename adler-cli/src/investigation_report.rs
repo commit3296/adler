@@ -13,19 +13,46 @@ use adler_core::{
 };
 use adler_server::{PersistedScan, TimelineEvent, TimelineEventKind, build_scan_timeline};
 use anyhow::{Context as _, Result, bail};
+use clap::ValueEnum;
 
-/// Generate a Markdown investigation report from a persisted scan id.
+/// Output format for persisted-scan investigation reports.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, ValueEnum)]
+pub(crate) enum ReportFormat {
+    /// Human-readable Markdown report.
+    #[default]
+    Markdown,
+    /// Machine-readable `InvestigationReport` JSON.
+    Json,
+}
+
+/// Generate an investigation report from a persisted scan id.
 pub(crate) fn run_report_scan(
     scans_dir: Option<&Path>,
     scan_id: &str,
+    format: ReportFormat,
     out: &mut impl Write,
 ) -> Result<()> {
     validate_scan_id(scan_id)?;
     let dir = scans_dir.map_or_else(adler_server::default_scans_dir, Path::to_path_buf);
     let scan = load_scan(&dir, scan_id)?;
     let report = report_from_scan(&dir, scan);
-    out.write_all(render_markdown(&report).as_bytes())
-        .context("writing Markdown report")
+    write_report(&report, format, out)
+}
+
+fn write_report(
+    report: &InvestigationReport,
+    format: ReportFormat,
+    out: &mut impl Write,
+) -> Result<()> {
+    match format {
+        ReportFormat::Markdown => out
+            .write_all(render_markdown(report).as_bytes())
+            .context("writing Markdown report"),
+        ReportFormat::Json => {
+            serde_json::to_writer_pretty(&mut *out, report).context("writing JSON report")?;
+            writeln!(out).context("writing JSON report newline")
+        }
+    }
 }
 
 fn report_from_scan(dir: &Path, mut scan: PersistedScan) -> InvestigationReport {
@@ -635,7 +662,13 @@ mod tests {
         .unwrap();
 
         let mut out = Vec::new();
-        run_report_scan(Some(dir.path()), "scan123", &mut out).unwrap();
+        run_report_scan(
+            Some(dir.path()),
+            "scan123",
+            ReportFormat::Markdown,
+            &mut out,
+        )
+        .unwrap();
         let markdown = String::from_utf8(out).unwrap();
 
         insta::assert_snapshot!(markdown.trim_end(), @r###"
@@ -705,9 +738,55 @@ No limitations recorded.
     }
 
     #[test]
+    fn json_report_serializes_core_model() {
+        let outcomes = vec![
+            found("GitHub", "https://alice.dev"),
+            found("GitLab", "https://alice.dev"),
+        ];
+        let clusters = build_identity_clusters("alice", &outcomes);
+        let timeline = vec![ReportTimelineEvent {
+            kind: ReportTimelineEventKind::AddedFound,
+            site: Some("GitHub".to_owned()),
+            scan_id: Some("scan123".to_owned()),
+            observed_at_ms: Some(1_781_192_451_000),
+            detail: Some("new found".to_owned()),
+        }];
+        let disabled = ReportDisabledSite {
+            name: "Threads".to_owned(),
+            url: "https://threads.net/@{username}".to_owned(),
+            tags: vec!["social".to_owned()],
+            disabled_reason: "login wall".to_owned(),
+        };
+        let report = InvestigationReport::builder("alice", &outcomes)
+            .identity_clusters(clusters)
+            .timeline(timeline)
+            .disabled_sites(vec![disabled])
+            .build();
+
+        let mut out = Vec::new();
+        write_report(&report, ReportFormat::Json, &mut out).unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&out).unwrap();
+
+        assert_eq!(json["schema_version"], 1);
+        assert_eq!(json["username"], "alice");
+        assert_eq!(json["summary"]["found"], 2);
+        assert_eq!(json["found_accounts"].as_array().unwrap().len(), 2);
+        assert_eq!(json["identity_clusters"].as_array().unwrap().len(), 1);
+        assert_eq!(json["evidence_table"].as_array().unwrap().len(), 2);
+        assert_eq!(json["timeline"].as_array().unwrap().len(), 1);
+        assert_eq!(json["limitations"].as_array().unwrap().len(), 1);
+    }
+
+    #[test]
     fn invalid_scan_ids_are_rejected() {
         let dir = tempdir().unwrap();
-        let err = run_report_scan(Some(dir.path()), "../scan", &mut Vec::new()).unwrap_err();
+        let err = run_report_scan(
+            Some(dir.path()),
+            "../scan",
+            ReportFormat::Markdown,
+            &mut Vec::new(),
+        )
+        .unwrap_err();
         assert!(err.to_string().contains("invalid scan id"));
     }
 

@@ -3,6 +3,7 @@
 use std::io::BufRead;
 use std::io::BufReader;
 use std::io::Write as _;
+use std::path::Path;
 use std::process::Stdio;
 
 use assert_cmd::Command;
@@ -646,9 +647,7 @@ async fn html_format_renders_self_contained_report() {
     assert!(stdout.trim_end().ends_with("</html>"));
 }
 
-#[test]
-fn report_scan_renders_markdown_from_persisted_scan() {
-    let dir = tempfile::tempdir().expect("tempdir");
+fn write_report_scan_fixture(dir: &Path) {
     let scan = serde_json::json!({
         "schema_version": 2,
         "scan_id": "scan123",
@@ -695,10 +694,16 @@ fn report_scan_renders_markdown_from_persisted_scan() {
         "elapsed_ms": 42
     });
     std::fs::write(
-        dir.path().join("scan123.json"),
+        dir.join("scan123.json"),
         serde_json::to_vec_pretty(&scan).unwrap(),
     )
     .expect("write scan");
+}
+
+#[test]
+fn report_scan_renders_markdown_from_persisted_scan() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    write_report_scan_fixture(dir.path());
 
     adler()
         .args([
@@ -714,6 +719,47 @@ fn report_scan_renders_markdown_from_persisted_scan() {
         .stdout(str::contains("identity-0001"))
         .stdout(str::contains("shared external link"))
         .stdout(str::contains("## Evidence Table"));
+}
+
+#[test]
+fn report_scan_renders_json_from_persisted_scan() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    write_report_scan_fixture(dir.path());
+
+    let assert = adler()
+        .args([
+            "--report-scan",
+            "scan123",
+            "--report-format",
+            "json",
+            "--scans-dir",
+            dir.path().to_str().unwrap(),
+        ])
+        .assert()
+        .success();
+    let stdout = String::from_utf8(assert.get_output().stdout.clone()).unwrap();
+    let report: serde_json::Value = serde_json::from_str(&stdout).expect("valid report JSON");
+
+    assert_eq!(report["schema_version"], 1);
+    assert_eq!(report["username"], "alice");
+    assert_eq!(report["summary"]["found"], 2);
+    assert_eq!(report["found_accounts"].as_array().unwrap().len(), 2);
+    assert_eq!(report["identity_clusters"][0]["id"], "identity-0001");
+    assert_eq!(
+        report["identity_clusters"][0]["reasons"][0]["kind"],
+        "shared_external_link"
+    );
+    assert_eq!(report["evidence_table"].as_array().unwrap().len(), 2);
+    assert_eq!(report["timeline"].as_array().unwrap().len(), 2);
+}
+
+#[test]
+fn report_format_requires_report_scan() {
+    adler()
+        .args(["--report-format", "json"])
+        .assert()
+        .failure()
+        .stderr(str::contains("--report-scan"));
 }
 
 #[test]

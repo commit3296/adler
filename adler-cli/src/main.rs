@@ -15,7 +15,7 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 
 use crate::doctor::{DoctorOpts, run_doctor};
-use crate::investigation_report::run_report_scan;
+use crate::investigation_report::{ReportFormat, run_report_scan};
 use crate::scan::run_scan;
 use crate::transport::build_client;
 use anyhow::{Context as _, Result};
@@ -59,7 +59,8 @@ const AFTER_HELP: &str = concat!(
     "  Batch and watch:\n",
     "    adler --input users.txt --format ndjson > batch.ndjson\n",
     "    adler --watch --interval 86400 alice        # daily diff vs last run\n",
-    "    adler --report-scan <ID> > report.md       # Markdown investigation report\n",
+    "    adler --report-scan <ID> > report.md        # Markdown investigation report\n",
+    "    adler --report-scan <ID> --report-format json > report.json\n",
     "\n",
     "  Web UI:\n",
     "    adler --web                                 # http://127.0.0.1:8765\n",
@@ -419,10 +420,21 @@ pub(crate) struct Cli {
     #[arg(long, value_name = "PATH", help_heading = "Doctor")]
     scans_dir: Option<PathBuf>,
 
-    /// Generate a Markdown investigation report from a persisted web scan id
-    /// and exit. Reads from `--scans-dir` or Adler's default scan history dir.
+    /// Generate an investigation report from a persisted web scan id and exit.
+    /// Reads from `--scans-dir` or Adler's default scan history dir.
     #[arg(long, value_name = "SCAN_ID", help_heading = "Reports")]
     report_scan: Option<String>,
+
+    /// Output format for `--report-scan`.
+    #[arg(
+        long,
+        value_enum,
+        default_value_t = ReportFormat::Markdown,
+        requires = "report_scan",
+        value_name = "FORMAT",
+        help_heading = "Reports"
+    )]
+    report_format: ReportFormat,
 
     /// Scan every username in this file (one per line; blank lines and lines
     /// starting with `#` are skipped, duplicates removed). A positional
@@ -712,7 +724,12 @@ async fn run(cli: Cli) -> Result<ExitCode> {
     if let Some(scan_id) = cli.report_scan.as_deref() {
         let stdout = io::stdout();
         let mut out = stdout.lock();
-        run_report_scan(cli.scans_dir.as_deref(), scan_id, &mut out)?;
+        run_report_scan(
+            cli.scans_dir.as_deref(),
+            scan_id,
+            cli.report_format,
+            &mut out,
+        )?;
         return Ok(ExitCode::SUCCESS);
     }
 
