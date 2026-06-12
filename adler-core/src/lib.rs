@@ -148,6 +148,7 @@ mod permute;
 mod profile;
 mod registry;
 mod report;
+mod report_render;
 mod retry;
 mod robots;
 mod site;
@@ -189,6 +190,7 @@ pub use report::{
     ReportAccount, ReportDisabledSite, ReportEvidence, ReportLimitation, ReportLimitationKind,
     ReportSummary, ReportTimelineEvent, ReportTimelineEventKind, ReportUncertainAccount,
 };
+pub use report_render::{render_investigation_report_html, render_investigation_report_markdown};
 pub use site::{
     Engine, Extractor, HttpMethod, KnownPresent, ProtectionKind, Signal, Site, UrlTemplate,
 };

@@ -770,6 +770,32 @@ fn report_scan_renders_json_from_persisted_scan() {
 }
 
 #[test]
+fn report_scan_renders_html_from_persisted_scan() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    write_report_scan_fixture(dir.path());
+
+    adler()
+        .args([
+            "--report-scan",
+            "scan123",
+            "--report-format",
+            "html",
+            "--scans-dir",
+            dir.path().to_str().unwrap(),
+        ])
+        .assert()
+        .success()
+        .stdout(str::contains("<!doctype html>"))
+        .stdout(str::contains("<h2>Summary</h2>"))
+        .stdout(str::contains("<h2>Identity Clusters</h2>"))
+        .stdout(str::contains("identity-0001"))
+        .stdout(str::contains("shared external link"))
+        .stdout(str::contains("<h2>Evidence Table</h2>"))
+        .stdout(str::contains("<h2>Timeline</h2>"))
+        .stdout(str::contains("<h2>Limitations</h2>"));
+}
+
+#[test]
 fn report_format_requires_report_scan() {
     adler()
         .args(["--report-format", "json"])

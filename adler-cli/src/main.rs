@@ -61,6 +61,7 @@ const AFTER_HELP: &str = concat!(
     "    adler --watch --interval 86400 alice        # daily diff vs last run\n",
     "    adler --report-scan <ID> > report.md        # Markdown investigation report\n",
     "    adler --report-scan <ID> --report-format json > report.json\n",
+    "    adler --report-scan <ID> --report-format html > report.html\n",
     "\n",
     "  Web UI:\n",
     "    adler --web                                 # http://127.0.0.1:8765\n",

@@ -1,15 +1,12 @@
-//! Markdown investigation reports built on `adler-core`'s report model.
+//! Investigation reports built on `adler-core`'s report model.
 
-use std::fmt::Write as _;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
 use adler_core::{
-    ClusterReason, ConfidenceLabel, ConfidenceReason, ConfidenceScore,
-    INVESTIGATION_REPORT_SCHEMA_VERSION, IdentityCluster, InvestigationReport, MatchKind,
-    ProfileEvidenceKind, ReportDisabledSite, ReportLimitation, ReportLimitationKind,
-    ReportTimelineEvent, ReportTimelineEventKind, TransportTier, UncertainReason,
-    build_identity_clusters,
+    InvestigationReport, MatchKind, ReportDisabledSite, ReportTimelineEvent,
+    ReportTimelineEventKind, build_identity_clusters, render_investigation_report_html,
+    render_investigation_report_markdown,
 };
 use adler_server::{
     PersistedScan, TimelineEvent, TimelineEventKind, apply_historical_confidence_overlay,
@@ -26,6 +23,8 @@ pub(crate) enum ReportFormat {
     Markdown,
     /// Machine-readable `InvestigationReport` JSON.
     Json,
+    /// Self-contained HTML case file.
+    Html,
 }
 
 /// Generate an investigation report from a persisted scan id.
@@ -55,6 +54,9 @@ fn write_report(
             serde_json::to_writer_pretty(&mut *out, report).context("writing JSON report")?;
             writeln!(out).context("writing JSON report newline")
         }
+        ReportFormat::Html => out
+            .write_all(render_investigation_report_html(report).as_bytes())
+            .context("writing HTML report"),
     }
 }
 
@@ -174,336 +176,6 @@ fn validate_scan_id(scan_id: &str) -> Result<()> {
     Ok(())
 }
 
-/// Render a deterministic Markdown report. Public inside the crate for unit
-/// tests; CLI users reach it through `--report-scan`.
-pub(crate) fn render_markdown(report: &InvestigationReport) -> String {
-    let mut out = String::new();
-    let _ = writeln!(out, "# Adler investigation report: {}", report.username);
-    let _ = writeln!(out);
-    push_summary(&mut out, report);
-    push_accounts(&mut out, report);
-    push_clusters(&mut out, &report.identity_clusters);
-    push_uncertain(&mut out, report);
-    push_evidence(&mut out, report);
-    push_timeline(&mut out, report);
-    push_disabled(&mut out, report);
-    push_limitations(&mut out, report);
-    out
-}
-
-fn push_summary(out: &mut String, report: &InvestigationReport) {
-    let summary = &report.summary;
-    let _ = writeln!(out, "## Summary");
-    let _ = writeln!(out);
-    let _ = writeln!(out, "- Schema version: {}", report.schema_version);
-    let _ = writeln!(out, "- Report model: {INVESTIGATION_REPORT_SCHEMA_VERSION}");
-    let _ = writeln!(
-        out,
-        "- Outcomes: {} total, {} found, {} not found, {} uncertain",
-        summary.total, summary.found, summary.not_found, summary.uncertain
-    );
-    let _ = writeln!(
-        out,
-        "- Evidence: {} found with profile evidence, {} evidence items",
-        summary.found_with_profile_evidence, summary.profile_evidence_items
-    );
-    let _ = writeln!(
-        out,
-        "- Identity clusters: {} total, {} uncertain, {} clustered profiles",
-        summary.identity_clusters, summary.uncertain_identity_clusters, summary.clustered_profiles
-    );
-    let _ = writeln!(out, "- Timeline events: {}", summary.timeline_events);
-    let _ = writeln!(out, "- Disabled/parked sites: {}", summary.disabled_sites);
-    if let Some(generated_at_ms) = report.generated_at_ms {
-        let _ = writeln!(out, "- Generated from scan timestamp: {generated_at_ms}");
-    }
-    let _ = writeln!(out);
-}
-
-fn push_accounts(out: &mut String, report: &InvestigationReport) {
-    let _ = writeln!(out, "## High-Confidence Accounts");
-    let _ = writeln!(out);
-    if report.high_confidence_accounts.is_empty() {
-        let _ = writeln!(out, "No high-confidence accounts.");
-    } else {
-        push_account_table(out, &report.high_confidence_accounts);
-    }
-    let _ = writeln!(out);
-
-    let _ = writeln!(out, "## Found Accounts");
-    let _ = writeln!(out);
-    if report.found_accounts.is_empty() {
-        let _ = writeln!(out, "No found accounts.");
-    } else {
-        push_account_table(out, &report.found_accounts);
-    }
-    let _ = writeln!(out);
-}
-
-fn push_account_table(out: &mut String, accounts: &[adler_core::ReportAccount]) {
-    let _ = writeln!(
-        out,
-        "| Site | URL | Confidence | Transport | Cluster | Evidence |"
-    );
-    let _ = writeln!(out, "| --- | --- | --- | --- | --- | --- |");
-    for account in accounts {
-        let _ = writeln!(
-            out,
-            "| {} | {} | {} | {} | {} | {} |",
-            cell(&account.site),
-            link_cell(&account.url),
-            cell(&confidence_text(&account.confidence)),
-            cell(&transport_text(account.transport, account.escalations)),
-            cell(&join_or_dash(&account.cluster_ids)),
-            account.profile_evidence.len()
-        );
-    }
-}
-
-fn push_clusters(out: &mut String, clusters: &[IdentityCluster]) {
-    let _ = writeln!(out, "## Identity Clusters");
-    let _ = writeln!(out);
-    if clusters.is_empty() {
-        let _ = writeln!(out, "No identity clusters.");
-        let _ = writeln!(out);
-        return;
-    }
-    for cluster in clusters {
-        let uncertainty = if cluster.uncertain { " uncertain" } else { "" };
-        let _ = writeln!(
-            out,
-            "- `{}`: {}%{}",
-            cluster.id, cluster.confidence, uncertainty
-        );
-        if !cluster.reasons.is_empty() {
-            let reasons = cluster
-                .reasons
-                .iter()
-                .map(cluster_reason_text)
-                .collect::<Vec<_>>()
-                .join("; ");
-            let _ = writeln!(out, "  - Reasons: {}", md_text(&reasons));
-        }
-        for member in &cluster.members {
-            let _ = writeln!(
-                out,
-                "  - {}: {} ({})",
-                md_text(&member.site),
-                md_text(&member.url),
-                confidence_text(&member.confidence)
-            );
-        }
-    }
-    let _ = writeln!(out);
-}
-
-fn push_uncertain(out: &mut String, report: &InvestigationReport) {
-    let _ = writeln!(out, "## Uncertain Accounts");
-    let _ = writeln!(out);
-    if report.uncertain_accounts.is_empty() {
-        let _ = writeln!(out, "No uncertain accounts.");
-        let _ = writeln!(out);
-        return;
-    }
-    let _ = writeln!(out, "| Site | URL | Reason | Confidence |");
-    let _ = writeln!(out, "| --- | --- | --- | --- |");
-    for account in &report.uncertain_accounts {
-        let _ = writeln!(
-            out,
-            "| {} | {} | {} | {} |",
-            cell(&account.site),
-            link_cell(&account.url),
-            cell(
-                &account
-                    .reason
-                    .as_ref()
-                    .map_or_else(|| "unknown".to_owned(), uncertain_text)
-            ),
-            cell(&confidence_text(&account.confidence))
-        );
-    }
-    let _ = writeln!(out);
-}
-
-fn push_evidence(out: &mut String, report: &InvestigationReport) {
-    let _ = writeln!(out, "## Evidence Table");
-    let _ = writeln!(out);
-    if report.evidence_table.is_empty() {
-        let _ = writeln!(out, "No structured profile evidence.");
-        let _ = writeln!(out);
-        return;
-    }
-    let _ = writeln!(out, "| Site | Kind | Field | Value | Source URL |");
-    let _ = writeln!(out, "| --- | --- | --- | --- | --- |");
-    for evidence in &report.evidence_table {
-        let _ = writeln!(
-            out,
-            "| {} | {} | {} | {} | {} |",
-            cell(&evidence.site),
-            cell(evidence_kind(evidence.kind)),
-            cell(evidence.field.as_deref().unwrap_or("")),
-            cell(&evidence.value),
-            link_cell(&evidence.source.url)
-        );
-    }
-    let _ = writeln!(out);
-}
-
-fn push_timeline(out: &mut String, report: &InvestigationReport) {
-    let _ = writeln!(out, "## Timeline");
-    let _ = writeln!(out);
-    if report.timeline.is_empty() {
-        let _ = writeln!(out, "No timeline events.");
-        let _ = writeln!(out);
-        return;
-    }
-    let _ = writeln!(out, "| At ms | Kind | Site | Scan | Detail |");
-    let _ = writeln!(out, "| --- | --- | --- | --- | --- |");
-    for event in &report.timeline {
-        let _ = writeln!(
-            out,
-            "| {} | {} | {} | {} | {} |",
-            event
-                .observed_at_ms
-                .map_or_else(|| "-".to_owned(), |value| value.to_string()),
-            cell(timeline_kind(event.kind)),
-            cell(event.site.as_deref().unwrap_or("")),
-            cell(event.scan_id.as_deref().unwrap_or("")),
-            cell(event.detail.as_deref().unwrap_or(""))
-        );
-    }
-    let _ = writeln!(out);
-}
-
-fn push_disabled(out: &mut String, report: &InvestigationReport) {
-    let _ = writeln!(out, "## Parked Or Disabled Sites");
-    let _ = writeln!(out);
-    if report.disabled_sites.is_empty() {
-        let _ = writeln!(out, "No matching disabled sites recorded.");
-        let _ = writeln!(out);
-        return;
-    }
-    let _ = writeln!(out, "| Site | URL | Tags | Reason |");
-    let _ = writeln!(out, "| --- | --- | --- | --- |");
-    for site in &report.disabled_sites {
-        let _ = writeln!(
-            out,
-            "| {} | {} | {} | {} |",
-            cell(&site.name),
-            cell(&site.url),
-            cell(&join_or_dash(&site.tags)),
-            cell(&site.disabled_reason)
-        );
-    }
-    let _ = writeln!(out);
-}
-
-fn push_limitations(out: &mut String, report: &InvestigationReport) {
-    let _ = writeln!(out, "## Limitations");
-    let _ = writeln!(out);
-    if report.limitations.is_empty() {
-        let _ = writeln!(out, "No limitations recorded.");
-        return;
-    }
-    for limitation in &report.limitations {
-        let _ = writeln!(out, "- {}", limitation_text(limitation));
-    }
-}
-
-fn confidence_text(confidence: &ConfidenceScore) -> String {
-    let reasons = confidence
-        .reasons
-        .iter()
-        .map(confidence_reason_text)
-        .collect::<Vec<_>>();
-    let base = format!(
-        "{} {}%",
-        confidence_label(confidence.label),
-        confidence.score
-    );
-    if reasons.is_empty() {
-        base
-    } else {
-        format!("{base} ({})", reasons.join("; "))
-    }
-}
-
-fn confidence_label(label: ConfidenceLabel) -> &'static str {
-    match label {
-        ConfidenceLabel::Low => "low",
-        ConfidenceLabel::Medium => "medium",
-        ConfidenceLabel::High => "high",
-        ConfidenceLabel::Verified => "verified",
-    }
-}
-
-fn confidence_reason_text(reason: &ConfidenceReason) -> String {
-    match reason {
-        ConfidenceReason::FoundBySignal => "found by signal".to_owned(),
-        ConfidenceReason::NotFoundBySignal => "not found by signal".to_owned(),
-        ConfidenceReason::ProfileMetadataExtracted { count } => {
-            format!("{count} profile metadata field(s)")
-        }
-        ConfidenceReason::ProfileMetadataRich { count } => {
-            format!("{count} rich profile metadata field(s)")
-        }
-        ConfidenceReason::SignalEvidence { count } => {
-            format!("{count} signal evidence line(s)")
-        }
-        ConfidenceReason::ExactUsernameMatch { count } => {
-            format!("{count} exact username match(es)")
-        }
-        ConfidenceReason::HistoricalConsistency { count } => {
-            format!("{count} stable historical observation(s)")
-        }
-        ConfidenceReason::AuthenticatedAccess => "authenticated access".to_owned(),
-        ConfidenceReason::BrowserTransport => "browser transport".to_owned(),
-        ConfidenceReason::ImpersonateTransport => "impersonate transport".to_owned(),
-        ConfidenceReason::EscalatedTransport => "escalated transport".to_owned(),
-        ConfidenceReason::WeakStatusOnly => "weak status-only signal".to_owned(),
-        ConfidenceReason::UncertainOutcome => "uncertain outcome".to_owned(),
-        ConfidenceReason::SessionRequired => "session required".to_owned(),
-        ConfidenceReason::TransportBlocked => "transport blocked".to_owned(),
-    }
-}
-
-fn cluster_reason_text(reason: &ClusterReason) -> String {
-    match reason {
-        ClusterReason::SharedDisplayName { value } => format!("shared display name: {value}"),
-        ClusterReason::SharedBioPhrase { phrase } => format!("shared bio phrase: {phrase}"),
-        ClusterReason::SharedExternalLink { value } => format!("shared external link: {value}"),
-        ClusterReason::SharedLocation { value } => format!("shared location: {value}"),
-        ClusterReason::SharedAvatarUrl { value } => format!("shared avatar URL: {value}"),
-        ClusterReason::HistoricalCoOccurrence => "historical co-occurrence".to_owned(),
-    }
-}
-
-fn limitation_text(limitation: &ReportLimitation) -> String {
-    let mut text = match limitation.kind {
-        ReportLimitationKind::LowConfidenceFound => "low-confidence found account".to_owned(),
-        ReportLimitationKind::MissingProfileEvidence => "missing profile evidence".to_owned(),
-        ReportLimitationKind::UncertainOutcome => "uncertain outcome".to_owned(),
-        ReportLimitationKind::SessionRequired => "operator session required".to_owned(),
-        ReportLimitationKind::GeoUnavailable => "required geo unavailable".to_owned(),
-        ReportLimitationKind::Captcha => "CAPTCHA blocked probing".to_owned(),
-        ReportLimitationKind::RateLimited => "rate limit blocked probing".to_owned(),
-        ReportLimitationKind::BrowserBudget => "browser budget exhausted".to_owned(),
-        ReportLimitationKind::TransportBlocked => "transport blocked reliable probing".to_owned(),
-        ReportLimitationKind::DisabledSiteOmitted => "disabled/parked site omitted".to_owned(),
-    };
-    if let Some(site) = &limitation.site {
-        let _ = write!(text, " on {site}");
-    }
-    if let Some(detail) = &limitation.detail {
-        let _ = write!(text, ": {detail}");
-    }
-    md_text(&text)
-}
-
-fn uncertain_text(reason: &UncertainReason) -> String {
-    reason.to_string()
-}
-
 fn kind_label(kind: MatchKind) -> &'static str {
     match kind {
         MatchKind::Found => "found",
@@ -512,71 +184,10 @@ fn kind_label(kind: MatchKind) -> &'static str {
     }
 }
 
-fn timeline_kind(kind: ReportTimelineEventKind) -> &'static str {
-    match kind {
-        ReportTimelineEventKind::AddedFound => "added_found",
-        ReportTimelineEventKind::RemovedFound => "removed_found",
-        ReportTimelineEventKind::VerdictChanged => "verdict_changed",
-        ReportTimelineEventKind::EvidenceChanged => "evidence_changed",
-        ReportTimelineEventKind::Reappeared => "reappeared",
-    }
-}
-
-fn evidence_kind(kind: ProfileEvidenceKind) -> &'static str {
-    match kind {
-        ProfileEvidenceKind::Username => "username",
-        ProfileEvidenceKind::DisplayName => "display_name",
-        ProfileEvidenceKind::Bio => "bio",
-        ProfileEvidenceKind::AvatarUrl => "avatar_url",
-        ProfileEvidenceKind::ExternalLink => "external_link",
-        ProfileEvidenceKind::Location => "location",
-        ProfileEvidenceKind::JoinedDate => "joined_date",
-        ProfileEvidenceKind::ProfileTitle => "profile_title",
-        ProfileEvidenceKind::MetaDescription => "meta_description",
-        ProfileEvidenceKind::ExtractedField => "extracted_field",
-    }
-}
-
-fn transport_text(transport: Option<TransportTier>, escalations: u8) -> String {
-    let transport = transport.map_or("unknown", TransportTier::as_str);
-    if escalations == 0 {
-        transport.to_owned()
-    } else {
-        format!("{transport} (+{escalations} escalation)")
-    }
-}
-
-fn join_or_dash(values: &[String]) -> String {
-    if values.is_empty() {
-        "-".to_owned()
-    } else {
-        values.join(", ")
-    }
-}
-
-fn cell(value: &str) -> String {
-    let value = md_text(value.trim());
-    if value.is_empty() {
-        "-".to_owned()
-    } else {
-        value
-    }
-}
-
-fn link_cell(url: &str) -> String {
-    let value = url.trim();
-    if value.is_empty() {
-        "-".to_owned()
-    } else {
-        format!("<{}>", value.replace('>', "%3E"))
-    }
-}
-
-fn md_text(value: &str) -> String {
-    value
-        .replace('\\', "\\\\")
-        .replace('|', "\\|")
-        .replace(['\n', '\r'], " ")
+/// Render a deterministic Markdown report. Public inside the crate for unit
+/// tests; CLI users reach it through `--report-scan`.
+pub(crate) fn render_markdown(report: &InvestigationReport) -> String {
+    render_investigation_report_markdown(report)
 }
 
 #[cfg(test)]
@@ -584,8 +195,8 @@ mod tests {
     use std::collections::BTreeMap;
 
     use adler_core::{
-        CheckOutcome, ConfidenceScore, MatchKind, ProfileEvidence, ReportLimitationKind,
-        build_identity_clusters,
+        CheckOutcome, ConfidenceScore, MatchKind, ProfileEvidence, ReportLimitation,
+        ReportLimitationKind, TransportTier, build_identity_clusters,
     };
     use adler_server::{PersistedScan, ScanId, Summary};
     use tempfile::tempdir;
@@ -647,15 +258,6 @@ mod tests {
         assert!(markdown.contains("identity-0001"));
         assert!(markdown.contains("shared external link"));
         assert!(markdown.contains("## Evidence Table"));
-    }
-
-    #[test]
-    fn markdown_escapes_table_cells() {
-        assert_eq!(cell("a|b\nc"), "a\\|b c");
-        assert_eq!(
-            link_cell("https://example.test/a>b"),
-            "<https://example.test/a%3Eb>"
-        );
     }
 
     #[test]
@@ -833,6 +435,34 @@ No limitations recorded.
         assert_eq!(json["evidence_table"].as_array().unwrap().len(), 2);
         assert_eq!(json["timeline"].as_array().unwrap().len(), 1);
         assert_eq!(json["limitations"].as_array().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn html_report_serializes_case_file_model() {
+        let outcomes = vec![
+            found("GitHub", "https://alice.dev"),
+            found("GitLab", "https://alice.dev"),
+        ];
+        let report = InvestigationReport::from_scan(
+            "alice<script>",
+            &outcomes,
+            build_identity_clusters("alice", &outcomes),
+        );
+
+        let mut out = Vec::new();
+        write_report(&report, ReportFormat::Html, &mut out).unwrap();
+        let html = String::from_utf8(out).unwrap();
+
+        assert!(html.contains("<!doctype html>"));
+        assert!(html.contains("<h2>Summary</h2>"));
+        assert!(html.contains("<h2>High-Confidence Accounts</h2>"));
+        assert!(html.contains("<h2>Identity Clusters</h2>"));
+        assert!(html.contains("<h2>Evidence Table</h2>"));
+        assert!(html.contains("<h2>Timeline</h2>"));
+        assert!(html.contains("<h2>Limitations</h2>"));
+        assert!(html.contains("alice&lt;script&gt;"));
+        assert!(!html.contains("<script>"));
+        assert!(!html.contains("<img"));
     }
 
     #[test]

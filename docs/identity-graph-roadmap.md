@@ -176,7 +176,7 @@ issue links.
   accounts, evidence table, timeline, parked/disabled sites, and known
   limitations.
 - [x] Add JSON report output for downstream tools.
-- [ ] Consider HTML export after the report model stabilizes.
+- [x] Add self-contained HTML export after the report model stabilized.
 - [x] Add snapshot tests for report rendering.
 
 ## Phase 8: Hardening and release readiness
