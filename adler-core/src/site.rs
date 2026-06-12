@@ -426,13 +426,21 @@ impl Site {
     /// `johndoe`, matching the canonical form the site stores
     /// internally.
     pub fn url_for(&self, username: &Username) -> String {
+        self.url.substitute(&self.canonical_username(username))
+    }
+
+    /// Render the username in the canonical form this site expects.
+    ///
+    /// This mirrors [`Site::url_for`] without tying callers to URL
+    /// substitution, so detection signals can compare the response body
+    /// against the same username form that was actually probed.
+    pub(crate) fn canonical_username(&self, username: &Username) -> String {
         let raw = username.as_str();
         match self.strip_bad_char.as_deref() {
             Some(chars) if !chars.is_empty() && raw.chars().any(|c| chars.contains(c)) => {
-                let stripped: String = raw.chars().filter(|c| !chars.contains(*c)).collect();
-                self.url.substitute(&stripped)
+                raw.chars().filter(|c| !chars.contains(*c)).collect()
             }
-            _ => self.url.substitute(raw),
+            _ => raw.to_owned(),
         }
     }
 
@@ -619,6 +627,13 @@ pub enum Signal {
         /// Substring whose appearance votes for existence. Must be non-empty.
         text: String,
     },
+    /// Votes **`Found`** when the response body contains `text` after
+    /// substituting `{username}` with the site's canonical username.
+    BodyUsername {
+        /// Username-confirming body marker. Must be non-empty and must
+        /// contain the literal `{username}` placeholder.
+        text: String,
+    },
     /// Votes **`NotFound`** when the response body contains `text`.
     BodyAbsent {
         /// Substring whose appearance votes for non-existence (e.g.
@@ -646,6 +661,8 @@ pub(crate) struct Probe<'a> {
     pub(crate) final_url: &'a str,
     /// Decoded response body. Empty string when no body-using signal is configured.
     pub(crate) body: &'a str,
+    /// Username in the canonical form used for this site.
+    pub(crate) username: &'a str,
 }
 
 /// What one signal concluded after looking at a probe.
@@ -663,7 +680,10 @@ impl Signal {
     /// True if this signal needs to inspect the response body. Used by the
     /// client to skip body reads when no signal requires them.
     pub(crate) fn needs_body(&self) -> bool {
-        matches!(self, Self::BodyPresent { .. } | Self::BodyAbsent { .. })
+        matches!(
+            self,
+            Self::BodyPresent { .. } | Self::BodyUsername { .. } | Self::BodyAbsent { .. }
+        )
     }
 
     /// Evaluate this signal against a probe and produce a vote.
@@ -685,6 +705,16 @@ impl Signal {
             }
             Self::BodyPresent { text } => {
                 if probe.body.contains(text.as_str()) {
+                    SignalVerdict::Found
+                } else {
+                    SignalVerdict::Ambiguous
+                }
+            }
+            Self::BodyUsername { text } => {
+                if probe
+                    .body
+                    .contains(render_username_marker(text, probe.username).as_str())
+                {
                     SignalVerdict::Found
                 } else {
                     SignalVerdict::Ambiguous
@@ -715,11 +745,21 @@ impl Signal {
             Self::StatusFound { .. } => format!("HTTP {} (status_found)", probe.status),
             Self::StatusNotFound { .. } => format!("HTTP {} (status_not_found)", probe.status),
             Self::BodyPresent { text } => format!("body contains {text:?} (body_present)"),
+            Self::BodyUsername { text } => format!(
+                "body contains {:?} (body_username)",
+                render_username_marker(text, probe.username)
+            ),
             Self::BodyAbsent { text } => format!("body contains {text:?} (body_absent)"),
             Self::RedirectAbsent { fragment } => {
                 format!("final URL contains {fragment:?} (redirect_absent)")
             }
         }
+    }
+
+    /// Whether this signal confirms the concrete username for the current
+    /// probe instead of only reporting a generic positive match.
+    pub(crate) const fn confirms_username(&self) -> bool {
+        matches!(self, Self::BodyUsername { .. })
     }
 
     fn validate(&self) -> std::result::Result<(), String> {
@@ -734,6 +774,16 @@ impl Signal {
                     return Err("body signal text is empty".into());
                 }
             }
+            Self::BodyUsername { text } => {
+                if text.is_empty() {
+                    return Err("body username signal text is empty".into());
+                }
+                if !text.contains(PLACEHOLDER) {
+                    return Err(format!(
+                        "body username signal text missing {PLACEHOLDER} placeholder"
+                    ));
+                }
+            }
             Self::RedirectAbsent { fragment } => {
                 if fragment.is_empty() {
                     return Err("redirect signal fragment is empty".into());
@@ -742,6 +792,10 @@ impl Signal {
         }
         Ok(())
     }
+}
+
+fn render_username_marker(template: &str, username: &str) -> String {
+    template.replace(PLACEHOLDER, username)
 }
 
 /// Aggregate per-signal verdicts into a final [`MatchKind`].
@@ -823,6 +877,14 @@ mod tests {
     }
 
     #[test]
+    fn canonical_username_matches_url_stripping() {
+        let user = Username::new("john.doe").unwrap();
+        let mut site = site_with(vec![Signal::StatusFound { codes: vec![200] }]);
+        site.strip_bad_char = Some(".".into());
+        assert_eq!(site.canonical_username(&user), "johndoe");
+    }
+
+    #[test]
     fn url_template_rejects_missing_placeholder() {
         assert!(UrlTemplate::new("https://example.com/users/").is_err());
     }
@@ -854,6 +916,23 @@ mod tests {
         .validate()
         .unwrap_err();
         assert!(err.to_string().contains("body signal"));
+    }
+
+    #[test]
+    fn validate_rejects_bad_body_username_marker() {
+        let err = site_with(vec![Signal::BodyUsername {
+            text: String::new(),
+        }])
+        .validate()
+        .unwrap_err();
+        assert!(err.to_string().contains("body username signal"));
+
+        let err = site_with(vec![Signal::BodyUsername {
+            text: "username".into(),
+        }])
+        .validate()
+        .unwrap_err();
+        assert!(err.to_string().contains("missing {username} placeholder"));
     }
 
     #[test]
@@ -953,6 +1032,7 @@ mod tests {
             status: 200,
             final_url: "https://example.com/alice",
             body: "",
+            username: "alice",
         };
         assert_eq!(signal.evaluate(&probe), SignalVerdict::Found);
         let probe = Probe {
@@ -969,6 +1049,7 @@ mod tests {
             status: 404,
             final_url: "",
             body: "",
+            username: "alice",
         };
         assert_eq!(signal.evaluate(&probe), SignalVerdict::NotFound);
         let probe = Probe {
@@ -987,6 +1068,7 @@ mod tests {
             status: 200,
             final_url: "",
             body: "<h1>Profile not found</h1>",
+            username: "alice",
         };
         assert_eq!(signal.evaluate(&probe), SignalVerdict::NotFound);
         let probe = Probe {
@@ -994,6 +1076,42 @@ mod tests {
             ..probe
         };
         assert_eq!(signal.evaluate(&probe), SignalVerdict::Ambiguous);
+    }
+
+    #[test]
+    fn signal_body_username_votes_found_only_for_rendered_username() {
+        let signal = Signal::BodyUsername {
+            text: r#""username":"{username}""#.into(),
+        };
+        let probe = Probe {
+            status: 200,
+            final_url: "",
+            body: r#"{"username":"johndoe"}"#,
+            username: "johndoe",
+        };
+        assert_eq!(signal.evaluate(&probe), SignalVerdict::Found);
+
+        let probe = Probe {
+            username: "john.doe",
+            ..probe
+        };
+        assert_eq!(signal.evaluate(&probe), SignalVerdict::Ambiguous);
+    }
+
+    #[test]
+    fn generic_body_present_does_not_confirm_username() {
+        assert!(
+            !Signal::BodyPresent {
+                text: "username".into()
+            }
+            .confirms_username()
+        );
+        assert!(
+            Signal::BodyUsername {
+                text: "{username}".into()
+            }
+            .confirms_username()
+        );
     }
 
     #[test]
@@ -1005,6 +1123,7 @@ mod tests {
             status: 200,
             final_url: "https://example.com/login?next=/alice",
             body: "",
+            username: "alice",
         };
         assert_eq!(signal.evaluate(&probe), SignalVerdict::NotFound);
         let probe = Probe {

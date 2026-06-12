@@ -443,6 +443,9 @@ fn confidence_reason_text(reason: &ConfidenceReason) -> String {
         ConfidenceReason::SignalEvidence { count } => {
             format!("{count} signal evidence line(s)")
         }
+        ConfidenceReason::ExactUsernameMatch { count } => {
+            format!("{count} exact username match(es)")
+        }
         ConfidenceReason::AuthenticatedAccess => "authenticated access".to_owned(),
         ConfidenceReason::BrowserTransport => "browser transport".to_owned(),
         ConfidenceReason::ImpersonateTransport => "impersonate transport".to_owned(),
@@ -511,6 +514,7 @@ fn timeline_kind(kind: ReportTimelineEventKind) -> &'static str {
 
 fn evidence_kind(kind: ProfileEvidenceKind) -> &'static str {
     match kind {
+        ProfileEvidenceKind::Username => "username",
         ProfileEvidenceKind::DisplayName => "display_name",
         ProfileEvidenceKind::Bio => "bio",
         ProfileEvidenceKind::AvatarUrl => "avatar_url",

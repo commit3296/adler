@@ -634,15 +634,16 @@ fn push_uncertain_limitations(outcome: &CheckOutcome, limitations: &mut Vec<Repo
 
 const fn evidence_kind_rank(kind: ProfileEvidenceKind) -> u8 {
     match kind {
-        ProfileEvidenceKind::DisplayName => 0,
-        ProfileEvidenceKind::Bio => 1,
-        ProfileEvidenceKind::AvatarUrl => 2,
-        ProfileEvidenceKind::ExternalLink => 3,
-        ProfileEvidenceKind::Location => 4,
-        ProfileEvidenceKind::JoinedDate => 5,
-        ProfileEvidenceKind::ProfileTitle => 6,
-        ProfileEvidenceKind::MetaDescription => 7,
-        ProfileEvidenceKind::ExtractedField => 8,
+        ProfileEvidenceKind::Username => 0,
+        ProfileEvidenceKind::DisplayName => 1,
+        ProfileEvidenceKind::Bio => 2,
+        ProfileEvidenceKind::AvatarUrl => 3,
+        ProfileEvidenceKind::ExternalLink => 4,
+        ProfileEvidenceKind::Location => 5,
+        ProfileEvidenceKind::JoinedDate => 6,
+        ProfileEvidenceKind::ProfileTitle => 7,
+        ProfileEvidenceKind::MetaDescription => 8,
+        ProfileEvidenceKind::ExtractedField => 9,
     }
 }
 

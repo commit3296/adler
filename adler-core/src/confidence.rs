@@ -58,6 +58,11 @@ pub enum ConfidenceReason {
         /// Number of signal evidence lines.
         count: usize,
     },
+    /// A detection signal confirmed the concrete probed username.
+    ExactUsernameMatch {
+        /// Number of exact username evidence items.
+        count: usize,
+    },
     /// The result was produced with an operator-supplied authenticated
     /// access path.
     AuthenticatedAccess,
@@ -86,6 +91,7 @@ pub(crate) struct ConfidenceSignals {
     pub(crate) reason: Option<UncertainReason>,
     pub(crate) signal_evidence_count: usize,
     pub(crate) profile_evidence_count: usize,
+    pub(crate) username_evidence_count: usize,
     pub(crate) authenticated_access: bool,
     pub(crate) transport: Option<TransportTier>,
     pub(crate) escalations: u8,
@@ -115,6 +121,7 @@ impl ConfidenceScore {
             reason: reason.cloned(),
             signal_evidence_count,
             profile_evidence_count,
+            username_evidence_count: 0,
             authenticated_access: false,
             transport: None,
             escalations: 0,
@@ -155,6 +162,13 @@ impl ConfidenceScore {
             score = score.saturating_add(5);
             reasons.push(ConfidenceReason::ProfileMetadataRich {
                 count: signals.profile_evidence_count,
+            });
+        }
+
+        if signals.kind == MatchKind::Found && signals.username_evidence_count > 0 {
+            score = score.saturating_add(10);
+            reasons.push(ConfidenceReason::ExactUsernameMatch {
+                count: signals.username_evidence_count,
             });
         }
 
@@ -218,6 +232,7 @@ fn is_weak_status_only(signals: &ConfidenceSignals) -> bool {
     matches!(signals.kind, MatchKind::Found | MatchKind::NotFound)
         && signals.signal_evidence_count == 1
         && signals.profile_evidence_count == 0
+        && signals.username_evidence_count == 0
         && !signals.authenticated_access
         && signals.escalations == 0
         && matches!(signals.transport, Some(TransportTier::Http) | None)
@@ -262,6 +277,7 @@ mod tests {
             reason: None,
             signal_evidence_count: 1,
             profile_evidence_count: 0,
+            username_evidence_count: 0,
             authenticated_access: false,
             transport: Some(TransportTier::Http),
             escalations: 0,
@@ -284,6 +300,7 @@ mod tests {
             reason: None,
             signal_evidence_count: 1,
             profile_evidence_count: 1,
+            username_evidence_count: 0,
             authenticated_access: false,
             transport: Some(TransportTier::Http),
             escalations: 0,
@@ -295,6 +312,7 @@ mod tests {
                 reason: None,
                 signal_evidence_count: 1,
                 profile_evidence_count: 1,
+                username_evidence_count: 0,
                 authenticated_access: false,
                 transport: Some(TransportTier::Http),
                 escalations: 0,
@@ -317,6 +335,7 @@ mod tests {
             reason: None,
             signal_evidence_count: 1,
             profile_evidence_count: 0,
+            username_evidence_count: 0,
             authenticated_access: false,
             transport: Some(TransportTier::Browser),
             escalations: 1,
@@ -343,6 +362,7 @@ mod tests {
             reason: Some(UncertainReason::GeoUnavailable),
             signal_evidence_count: 0,
             profile_evidence_count: 0,
+            username_evidence_count: 0,
             authenticated_access: false,
             transport: Some(TransportTier::Http),
             escalations: 0,
@@ -374,5 +394,33 @@ mod tests {
                 .iter()
                 .any(|r| matches!(r, ConfidenceReason::SessionRequired))
         );
+    }
+
+    #[test]
+    fn exact_username_match_boosts_found_without_profile_metadata_reason() {
+        let score = ConfidenceScore::from_signals(&ConfidenceSignals {
+            kind: MatchKind::Found,
+            reason: None,
+            signal_evidence_count: 1,
+            profile_evidence_count: 0,
+            username_evidence_count: 1,
+            authenticated_access: false,
+            transport: Some(TransportTier::Http),
+            escalations: 0,
+        });
+
+        assert_eq!(score.score, 85);
+        assert_eq!(score.label, ConfidenceLabel::High);
+        assert!(
+            score
+                .reasons
+                .iter()
+                .any(|r| matches!(r, ConfidenceReason::ExactUsernameMatch { count: 1 }))
+        );
+        assert!(!score.reasons.iter().any(|r| matches!(
+            r,
+            ConfidenceReason::ProfileMetadataExtracted { .. }
+                | ConfidenceReason::ProfileMetadataRich { .. }
+        )));
     }
 }
