@@ -13,8 +13,9 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
 use adler_core::{
-    CheckOutcome, ClusterReason, ConfidenceReason, ConfidenceScore, IdentityCluster, MatchKind,
-    ObservedProfile, ProfileEvidence, Username, build_identity_clusters,
+    CheckOutcome, ClusterReason, ConfidenceReason, ConfidenceScore, HistoricalScanRef,
+    IdentityCluster, MatchKind, ObservedProfile, ProfileEvidence, Username,
+    build_identity_clusters, historical_consistency_counts,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -349,6 +350,9 @@ impl From<&ConfidenceReason> for ConfidenceReasonRow {
             ConfidenceReason::SignalEvidence { count } => ("signal_evidence", Some(*count)),
             ConfidenceReason::ExactUsernameMatch { count } => {
                 ("exact_username_match", Some(*count))
+            }
+            ConfidenceReason::HistoricalConsistency { count } => {
+                ("historical_consistency", Some(*count))
             }
             ConfidenceReason::AuthenticatedAccess => ("authenticated_access", None),
             ConfidenceReason::BrowserTransport => ("browser_transport", None),
@@ -744,6 +748,10 @@ struct PersistedScanForDiff {
     #[serde(default)]
     id: Option<String>,
     #[serde(default)]
+    username: String,
+    #[serde(default)]
+    created_at_ms: u64,
+    #[serde(default)]
     outcomes: Vec<CheckOutcome>,
 }
 
@@ -845,8 +853,11 @@ pub(super) fn read_scan_diff(
     from_scan_id: &str,
     to_scan_id: &str,
 ) -> Result<ScanDiffOutput, ScanDiffError> {
-    let previous = read_scan_for_diff(scans_dir, from_scan_id)?;
-    let current = read_scan_for_diff(scans_dir, to_scan_id)?;
+    let mut previous = read_scan_for_diff(scans_dir, from_scan_id)?;
+    let mut current = read_scan_for_diff(scans_dir, to_scan_id)?;
+    let related_scans = read_diff_history_scans(scans_dir);
+    apply_diff_historical_overlay(&mut previous, &related_scans);
+    apply_diff_historical_overlay(&mut current, &related_scans);
     Ok(diff_persisted_scans(&previous, &current))
 }
 
@@ -1155,6 +1166,54 @@ fn read_scan_for_diff(
     Ok(scan)
 }
 
+fn read_diff_history_scans(scans_dir: &Path) -> Vec<PersistedScanForDiff> {
+    let Ok(entries) = std::fs::read_dir(scans_dir) else {
+        return Vec::new();
+    };
+    entries
+        .filter_map(std::io::Result::ok)
+        .filter_map(|entry| {
+            let path = entry.path();
+            if path.extension().and_then(|s| s.to_str()) != Some("json") {
+                return None;
+            }
+            let fallback_id = path.file_stem().and_then(|s| s.to_str())?;
+            read_scan_for_diff(scans_dir, fallback_id).ok()
+        })
+        .collect()
+}
+
+fn apply_diff_historical_overlay(
+    current: &mut PersistedScanForDiff,
+    related_scans: &[PersistedScanForDiff],
+) {
+    if current.username.is_empty() {
+        for outcome in &mut current.outcomes {
+            outcome.refresh_confidence();
+        }
+        return;
+    }
+
+    let current_ref = HistoricalScanRef {
+        scan_id: persisted_scan_id_ref(current),
+        username: &current.username,
+        created_at_ms: current.created_at_ms,
+        outcomes: &current.outcomes,
+    };
+    let related_refs = related_scans.iter().map(|scan| HistoricalScanRef {
+        scan_id: persisted_scan_id_ref(scan),
+        username: &scan.username,
+        created_at_ms: scan.created_at_ms,
+        outcomes: &scan.outcomes,
+    });
+    let counts = historical_consistency_counts(current_ref, related_refs);
+
+    for outcome in &mut current.outcomes {
+        let count = counts.get(&outcome.site).copied().unwrap_or(0);
+        outcome.refresh_confidence_with_history(count);
+    }
+}
+
 fn diff_persisted_scans(
     previous: &PersistedScanForDiff,
     current: &PersistedScanForDiff,
@@ -1224,6 +1283,10 @@ fn persisted_scan_id(scan: &PersistedScanForDiff) -> String {
         .or(scan.id.as_ref())
         .cloned()
         .unwrap_or_default()
+}
+
+fn persisted_scan_id_ref(scan: &PersistedScanForDiff) -> &str {
+    scan.scan_id.as_deref().or(scan.id.as_deref()).unwrap_or("")
 }
 
 fn outcomes_by_site(outcomes: &[CheckOutcome]) -> BTreeMap<String, &CheckOutcome> {

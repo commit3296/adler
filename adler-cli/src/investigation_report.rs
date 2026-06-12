@@ -11,7 +11,10 @@ use adler_core::{
     ReportTimelineEvent, ReportTimelineEventKind, TransportTier, UncertainReason,
     build_identity_clusters,
 };
-use adler_server::{PersistedScan, TimelineEvent, TimelineEventKind, build_scan_timeline};
+use adler_server::{
+    PersistedScan, TimelineEvent, TimelineEventKind, apply_historical_confidence_overlay,
+    build_scan_timeline,
+};
 use anyhow::{Context as _, Result, bail};
 use clap::ValueEnum;
 
@@ -57,7 +60,9 @@ fn write_report(
 
 fn report_from_scan(dir: &Path, mut scan: PersistedScan) -> InvestigationReport {
     refresh_scan(&mut scan);
-    let timeline = load_report_timeline(dir, &scan);
+    let related_scans = load_related_scans(dir, &scan.username);
+    apply_historical_confidence_overlay(&mut scan, &related_scans);
+    let timeline = report_timeline_from_scans(related_scans, &scan);
     let disabled_sites = scan
         .request_context
         .as_ref()
@@ -89,8 +94,10 @@ fn load_scan(dir: &Path, scan_id: &str) -> Result<PersistedScan> {
         .with_context(|| format!("parsing persisted scan {}", path.display()))
 }
 
-fn load_report_timeline(dir: &Path, current: &PersistedScan) -> Vec<ReportTimelineEvent> {
-    let mut scans = load_related_scans(dir, &current.username);
+fn report_timeline_from_scans(
+    mut scans: Vec<PersistedScan>,
+    current: &PersistedScan,
+) -> Vec<ReportTimelineEvent> {
     if !scans.iter().any(|scan| scan.scan_id == current.scan_id) {
         scans.push(current.clone());
     }
@@ -446,6 +453,9 @@ fn confidence_reason_text(reason: &ConfidenceReason) -> String {
         ConfidenceReason::ExactUsernameMatch { count } => {
             format!("{count} exact username match(es)")
         }
+        ConfidenceReason::HistoricalConsistency { count } => {
+            format!("{count} stable historical observation(s)")
+        }
         ConfidenceReason::AuthenticatedAccess => "authenticated access".to_owned(),
         ConfidenceReason::BrowserTransport => "browser transport".to_owned(),
         ConfidenceReason::ImpersonateTransport => "impersonate transport".to_owned(),
@@ -739,6 +749,50 @@ No limitations recorded.
         assert!(markdown.contains("GitHub"));
         assert!(markdown.contains("identity-0001"));
         assert!(markdown.contains("## Timeline"));
+    }
+
+    #[test]
+    fn report_scan_applies_historical_confidence_overlay_without_rewriting_json() {
+        let dir = tempdir().unwrap();
+        let mut older = persisted("older", "alice", vec![found("GitHub", "https://alice.dev")]);
+        older.created_at_ms = 1_000;
+        let mut previous = persisted(
+            "previous",
+            "alice",
+            vec![found("GitHub", "https://alice.dev")],
+        );
+        previous.created_at_ms = 2_000;
+        let mut current = persisted(
+            "current",
+            "alice",
+            vec![found("GitHub", "https://alice.dev")],
+        );
+        current.created_at_ms = 3_000;
+
+        for scan in [&older, &previous, &current] {
+            std::fs::write(
+                dir.path().join(format!("{}.json", scan.scan_id)),
+                serde_json::to_vec(scan).unwrap(),
+            )
+            .unwrap();
+        }
+        let current_path = dir.path().join("current.json");
+        let before = std::fs::read(&current_path).unwrap();
+
+        let mut out = Vec::new();
+        run_report_scan(Some(dir.path()), "current", ReportFormat::Json, &mut out).unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&out).unwrap();
+
+        let reasons = json["found_accounts"][0]["confidence"]["reasons"]
+            .as_array()
+            .unwrap();
+        assert!(
+            reasons.iter().any(|reason| {
+                reason["kind"] == "historical_consistency" && reason["count"] == 2
+            })
+        );
+        let after = std::fs::read(current_path).unwrap();
+        assert_eq!(before, after);
     }
 
     #[test]

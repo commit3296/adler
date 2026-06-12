@@ -156,6 +156,15 @@ pub struct CheckOutcome {
 impl CheckOutcome {
     /// Recompute confidence after callers attach signal or profile evidence.
     pub fn refresh_confidence(&mut self) {
+        self.refresh_confidence_with_history(0);
+    }
+
+    /// Recompute confidence with a derived historical-consistency overlay.
+    ///
+    /// Live scan paths should call [`Self::refresh_confidence`] so outcomes
+    /// remain stateless. Persisted/history views can call this method after
+    /// computing a non-persisted history count.
+    pub fn refresh_confidence_with_history(&mut self, historical_consistency_count: usize) {
         let access_paths = self
             .profile_evidence
             .iter()
@@ -178,6 +187,7 @@ impl CheckOutcome {
             signal_evidence_count: self.evidence.len(),
             profile_evidence_count,
             username_evidence_count,
+            historical_consistency_count,
             authenticated_access,
             transport: metadata_transport.or(self.transport),
             escalations: if metadata_escalated && self.escalations == 0 {

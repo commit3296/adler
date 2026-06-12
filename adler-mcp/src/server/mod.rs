@@ -1890,4 +1890,43 @@ top = 25
         assert!(payload.contains("alice"));
         assert!(payload.contains("smoke123"));
     }
+
+    #[test]
+    fn scan_by_id_resource_applies_historical_confidence_overlay_without_rewriting_file() {
+        let tmp = tempfile::tempdir().unwrap();
+        for (scan_id, created_at_ms) in [("older", 1_000), ("previous", 2_000), ("current", 3_000)]
+        {
+            write_contract_scan(
+                tmp.path(),
+                scan_id,
+                "alice",
+                "2026-06-11T10:00:00Z",
+                created_at_ms,
+                &[contract_found_outcome(
+                    "GitHub",
+                    &[("website", "https://alice.dev")],
+                    created_at_ms,
+                )],
+            );
+        }
+        let current_path = tmp.path().join("current.json");
+        let before = std::fs::read(&current_path).unwrap();
+        let registry = Arc::new(Registry::default_embedded().unwrap());
+        let client = Arc::new(default_client().unwrap());
+        let server = AdlerMcp::with_components(registry, client, tmp.path().to_path_buf());
+
+        let payload = server.render_resource("adler://scans/current").unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&payload).unwrap();
+
+        let reasons = parsed["outcomes"][0]["confidence"]["reasons"]
+            .as_array()
+            .unwrap();
+        assert!(
+            reasons.iter().any(|reason| {
+                reason["kind"] == "historical_consistency" && reason["count"] == 2
+            })
+        );
+        let after = std::fs::read(current_path).unwrap();
+        assert_eq!(before, after);
+    }
 }

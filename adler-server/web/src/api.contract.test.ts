@@ -73,6 +73,7 @@ function fullOutcome(): CheckOutcome {
                 { kind: "signal_evidence", count: 1 },
                 { kind: "profile_metadata_extracted", count: 1 },
                 { kind: "exact_username_match", count: 1 },
+                { kind: "historical_consistency", count: 2 },
                 { kind: "browser_transport" },
                 { kind: "escalated_transport" },
             ],

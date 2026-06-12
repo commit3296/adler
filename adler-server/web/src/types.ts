@@ -86,6 +86,7 @@ export interface ConfidenceScore {
         | { kind: "profile_metadata_rich"; count: number }
         | { kind: "signal_evidence"; count: number }
         | { kind: "exact_username_match"; count: number }
+        | { kind: "historical_consistency"; count: number }
         | { kind: "authenticated_access" }
         | { kind: "browser_transport" }
         | { kind: "impersonate_transport" }

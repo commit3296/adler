@@ -75,8 +75,8 @@ pub use api::router;
 pub use error::{Error, Result};
 pub use persist::{
     EvidenceChange, PersistedScan, ScanDiff, ScanTimeline, TimelineEvent, TimelineEventKind,
-    TimelineProfile, VerdictChange, build_scan_timeline, default_dir as default_scans_dir,
-    diff_scans,
+    TimelineProfile, VerdictChange, apply_historical_confidence_overlay, build_scan_timeline,
+    default_dir as default_scans_dir, diff_scans,
 };
 pub use scan::{FinishedScan, ScanHandle, ScanId, Summary};
 pub use state::AppState;

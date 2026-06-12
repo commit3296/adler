@@ -64,7 +64,9 @@ mod tests {
     use super::dto::StartScanRequest;
     use super::filter::filter_catalog;
     use crate::scan::{ScanHandle, ScanId};
-    use adler_core::{CheckOutcome, Client, KnownPresent, MatchKind, Signal, Site, UrlTemplate};
+    use adler_core::{
+        CheckOutcome, Client, KnownPresent, MatchKind, ProfileEvidence, Signal, Site, UrlTemplate,
+    };
     use axum::body::{Body, to_bytes};
     use axum::http::{Request, StatusCode, header};
     use tower::ServiceExt;
@@ -112,6 +114,20 @@ mod tests {
             transport: None,
             escalations: 0,
         }
+    }
+
+    fn found_with_website(site: &str, website: &str) -> CheckOutcome {
+        let mut outcome = outcome(site, MatchKind::Found);
+        outcome
+            .profile_evidence
+            .push(ProfileEvidence::from_enrichment(
+                site,
+                &outcome.url,
+                "website",
+                website,
+            ));
+        outcome.refresh_confidence();
+        outcome
     }
 
     fn persisted_scan(
@@ -1035,6 +1051,66 @@ mod tests {
         assert_eq!(v["added_found"][0]["site"], "Mastodon");
         assert_eq!(v["removed_found"][0]["site"], "Reddit");
         assert_eq!(v["verdict_changes"].as_array().unwrap().len(), 2);
+    }
+
+    #[tokio::test]
+    async fn get_scan_from_persisted_dir_applies_historical_confidence_overlay() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let older = persisted_scan(
+            "older",
+            1_000,
+            vec![found_with_website("GitHub", "https://alice.dev")],
+        );
+        let previous = persisted_scan(
+            "previous",
+            2_000,
+            vec![found_with_website("GitHub", "https://alice.dev")],
+        );
+        let current = persisted_scan(
+            "current",
+            3_000,
+            vec![found_with_website("GitHub", "https://alice.dev")],
+        );
+        crate::persist::save(tmp.path(), &older).await.unwrap();
+        crate::persist::save(tmp.path(), &previous).await.unwrap();
+        crate::persist::save(tmp.path(), &current).await.unwrap();
+
+        let raw_before = tokio::fs::read(tmp.path().join("current.json"))
+            .await
+            .unwrap();
+        let client = Client::builder()
+            .timeout(Duration::from_secs(2))
+            .min_request_interval(Duration::ZERO)
+            .build()
+            .unwrap();
+        let state = AppState::new(Vec::new(), client, 16).with_scans_dir(tmp.path().to_owned());
+        let app = router(state);
+
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .uri("/api/scan/current")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let body = to_bytes(resp.into_body(), 4096).await.unwrap();
+        let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
+
+        let reasons = v["outcomes"][0]["confidence"]["reasons"]
+            .as_array()
+            .unwrap();
+        assert!(
+            reasons.iter().any(|reason| {
+                reason["kind"] == "historical_consistency" && reason["count"] == 2
+            })
+        );
+        let raw_after = tokio::fs::read(tmp.path().join("current.json"))
+            .await
+            .unwrap();
+        assert_eq!(raw_before, raw_after);
     }
 
     #[tokio::test]

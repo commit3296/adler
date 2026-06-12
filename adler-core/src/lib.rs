@@ -142,6 +142,7 @@ mod enrich;
 mod error;
 mod escalation;
 pub mod executor;
+mod history;
 mod identity;
 mod permute;
 mod profile;
@@ -176,6 +177,7 @@ pub use doctor::{DoctorReport, ExtractSuggestion, FixSuggestion};
 pub use error::{Error, Result};
 pub use escalation::{EscalationBudget, TransportTier};
 pub use executor::ExecutorOptions;
+pub use history::{HistoricalScanRef, historical_consistency_counts};
 pub use identity::{ClusterReason, IdentityCluster, ObservedProfile, build_identity_clusters};
 pub use permute::{MAX_VARIANTS, PermuteLevel, permute};
 pub use profile::{

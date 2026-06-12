@@ -103,7 +103,7 @@ issue links.
   geo-unavailable access, CAPTCHA/rate-limit/browser-budget limits.
 - [x] Add exact username-match scoring once that signal is modeled
   explicitly.
-- [ ] Add repeated historical consistency scoring once that signal is
+- [x] Add repeated historical consistency scoring once that signal is
   modeled explicitly.
 - [x] Add tests for representative confidence cases before surfacing the
   score in UI.

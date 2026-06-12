@@ -83,6 +83,10 @@ export const ResultRow: Component<Props> = (props) => {
                     return `${reason.count} exact username match${
                         reason.count === 1 ? "" : "es"
                     }`;
+                case "historical_consistency":
+                    return `${reason.count} stable historical observation${
+                        reason.count === 1 ? "" : "s"
+                    }`;
                 case "authenticated_access":
                     return "authenticated access";
                 case "browser_transport":
