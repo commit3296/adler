@@ -9,6 +9,10 @@ pre-1.0 bump rules.
 
 ## [Unreleased]
 
+### Added
+- *(cli)* support self-contained HTML investigation reports with
+  `--report-scan --report-format html`.
+
 ## [0.13.0](https://github.com/commit3296/adler/compare/adler-mcp-v0.12.3...adler-mcp-v0.13.0) - 2026-06-12
 
 ### Added

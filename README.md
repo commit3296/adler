@@ -83,11 +83,12 @@ reasons, and deterministic identity-cluster candidates when multiple
 found profiles share strong structured evidence.
 
 Use `adler --report-scan <SCAN_ID>` for a Markdown investigation report,
-or `adler --report-scan <SCAN_ID> --report-format json` when another
-tool should consume the report model directly. These reports are derived
-from local scan artifacts; see [Privacy and retention](docs/privacy-retention.md)
-for what gets stored and how to handle scan ids, evidence, clusters, and
-report files.
+`adler --report-scan <SCAN_ID> --report-format json` when another tool
+should consume the report model directly, or
+`adler --report-scan <SCAN_ID> --report-format html > report.html` for a
+self-contained local case file. These reports are derived from local scan
+artifacts; see [Privacy and retention](docs/privacy-retention.md) for what
+gets stored and how to handle scan ids, evidence, clusters, and report files.
 
 ## Detection rate
 
