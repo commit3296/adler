@@ -1,0 +1,576 @@
+---
+source: adler-core/tests/json_contracts.rs
+expression: pretty_json(&report)
+---
+{
+  "schema_version": 1,
+  "username": "alice",
+  "generated_at_ms": 1781192452000,
+  "summary": {
+    "total": 3,
+    "found": 2,
+    "not_found": 0,
+    "uncertain": 1,
+    "high_confidence_found": 2,
+    "found_with_profile_evidence": 2,
+    "profile_evidence_items": 4,
+    "identity_clusters": 1,
+    "uncertain_identity_clusters": 0,
+    "clustered_profiles": 2,
+    "timeline_events": 1,
+    "disabled_sites": 1
+  },
+  "found_accounts": [
+    {
+      "site": "GitHub",
+      "url": "https://github.example/alice",
+      "confidence": {
+        "score": 100,
+        "label": "verified",
+        "reasons": [
+          {
+            "kind": "found_by_signal"
+          },
+          {
+            "kind": "signal_evidence",
+            "count": 1
+          },
+          {
+            "kind": "profile_metadata_extracted",
+            "count": 3
+          },
+          {
+            "kind": "profile_metadata_rich",
+            "count": 3
+          },
+          {
+            "kind": "authenticated_access"
+          },
+          {
+            "kind": "browser_transport"
+          },
+          {
+            "kind": "escalated_transport"
+          }
+        ]
+      },
+      "signal_evidence": [
+        "HTTP 200 (status_found)"
+      ],
+      "profile_evidence": [
+        {
+          "kind": "display_name",
+          "field": "name",
+          "value": "Alice Liddell",
+          "source": {
+            "site": "GitHub",
+            "url": "https://github.example/alice",
+            "origin": "extractor",
+            "observed_at_ms": 1781192451000,
+            "access_path": {
+              "transport": "browser",
+              "escalated": true,
+              "authenticated": true
+            }
+          }
+        },
+        {
+          "kind": "bio",
+          "field": "bio",
+          "value": "Security researcher",
+          "source": {
+            "site": "GitHub",
+            "url": "https://github.example/alice",
+            "origin": "extractor",
+            "observed_at_ms": 1781192451000,
+            "access_path": {
+              "transport": "browser",
+              "escalated": true,
+              "authenticated": true
+            }
+          }
+        },
+        {
+          "kind": "external_link",
+          "field": "website",
+          "value": "https://alice.dev",
+          "source": {
+            "site": "GitHub",
+            "url": "https://github.example/alice",
+            "origin": "extractor",
+            "observed_at_ms": 1781192451000,
+            "access_path": {
+              "transport": "browser",
+              "escalated": true,
+              "authenticated": true
+            }
+          }
+        }
+      ],
+      "cluster_ids": [
+        "identity-0001"
+      ],
+      "transport": "browser",
+      "escalations": 1,
+      "elapsed_ms": 25
+    },
+    {
+      "site": "GitLab",
+      "url": "https://gitlab.example/alice",
+      "confidence": {
+        "score": 85,
+        "label": "high",
+        "reasons": [
+          {
+            "kind": "found_by_signal"
+          },
+          {
+            "kind": "signal_evidence",
+            "count": 1
+          },
+          {
+            "kind": "profile_metadata_extracted",
+            "count": 1
+          }
+        ]
+      },
+      "signal_evidence": [
+        "HTTP 200 (status_found)"
+      ],
+      "profile_evidence": [
+        {
+          "kind": "external_link",
+          "field": "website",
+          "value": "https://alice.dev",
+          "source": {
+            "site": "GitLab",
+            "url": "https://gitlab.example/alice",
+            "origin": "extractor",
+            "observed_at_ms": 1781192451000,
+            "access_path": {
+              "transport": "http"
+            }
+          }
+        }
+      ],
+      "cluster_ids": [
+        "identity-0001"
+      ],
+      "transport": "http",
+      "elapsed_ms": 25
+    }
+  ],
+  "high_confidence_accounts": [
+    {
+      "site": "GitHub",
+      "url": "https://github.example/alice",
+      "confidence": {
+        "score": 100,
+        "label": "verified",
+        "reasons": [
+          {
+            "kind": "found_by_signal"
+          },
+          {
+            "kind": "signal_evidence",
+            "count": 1
+          },
+          {
+            "kind": "profile_metadata_extracted",
+            "count": 3
+          },
+          {
+            "kind": "profile_metadata_rich",
+            "count": 3
+          },
+          {
+            "kind": "authenticated_access"
+          },
+          {
+            "kind": "browser_transport"
+          },
+          {
+            "kind": "escalated_transport"
+          }
+        ]
+      },
+      "signal_evidence": [
+        "HTTP 200 (status_found)"
+      ],
+      "profile_evidence": [
+        {
+          "kind": "display_name",
+          "field": "name",
+          "value": "Alice Liddell",
+          "source": {
+            "site": "GitHub",
+            "url": "https://github.example/alice",
+            "origin": "extractor",
+            "observed_at_ms": 1781192451000,
+            "access_path": {
+              "transport": "browser",
+              "escalated": true,
+              "authenticated": true
+            }
+          }
+        },
+        {
+          "kind": "bio",
+          "field": "bio",
+          "value": "Security researcher",
+          "source": {
+            "site": "GitHub",
+            "url": "https://github.example/alice",
+            "origin": "extractor",
+            "observed_at_ms": 1781192451000,
+            "access_path": {
+              "transport": "browser",
+              "escalated": true,
+              "authenticated": true
+            }
+          }
+        },
+        {
+          "kind": "external_link",
+          "field": "website",
+          "value": "https://alice.dev",
+          "source": {
+            "site": "GitHub",
+            "url": "https://github.example/alice",
+            "origin": "extractor",
+            "observed_at_ms": 1781192451000,
+            "access_path": {
+              "transport": "browser",
+              "escalated": true,
+              "authenticated": true
+            }
+          }
+        }
+      ],
+      "cluster_ids": [
+        "identity-0001"
+      ],
+      "transport": "browser",
+      "escalations": 1,
+      "elapsed_ms": 25
+    },
+    {
+      "site": "GitLab",
+      "url": "https://gitlab.example/alice",
+      "confidence": {
+        "score": 85,
+        "label": "high",
+        "reasons": [
+          {
+            "kind": "found_by_signal"
+          },
+          {
+            "kind": "signal_evidence",
+            "count": 1
+          },
+          {
+            "kind": "profile_metadata_extracted",
+            "count": 1
+          }
+        ]
+      },
+      "signal_evidence": [
+        "HTTP 200 (status_found)"
+      ],
+      "profile_evidence": [
+        {
+          "kind": "external_link",
+          "field": "website",
+          "value": "https://alice.dev",
+          "source": {
+            "site": "GitLab",
+            "url": "https://gitlab.example/alice",
+            "origin": "extractor",
+            "observed_at_ms": 1781192451000,
+            "access_path": {
+              "transport": "http"
+            }
+          }
+        }
+      ],
+      "cluster_ids": [
+        "identity-0001"
+      ],
+      "transport": "http",
+      "elapsed_ms": 25
+    }
+  ],
+  "uncertain_accounts": [
+    {
+      "site": "Forum",
+      "url": "https://forum.example/u/alice",
+      "reason": "captcha",
+      "confidence": {
+        "score": 15,
+        "label": "low",
+        "reasons": [
+          {
+            "kind": "uncertain_outcome"
+          },
+          {
+            "kind": "transport_blocked"
+          }
+        ]
+      },
+      "transport": "http",
+      "elapsed_ms": 40
+    }
+  ],
+  "evidence_table": [
+    {
+      "site": "GitHub",
+      "url": "https://github.example/alice",
+      "kind": "display_name",
+      "field": "name",
+      "value": "Alice Liddell",
+      "source": {
+        "site": "GitHub",
+        "url": "https://github.example/alice",
+        "origin": "extractor",
+        "observed_at_ms": 1781192451000,
+        "access_path": {
+          "transport": "browser",
+          "escalated": true,
+          "authenticated": true
+        }
+      }
+    },
+    {
+      "site": "GitHub",
+      "url": "https://github.example/alice",
+      "kind": "bio",
+      "field": "bio",
+      "value": "Security researcher",
+      "source": {
+        "site": "GitHub",
+        "url": "https://github.example/alice",
+        "origin": "extractor",
+        "observed_at_ms": 1781192451000,
+        "access_path": {
+          "transport": "browser",
+          "escalated": true,
+          "authenticated": true
+        }
+      }
+    },
+    {
+      "site": "GitHub",
+      "url": "https://github.example/alice",
+      "kind": "external_link",
+      "field": "website",
+      "value": "https://alice.dev",
+      "source": {
+        "site": "GitHub",
+        "url": "https://github.example/alice",
+        "origin": "extractor",
+        "observed_at_ms": 1781192451000,
+        "access_path": {
+          "transport": "browser",
+          "escalated": true,
+          "authenticated": true
+        }
+      }
+    },
+    {
+      "site": "GitLab",
+      "url": "https://gitlab.example/alice",
+      "kind": "external_link",
+      "field": "website",
+      "value": "https://alice.dev",
+      "source": {
+        "site": "GitLab",
+        "url": "https://gitlab.example/alice",
+        "origin": "extractor",
+        "observed_at_ms": 1781192451000,
+        "access_path": {
+          "transport": "http"
+        }
+      }
+    }
+  ],
+  "identity_clusters": [
+    {
+      "id": "identity-0001",
+      "members": [
+        {
+          "site": "GitHub",
+          "username": "alice",
+          "url": "https://github.example/alice",
+          "evidence": [
+            {
+              "kind": "display_name",
+              "field": "name",
+              "value": "Alice Liddell",
+              "source": {
+                "site": "GitHub",
+                "url": "https://github.example/alice",
+                "origin": "extractor",
+                "observed_at_ms": 1781192451000,
+                "access_path": {
+                  "transport": "browser",
+                  "escalated": true,
+                  "authenticated": true
+                }
+              }
+            },
+            {
+              "kind": "bio",
+              "field": "bio",
+              "value": "Security researcher",
+              "source": {
+                "site": "GitHub",
+                "url": "https://github.example/alice",
+                "origin": "extractor",
+                "observed_at_ms": 1781192451000,
+                "access_path": {
+                  "transport": "browser",
+                  "escalated": true,
+                  "authenticated": true
+                }
+              }
+            },
+            {
+              "kind": "external_link",
+              "field": "website",
+              "value": "https://alice.dev",
+              "source": {
+                "site": "GitHub",
+                "url": "https://github.example/alice",
+                "origin": "extractor",
+                "observed_at_ms": 1781192451000,
+                "access_path": {
+                  "transport": "browser",
+                  "escalated": true,
+                  "authenticated": true
+                }
+              }
+            }
+          ],
+          "confidence": {
+            "score": 100,
+            "label": "verified",
+            "reasons": [
+              {
+                "kind": "found_by_signal"
+              },
+              {
+                "kind": "signal_evidence",
+                "count": 1
+              },
+              {
+                "kind": "profile_metadata_extracted",
+                "count": 3
+              },
+              {
+                "kind": "profile_metadata_rich",
+                "count": 3
+              },
+              {
+                "kind": "authenticated_access"
+              },
+              {
+                "kind": "browser_transport"
+              },
+              {
+                "kind": "escalated_transport"
+              }
+            ]
+          },
+          "observed_at_ms": 1781192451000
+        },
+        {
+          "site": "GitLab",
+          "username": "alice",
+          "url": "https://gitlab.example/alice",
+          "evidence": [
+            {
+              "kind": "external_link",
+              "field": "website",
+              "value": "https://alice.dev",
+              "source": {
+                "site": "GitLab",
+                "url": "https://gitlab.example/alice",
+                "origin": "extractor",
+                "observed_at_ms": 1781192451000,
+                "access_path": {
+                  "transport": "http"
+                }
+              }
+            }
+          ],
+          "confidence": {
+            "score": 85,
+            "label": "high",
+            "reasons": [
+              {
+                "kind": "found_by_signal"
+              },
+              {
+                "kind": "signal_evidence",
+                "count": 1
+              },
+              {
+                "kind": "profile_metadata_extracted",
+                "count": 1
+              }
+            ]
+          },
+          "observed_at_ms": 1781192451000
+        }
+      ],
+      "confidence": 90,
+      "reasons": [
+        {
+          "kind": "shared_external_link",
+          "value": "https://alice.dev/"
+        }
+      ],
+      "uncertain": false
+    }
+  ],
+  "timeline": [
+    {
+      "kind": "added_found",
+      "site": "GitHub",
+      "scan_id": "scan123",
+      "observed_at_ms": 1781192451000,
+      "detail": "new found"
+    }
+  ],
+  "disabled_sites": [
+    {
+      "name": "Threads",
+      "url": "https://threads.example/@{username}",
+      "tags": [
+        "social",
+        "parked"
+      ],
+      "disabled_reason": "login wall"
+    }
+  ],
+  "limitations": [
+    {
+      "kind": "uncertain_outcome",
+      "site": "Forum"
+    },
+    {
+      "kind": "captcha",
+      "site": "Forum",
+      "detail": "captcha"
+    },
+    {
+      "kind": "transport_blocked",
+      "site": "Forum"
+    },
+    {
+      "kind": "disabled_site_omitted",
+      "site": "Threads",
+      "detail": "login wall"
+    }
+  ]
+}

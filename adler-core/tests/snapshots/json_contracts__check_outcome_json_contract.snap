@@ -1,0 +1,95 @@
+---
+source: adler-core/tests/json_contracts.rs
+expression: pretty_json(&github_found())
+---
+{
+  "site": "GitHub",
+  "url": "https://github.example/alice",
+  "kind": "found",
+  "elapsed_ms": 25,
+  "evidence": [
+    "HTTP 200 (status_found)"
+  ],
+  "profile_evidence": [
+    {
+      "kind": "display_name",
+      "field": "name",
+      "value": "Alice Liddell",
+      "source": {
+        "site": "GitHub",
+        "url": "https://github.example/alice",
+        "origin": "extractor",
+        "observed_at_ms": 1781192451000,
+        "access_path": {
+          "transport": "browser",
+          "escalated": true,
+          "authenticated": true
+        }
+      }
+    },
+    {
+      "kind": "bio",
+      "field": "bio",
+      "value": "Security researcher",
+      "source": {
+        "site": "GitHub",
+        "url": "https://github.example/alice",
+        "origin": "extractor",
+        "observed_at_ms": 1781192451000,
+        "access_path": {
+          "transport": "browser",
+          "escalated": true,
+          "authenticated": true
+        }
+      }
+    },
+    {
+      "kind": "external_link",
+      "field": "website",
+      "value": "https://alice.dev",
+      "source": {
+        "site": "GitHub",
+        "url": "https://github.example/alice",
+        "origin": "extractor",
+        "observed_at_ms": 1781192451000,
+        "access_path": {
+          "transport": "browser",
+          "escalated": true,
+          "authenticated": true
+        }
+      }
+    }
+  ],
+  "confidence": {
+    "score": 100,
+    "label": "verified",
+    "reasons": [
+      {
+        "kind": "found_by_signal"
+      },
+      {
+        "kind": "signal_evidence",
+        "count": 1
+      },
+      {
+        "kind": "profile_metadata_extracted",
+        "count": 3
+      },
+      {
+        "kind": "profile_metadata_rich",
+        "count": 3
+      },
+      {
+        "kind": "authenticated_access"
+      },
+      {
+        "kind": "browser_transport"
+      },
+      {
+        "kind": "escalated_transport"
+      }
+    ]
+  },
+  "transport": "browser",
+  "escalations": 1
+}
