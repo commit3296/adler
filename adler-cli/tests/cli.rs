@@ -200,6 +200,14 @@ fn nothing_found_exits_1_and_emits_valid_json_array() {
     let arr = value.as_array().expect("top-level JSON array");
     assert_eq!(arr.len(), 1);
     assert_eq!(arr[0]["kind"], "uncertain");
+    assert!(
+        value.get("summary").is_none(),
+        "scan JSON must not become an envelope"
+    );
+    assert!(
+        value.get("outcomes").is_none(),
+        "scan JSON must remain a top-level array"
+    );
     // Connection refused → a structured Network reason: {"network": "..."}.
     assert!(arr[0]["reason"]["network"].is_string(), "{}", arr[0]);
 }
@@ -743,6 +751,14 @@ fn report_scan_renders_json_from_persisted_scan() {
     assert_eq!(report["schema_version"], 1);
     assert_eq!(report["username"], "alice");
     assert_eq!(report["summary"]["found"], 2);
+    assert!(
+        report.get("report").is_none(),
+        "report JSON must not be wrapped in an envelope"
+    );
+    assert!(
+        report.get("outcomes").is_none(),
+        "report JSON must be InvestigationReport, not raw persisted scan"
+    );
     assert_eq!(report["found_accounts"].as_array().unwrap().len(), 2);
     assert_eq!(report["identity_clusters"][0]["id"], "identity-0001");
     assert_eq!(
