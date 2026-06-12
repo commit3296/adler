@@ -9,6 +9,13 @@ pre-1.0 bump rules.
 
 ## [Unreleased]
 
+## [0.14.0](https://github.com/commit3296/adler/compare/adler-mcp-v0.13.0...adler-mcp-v0.14.0) - 2026-06-12
+
+### Added
+- *(mcp)* expose investigation reports ([#104](https://github.com/commit3296/adler/pull/104))
+- *(cli)* add html investigation reports ([#102](https://github.com/commit3296/adler/pull/102))
+- add historical confidence overlay ([#101](https://github.com/commit3296/adler/pull/101))
+
 ### Added
 - *(cli)* support self-contained HTML investigation reports with
   `--report-scan --report-format html`.
