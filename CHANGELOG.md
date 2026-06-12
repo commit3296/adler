@@ -9,6 +9,22 @@ pre-1.0 bump rules.
 
 ## [Unreleased]
 
+## [0.13.0](https://github.com/commit3296/adler/compare/adler-mcp-v0.12.3...adler-mcp-v0.13.0) - 2026-06-12
+
+### Added
+- *(core)* add exact username evidence ([#98](https://github.com/commit3296/adler/pull/98))
+- *(mcp)* expose identity clusters and evidence ([#85](https://github.com/commit3296/adler/pull/85))
+- *(mcp)* expose watchlist summary resource ([#74](https://github.com/commit3296/adler/pull/74))
+- *(mcp)* expose scan timelines
+- *(server)* expose scan timelines API
+- *(server)* add scan timeline model
+- *(core)* add watchlist schedule model
+- *(core)* add watchlist config model
+- *(mcp)* expose scan diffs
+- *(server)* version persisted scan artifacts
+- surface confidence across CLI web and MCP
+- *(core)* add profile evidence and confidence models
+
 ### Added
 - *(identity graph)* expose evidence, confidence, identity clusters, timelines,
   and investigation reports across CLI, Web API, Web UI, and MCP surfaces where
