@@ -84,6 +84,7 @@ dependencies = [
  "adler-core",
  "async-stream",
  "axum",
+ "criterion",
  "fastrand",
  "futures",
  "mime_guess",
