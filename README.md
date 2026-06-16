@@ -204,6 +204,20 @@ A successful verification prints `Verified OK`. The identity-regex
 pins the signer to *this* repository's `release.yml` at a SemVer tag —
 a forged archive uploaded under a different workflow won't satisfy it.
 
+## Security posture
+
+Adler keeps the public repository on a PR-only hardening path: CI,
+CodeQL, cargo-audit, OpenSSF Scorecard, Dependabot security updates,
+secret scanning with push protection, and cargo-fuzz seed targets all
+run from GitHub. The release workflow signs artifacts with Sigstore
+OIDC, and security-sensitive automation is owned through
+`.github/CODEOWNERS`.
+
+Workflow actions and Docker base images are pinned to commit/digest
+inputs. Update those pins through dependency PRs or by following
+[Security operations](docs/security-operations.md); do not switch them
+back to floating tags in drive-by maintenance.
+
 ## Build & run
 
 ```bash

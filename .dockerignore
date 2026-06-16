@@ -1,4 +1,9 @@
 /target
+/fuzz/target
+/fuzz/artifacts
+/fuzz/corpus
+/node_modules
+/adler-server/web/node_modules
 /.git
 /.github
 *.md

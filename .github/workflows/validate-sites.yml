@@ -40,25 +40,21 @@ jobs:
         with:
           fetch-depth: 0 # need the base commit to diff the registry
 
+      - name: Setup Node.js for repository tooling
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install repository tooling
+        run: npm ci
+
       - name: Validate against JSON Schema (hard)
-        run: |
-          python3 -m pip install --quiet jsonschema
-          python3 - <<'PY'
-          import json, sys, jsonschema
-          schema = json.load(open("docs/sites.schema.json"))
-          data = json.load(open("adler-core/data/sites.json"))
-          errs = sorted(jsonschema.Draft202012Validator(schema).iter_errors(data),
-                        key=lambda e: list(e.path))
-          if errs:
-              for e in errs[:25]:
-                  loc = "/".join(str(p) for p in e.path) or "(root)"
-                  print(f"::error::sites.json {loc}: {e.message}")
-              sys.exit(1)
-          print(f"schema OK: {len(data['sites'])} sites")
-          PY
+        run: npm run validate:sites-schema
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable # rolling tag — intentionally tracks latest stable Rust
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable snapshot; update via dependency PR
 
       - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
 

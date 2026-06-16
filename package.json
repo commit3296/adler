@@ -1,0 +1,13 @@
+{
+  "name": "adler-tooling",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Repository-local CI tooling for Adler.",
+  "scripts": {
+    "validate:sites-schema": "node scripts/validate_sites_schema.mjs"
+  },
+  "devDependencies": {
+    "ajv": "8.20.0"
+  }
+}

@@ -12,6 +12,12 @@ pre-1.0 bump rules.
 ### Added
 - *(core/server/mcp)* add historical co-occurrence as a read-time
   identity-cluster support signal.
+- *(security)* add cargo-fuzz seed targets and repository security
+  operations documentation.
+
+### Changed
+- *(security)* pin CI and Docker supply-chain inputs, remove unpinned
+  workflow pip installs, and expand Dependabot coverage.
 
 ## [0.14.0](https://github.com/commit3296/adler/compare/adler-mcp-v0.13.0...adler-mcp-v0.14.0) - 2026-06-12
 
