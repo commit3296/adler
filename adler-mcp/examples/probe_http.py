@@ -26,9 +26,7 @@ notifications (`method=notifications/progress`) interleave with
 the final response. See `parse_sse_response(..., want_id=N)` for the
 canonical pattern.
 
-Dependencies:
-
-    pip install requests
+Dependencies: Python standard library only.
 """
 from __future__ import annotations
 
@@ -37,8 +35,10 @@ import os
 import subprocess
 import sys
 import time
-
-import requests
+import urllib.error
+import urllib.request
+from collections.abc import Iterator
+from http.client import HTTPMessage
 
 BIN = os.environ.get("ADLER_BIN", "./target/release/adler")
 PORT = int(os.environ.get("ADLER_MCP_PORT", "8766"))
@@ -48,13 +48,53 @@ SKIP_LIVE = os.environ.get("ADLER_MCP_SKIP_LIVE", "").lower() in ("1", "true", "
 _results: list[tuple[bool, str]] = []
 
 
+class HttpResponse:
+    """Small response facade matching the subset this probe needs."""
+
+    def __init__(self, raw):
+        self._raw = raw
+        self.status_code = raw.status
+        self.headers: HTTPMessage = raw.headers
+        self.req_id: int | None = None
+
+    def json(self):
+        return json.loads(self._raw.read().decode("utf-8"))
+
+    def iter_lines(self, *, decode_unicode: bool = False) -> Iterator[str | bytes]:
+        for raw_line in self._raw:
+            line = raw_line.rstrip(b"\r\n")
+            yield line.decode("utf-8", errors="replace") if decode_unicode else line
+
+    def close(self) -> None:
+        self._raw.close()
+
+
+def post_json(
+    payload: dict | None,
+    *,
+    headers: dict[str, str] | None = None,
+    timeout: float = 20.0,
+) -> HttpResponse:
+    body = None if payload is None else json.dumps(payload).encode("utf-8")
+    req = urllib.request.Request(
+        URL,
+        data=body,
+        headers=headers or {},
+        method="POST",
+    )
+    try:
+        return HttpResponse(urllib.request.urlopen(req, timeout=timeout))
+    except urllib.error.HTTPError as err:
+        return HttpResponse(err)
+
+
 def ok(label: str, passed: bool = True, extra: str = "") -> None:
     _results.append((passed, label))
     mark = "PASS" if passed else "FAIL"
     print(f"  [{mark}] {label}" + (f"  {extra}" if extra else ""))
 
 
-def parse_sse_response(resp: requests.Response, *, want_id: int | None = None):
+def parse_sse_response(resp: HttpResponse, *, want_id: int | None = None):
     """Read the SSE stream until we see the response payload matching
     `want_id`. Progress notifications (no `id`,
     `method=notifications/progress`) and the initial priming event
@@ -114,9 +154,9 @@ def wait_for_listener(timeout: float = 6.0) -> None:
     deadline = time.time() + timeout
     while time.time() < deadline:
         try:
-            requests.post(URL, timeout=0.5)
+            post_json(None, timeout=0.5).close()
             return
-        except requests.RequestException:
+        except OSError:
             time.sleep(0.2)
 
 
@@ -147,8 +187,8 @@ def main() -> int:
         }
         if session_id is not None:
             headers["mcp-session-id"] = session_id
-        resp = requests.post(URL, json=msg, headers=headers, stream=True, timeout=20)
-        resp.req_id = msg_id  # type: ignore[attr-defined]
+        resp = post_json(msg, headers=headers, timeout=20)
+        resp.req_id = msg_id
         return resp
 
     try:
@@ -407,9 +447,8 @@ def main() -> int:
             "content-type": "application/json",
             "mcp-session-id": "stale-session-deadbeef",
         }
-        resp = requests.post(
-            URL,
-            json={"jsonrpc": "2.0", "method": "tools/list", "id": 9999},
+        resp = post_json(
+            {"jsonrpc": "2.0", "method": "tools/list", "id": 9999},
             headers=headers,
             timeout=5,
         )

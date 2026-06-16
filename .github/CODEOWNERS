@@ -1,0 +1,11 @@
+# Default owner for Adler changes.
+* @commit3296
+
+# Security-sensitive automation and release surfaces.
+/.github/ @commit3296
+/Dockerfile @commit3296
+/Cargo.toml @commit3296
+/Cargo.lock @commit3296
+/package.json @commit3296
+/package-lock.json @commit3296
+/fuzz/ @commit3296
