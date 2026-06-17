@@ -9,6 +9,11 @@ pre-1.0 bump rules.
 
 ## [Unreleased]
 
+## [0.14.1](https://github.com/commit3296/adler/compare/adler-mcp-v0.14.0...adler-mcp-v0.14.1) - 2026-06-17
+
+### Added
+- add historical cluster co-occurrence
+
 ### Added
 - *(core/server/mcp)* add historical co-occurrence as a read-time
   identity-cluster support signal.
