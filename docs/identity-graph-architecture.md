@@ -27,18 +27,18 @@ durable per-site result: verdict, URL, human-readable signal evidence,
 normalized profile evidence, confidence, transport/access telemetry, and
 timing.
 
-`ProfileEvidence` is the normalized product layer above extractor output.
-It should describe facts observed on a profile or profile-like endpoint:
-display names, bios, avatars, external links, locations, joined dates,
-profile titles, meta descriptions, and future username-confirmation
-facts. Evidence is shared by every surface and should not contain
-presentation text.
+`ProfileEvidence` is the normalized product layer above extractor output
+and registry-authored signals. It describes facts observed on a profile
+or profile-like endpoint: display names, bios, avatars, external links,
+locations, joined dates, profile titles, meta descriptions, and explicit
+username-confirmation facts. Evidence is shared by every surface and
+should not contain presentation text.
 
-`ObservedProfile` is the future normalized aggregate for one found
-profile in a scan artifact. It should collect the site, URL, username,
-verdict context, profile evidence, confidence, and access metadata that
-identity clustering and reports need without forcing those layers to
-parse presentation-oriented outcome rows.
+`ObservedProfile` is the normalized aggregate for one found profile in a
+scan artifact. It collects the site, URL, username, profile evidence,
+confidence, and observation timestamp that identity clustering and
+reports need without forcing those layers to parse presentation-oriented
+outcome rows.
 
 `ConfidenceScore` is a conservative per-result assessment. It explains
 how trustworthy Adler's site-level verdict is; it is not identity proof.
@@ -46,12 +46,12 @@ The score may use detection strength, normalized evidence, access path,
 historical consistency, and weakening signals such as catch-all pages or
 blocked transports.
 
-`IdentityCluster` is the future stable account-grouping model. It should
-consume found outcomes and evidence, emit explicit reasons, and keep
-cluster confidence separate from per-result confidence. The existing
-`CorrelationReport` and `Cluster` types are useful CLI-era triage output;
-new Web, MCP, and report work should converge on `IdentityCluster`
-instead of treating those older names as the long-term public API.
+`IdentityCluster` is the stable account-grouping model. It consumes found
+outcomes and evidence, emits explicit reasons, and keeps cluster
+confidence separate from per-result confidence. The existing
+`CorrelationReport` and `Cluster` types remain useful CLI-era triage
+output; new Web, MCP, and report work uses `IdentityCluster` as the
+long-term public API.
 
 Timelines and reports are case-level views over persisted scan artifacts.
 Timelines describe how profiles change over time. Investigation reports
@@ -96,18 +96,15 @@ Web API, persisted scan history, or MCP:
   where possible;
 - persisted scan readers should keep accepting older artifacts.
 
-Experimental fields may change before the next semver-relevant release.
-They should be documented as experimental when introduced, should avoid
-being required by older readers, and should graduate only after CLI, Web,
-MCP, and persisted-artifact compatibility tests cover them.
+Experimental behavior may change before the next semver-relevant
+release. It should be documented when introduced, should avoid becoming a
+required input for older readers, and should graduate only after CLI,
+Web, MCP, and persisted-artifact compatibility tests cover it.
 
 Current experimental areas:
 
-- evidence source transport/access-path metadata;
-- explicit username-match evidence;
-- detailed confidence signal weights;
-- identity-cluster reasons and cluster confidence;
-- investigation report JSON schema;
+- detailed confidence signal weights and cluster scoring thresholds;
+- avatar perceptual hashing, including image fetch/cache/privacy policy;
 - performance limits for very large scan histories.
 
 ## Follow-up issues
