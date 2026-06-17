@@ -10,18 +10,18 @@ that already exists.
 
 ## Product target
 
-- [ ] Adler records not only whether a profile was found, but why that
+- [x] Adler records not only whether a profile was found, but why that
   result is trustworthy.
-- [ ] Every positive result can expose normalized evidence collected from
+- [x] Every positive result can expose normalized evidence collected from
   the profile page, API endpoint, registry rule, or authenticated access
   path.
-- [ ] Every result can carry a confidence score and human-readable
+- [x] Every result can carry a confidence score and human-readable
   reasons.
-- [ ] Multiple profile results can be grouped into probable identities
+- [x] Multiple profile results can be grouped into probable identities
   when they share strong evidence.
-- [ ] Historical scans can become timelines, watchlists, and
+- [x] Historical scans can become timelines, watchlists, and
   investigation reports.
-- [ ] CLI, Web, and MCP surfaces can expose the same underlying evidence
+- [x] CLI, Web, and MCP surfaces can expose the same underlying evidence
   without inventing separate product logic.
 
 ## Already shipped foundation
@@ -192,6 +192,20 @@ issue links.
 - [x] Document privacy, retention, and responsible-use considerations.
 - [x] Update `README.md` once the first user-visible slice ships.
 - [x] Update `CHANGELOG.md` only when implementation lands in a release.
+
+## Phase 9/10: Avatar hashing
+
+- [ ] Design privacy-safe avatar hashing before implementation:
+  external image fetching must be opt-in, raw image bytes must never be
+  persisted, and hashes must not include operator-specific access data.
+- [ ] Add a bounded avatar fetch/hash helper with response size,
+  content-type, timeout, and redirect limits.
+- [ ] Add avatar perceptual hash as a supporting identity-cluster signal
+  without replacing `SharedAvatarUrl`.
+- [ ] Keep avatar-hash-only matches uncertain and prevent username-only
+  or avatar-only hard merges.
+- [ ] Surface the new signal through CLI, Web, MCP, and reports only
+  after the core model and contract tests are stable.
 
 ## Suggested first implementation slice
 
