@@ -101,6 +101,9 @@ Research order after TikTok:
 
 ## Track 4: Access Policy Cleanup
 
+- [x] Classify parked login-wall social entries with explicit
+  `protection: ["user-auth"]` while keeping them disabled and excluded
+  from scans.
 - [ ] Audit high-volume `Uncertain` sites for missing `access` metadata:
   geo, IP type, browser requirement, TLS impersonation, or session need.
 - [ ] Convert repeated datacenter-only failures into explicit access
