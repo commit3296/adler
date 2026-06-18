@@ -14,6 +14,11 @@ pre-1.0 bump rules.
   bounded image fetches, derived `avatar_hash` evidence, and weak
   identity-cluster support.
 
+### Changed
+- *(identity graph)* switch new avatar perceptual hashes to `dhash64_v1`,
+  run CLI avatar hashing with bounded concurrency, and add contract
+  coverage for avatar hash evidence and cluster reasons.
+
 ## [0.14.1](https://github.com/commit3296/adler/compare/adler-mcp-v0.14.0...adler-mcp-v0.14.1) - 2026-06-17
 
 ### Added

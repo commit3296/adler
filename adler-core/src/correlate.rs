@@ -6,9 +6,10 @@
 //! to plausibly be the same identity, so an analyst can tell
 //! "all these are clearly one person" from "this handle is just popular".
 //!
-//! Signals are text-only by design: avatar perceptual hashing needs image
-//! decoding (heavy deps) and is deferred. Each pair of accounts that both
-//! carry profile data is scored 0..1:
+//! Signals are text-only by design in this legacy CLI correlation report.
+//! The newer `IdentityCluster` model handles typed evidence such as avatar
+//! URL equality and opt-in avatar perceptual hashes. Each pair of accounts
+//! that both carry profile data is scored 0..1:
 //!
 //! - **name**: 1.0 if normalised-equal, else token Jaccard.
 //! - **bio**: token Jaccard.

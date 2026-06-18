@@ -284,7 +284,7 @@ mod tests {
         let ev = ProfileEvidence::from_avatar_hash(
             "Example",
             "https://example.com/alice",
-            "ahash64_v1:0123456789abcdef",
+            "dhash64_v1:0123456789abcdef",
             Some(456),
             Some(EvidenceAccessPath::new(TransportTier::Http, 0, false)),
         );
@@ -292,7 +292,7 @@ mod tests {
         let json = serde_json::to_value(&ev).unwrap();
         assert_eq!(json["kind"], "avatar_hash");
         assert_eq!(json["field"], "avatar_hash");
-        assert_eq!(json["value"], "ahash64_v1:0123456789abcdef");
+        assert_eq!(json["value"], "dhash64_v1:0123456789abcdef");
         assert_eq!(json["source"]["origin"], "derived");
         assert!(!json.to_string().contains("PNG"));
     }

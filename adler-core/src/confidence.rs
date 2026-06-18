@@ -139,107 +139,182 @@ impl ConfidenceScore {
     /// Score an outcome from normalized confidence signals.
     #[must_use]
     pub(crate) fn from_signals(signals: &ConfidenceSignals) -> Self {
-        let mut score: u8 = match signals.kind {
-            MatchKind::Found => 65,
-            MatchKind::NotFound => 60,
-            MatchKind::Uncertain => 15,
-        };
-        let mut reasons = Vec::new();
+        let mut score = ConfidenceAccumulator::new(base_score(signals.kind));
+        score.add_reason(base_reason(signals.kind));
 
-        match signals.kind {
-            MatchKind::Found => reasons.push(ConfidenceReason::FoundBySignal),
-            MatchKind::NotFound => reasons.push(ConfidenceReason::NotFoundBySignal),
-            MatchKind::Uncertain => reasons.push(ConfidenceReason::UncertainOutcome),
-        }
+        apply_evidence_rules(signals, &mut score);
+        apply_profile_rules(signals, &mut score);
+        apply_verification_rules(signals, &mut score);
+        apply_access_rules(signals, &mut score);
+        apply_cap_rules(signals, &mut score);
+        apply_uncertain_reason_rules(signals, &mut score);
 
-        if signals.signal_evidence_count > 0 {
-            score = score.saturating_add(10);
-            reasons.push(ConfidenceReason::SignalEvidence {
-                count: signals.signal_evidence_count,
-            });
-        }
+        score.finish()
+    }
+}
 
-        if signals.profile_evidence_count > 0 {
-            score = score.saturating_add(10);
-            reasons.push(ConfidenceReason::ProfileMetadataExtracted {
-                count: signals.profile_evidence_count,
-            });
-        }
+struct ConfidenceAccumulator {
+    score: u8,
+    reasons: Vec<ConfidenceReason>,
+}
 
-        if signals.profile_evidence_count >= 3 {
-            score = score.saturating_add(5);
-            reasons.push(ConfidenceReason::ProfileMetadataRich {
-                count: signals.profile_evidence_count,
-            });
-        }
-
-        if signals.kind == MatchKind::Found && signals.username_evidence_count > 0 {
-            score = score.saturating_add(10);
-            reasons.push(ConfidenceReason::ExactUsernameMatch {
-                count: signals.username_evidence_count,
-            });
-        }
-
-        if signals.kind == MatchKind::Found && signals.historical_consistency_count >= 2 {
-            score = score.saturating_add(4);
-            reasons.push(ConfidenceReason::HistoricalConsistency {
-                count: signals.historical_consistency_count,
-            });
-        }
-
-        if signals.authenticated_access && signals.kind != MatchKind::Uncertain {
-            score = score.saturating_add(10);
-            reasons.push(ConfidenceReason::AuthenticatedAccess);
-        }
-
-        if signals.kind != MatchKind::Uncertain {
-            match signals.transport {
-                Some(TransportTier::Browser) => {
-                    score = score.saturating_add(5);
-                    reasons.push(ConfidenceReason::BrowserTransport);
-                }
-                Some(TransportTier::Impersonate) => {
-                    score = score.saturating_add(5);
-                    reasons.push(ConfidenceReason::ImpersonateTransport);
-                }
-                Some(TransportTier::Http) | None => {}
-            }
-            if signals.escalations > 0 {
-                score = score.saturating_add(10);
-                reasons.push(ConfidenceReason::EscalatedTransport);
-            }
-        }
-
-        if is_weak_status_only(signals) {
-            score = score.min(70);
-            reasons.push(ConfidenceReason::WeakStatusOnly);
-        }
-
-        if let Some(reason) = &signals.reason {
-            match reason {
-                UncertainReason::SessionRequired => {
-                    score = 0;
-                    reasons.push(ConfidenceReason::SessionRequired);
-                }
-                UncertainReason::CloudflareChallenge
-                | UncertainReason::Captcha
-                | UncertainReason::RateLimited
-                | UncertainReason::BrowserBudget
-                | UncertainReason::BrowserFailed(_)
-                | UncertainReason::GeoUnavailable => {
-                    score = score.min(20);
-                    reasons.push(ConfidenceReason::TransportBlocked);
-                }
-                _ => {}
-            }
-        }
-
-        score = score.min(100);
+impl ConfidenceAccumulator {
+    const fn new(score: u8) -> Self {
         Self {
             score,
-            label: ConfidenceLabel::from_score(score),
-            reasons,
+            reasons: Vec::new(),
         }
+    }
+
+    fn add_score(&mut self, value: u8) {
+        self.score = self.score.saturating_add(value);
+    }
+
+    fn add_reason(&mut self, reason: ConfidenceReason) {
+        self.reasons.push(reason);
+    }
+
+    fn add_score_and_reason(&mut self, value: u8, reason: ConfidenceReason) {
+        self.add_score(value);
+        self.add_reason(reason);
+    }
+
+    fn cap_score(&mut self, cap: u8) {
+        self.score = self.score.min(cap);
+    }
+
+    fn force_score(&mut self, value: u8) {
+        self.score = value;
+    }
+
+    fn finish(mut self) -> ConfidenceScore {
+        self.cap_score(100);
+        ConfidenceScore {
+            score: self.score,
+            label: ConfidenceLabel::from_score(self.score),
+            reasons: self.reasons,
+        }
+    }
+}
+
+const fn base_score(kind: MatchKind) -> u8 {
+    match kind {
+        MatchKind::Found => 65,
+        MatchKind::NotFound => 60,
+        MatchKind::Uncertain => 15,
+    }
+}
+
+const fn base_reason(kind: MatchKind) -> ConfidenceReason {
+    match kind {
+        MatchKind::Found => ConfidenceReason::FoundBySignal,
+        MatchKind::NotFound => ConfidenceReason::NotFoundBySignal,
+        MatchKind::Uncertain => ConfidenceReason::UncertainOutcome,
+    }
+}
+
+fn apply_evidence_rules(signals: &ConfidenceSignals, score: &mut ConfidenceAccumulator) {
+    if signals.signal_evidence_count > 0 {
+        score.add_score_and_reason(
+            10,
+            ConfidenceReason::SignalEvidence {
+                count: signals.signal_evidence_count,
+            },
+        );
+    }
+}
+
+fn apply_profile_rules(signals: &ConfidenceSignals, score: &mut ConfidenceAccumulator) {
+    if signals.profile_evidence_count > 0 {
+        score.add_score_and_reason(
+            10,
+            ConfidenceReason::ProfileMetadataExtracted {
+                count: signals.profile_evidence_count,
+            },
+        );
+    }
+
+    if signals.profile_evidence_count >= 3 {
+        score.add_score_and_reason(
+            5,
+            ConfidenceReason::ProfileMetadataRich {
+                count: signals.profile_evidence_count,
+            },
+        );
+    }
+}
+
+fn apply_verification_rules(signals: &ConfidenceSignals, score: &mut ConfidenceAccumulator) {
+    if signals.kind == MatchKind::Found && signals.username_evidence_count > 0 {
+        score.add_score_and_reason(
+            10,
+            ConfidenceReason::ExactUsernameMatch {
+                count: signals.username_evidence_count,
+            },
+        );
+    }
+
+    if signals.kind == MatchKind::Found && signals.historical_consistency_count >= 2 {
+        score.add_score_and_reason(
+            4,
+            ConfidenceReason::HistoricalConsistency {
+                count: signals.historical_consistency_count,
+            },
+        );
+    }
+}
+
+fn apply_access_rules(signals: &ConfidenceSignals, score: &mut ConfidenceAccumulator) {
+    if signals.authenticated_access && signals.kind != MatchKind::Uncertain {
+        score.add_score_and_reason(10, ConfidenceReason::AuthenticatedAccess);
+    }
+
+    if signals.kind == MatchKind::Uncertain {
+        return;
+    }
+
+    match signals.transport {
+        Some(TransportTier::Browser) => {
+            score.add_score_and_reason(5, ConfidenceReason::BrowserTransport);
+        }
+        Some(TransportTier::Impersonate) => {
+            score.add_score_and_reason(5, ConfidenceReason::ImpersonateTransport);
+        }
+        Some(TransportTier::Http) | None => {}
+    }
+
+    if signals.escalations > 0 {
+        score.add_score_and_reason(10, ConfidenceReason::EscalatedTransport);
+    }
+}
+
+fn apply_cap_rules(signals: &ConfidenceSignals, score: &mut ConfidenceAccumulator) {
+    if is_weak_status_only(signals) {
+        score.cap_score(70);
+        score.add_reason(ConfidenceReason::WeakStatusOnly);
+    }
+}
+
+fn apply_uncertain_reason_rules(signals: &ConfidenceSignals, score: &mut ConfidenceAccumulator) {
+    let Some(reason) = &signals.reason else {
+        return;
+    };
+
+    match reason {
+        UncertainReason::SessionRequired => {
+            score.force_score(0);
+            score.add_reason(ConfidenceReason::SessionRequired);
+        }
+        UncertainReason::CloudflareChallenge
+        | UncertainReason::Captcha
+        | UncertainReason::RateLimited
+        | UncertainReason::BrowserBudget
+        | UncertainReason::BrowserFailed(_)
+        | UncertainReason::GeoUnavailable => {
+            score.cap_score(20);
+            score.add_reason(ConfidenceReason::TransportBlocked);
+        }
+        _ => {}
     }
 }
 

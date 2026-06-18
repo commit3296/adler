@@ -36,7 +36,7 @@ Avatar perceptual hashing is opt-in for CLI scans via `--avatar-hash`.
 When enabled, Adler fetches avatar URLs already found by enrichment,
 applies response size, content-type, timeout, and redirect limits, and
 uses the scan's global `--proxy` or `--tor` setting for those image
-requests. It stores only a normalized hash such as `ahash64_v1:...`.
+requests. It stores only a normalized hash such as `dhash64_v1:...`.
 Raw image bytes are not persisted in scan JSON, reports, MCP output, or
 Web output. Avatar hashes are weak/supporting identity evidence: an
 avatar-hash-only match is not treated as a confident hard merge.

@@ -846,7 +846,7 @@ mod tests {
         github.profile_evidence = vec![ProfileEvidence::from_avatar_hash(
             "GitHub",
             &github.url,
-            "ahash64_v1:0123456789abcdef",
+            "dhash64_v1:0123456789abcdef",
             Some(100),
             None,
         )];
@@ -856,7 +856,7 @@ mod tests {
         gitlab.profile_evidence = vec![ProfileEvidence::from_avatar_hash(
             "GitLab",
             &gitlab.url,
-            "AHASH64_V1:0123456789ABCDEF",
+            "DHASH64_V1:0123456789ABCDEF",
             Some(100),
             None,
         )];
@@ -875,7 +875,7 @@ mod tests {
             .push(ProfileEvidence::from_avatar_hash(
                 "GitHub",
                 &github.url,
-                "ahash64_v1:0123456789abcdef",
+                "dhash64_v1:0123456789abcdef",
                 Some(100),
                 None,
             ));
@@ -887,7 +887,7 @@ mod tests {
             .push(ProfileEvidence::from_avatar_hash(
                 "GitLab",
                 &gitlab.url,
-                "AHASH64_V1:0123456789ABCDEF",
+                "DHASH64_V1:0123456789ABCDEF",
                 Some(100),
                 None,
             ));
@@ -902,7 +902,7 @@ mod tests {
             clusters[0]
                 .reasons
                 .contains(&ClusterReason::SharedAvatarHash {
-                    value: "ahash64_v1:0123456789abcdef".to_owned(),
+                    value: "dhash64_v1:0123456789abcdef".to_owned(),
                 })
         );
         assert!(

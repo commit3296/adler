@@ -1,0 +1,454 @@
+---
+source: adler-core/tests/json_contracts.rs
+expression: pretty_json(&report)
+---
+{
+  "schema_version": 3,
+  "username": "alice",
+  "generated_at_ms": 1781192452000,
+  "summary": {
+    "total": 2,
+    "found": 2,
+    "not_found": 0,
+    "uncertain": 0,
+    "high_confidence_found": 2,
+    "found_with_profile_evidence": 2,
+    "profile_evidence_items": 4,
+    "identity_clusters": 1,
+    "uncertain_identity_clusters": 1,
+    "clustered_profiles": 2,
+    "timeline_events": 0,
+    "disabled_sites": 0
+  },
+  "found_accounts": [
+    {
+      "site": "Mastodon",
+      "url": "https://mastodon.example/@alice",
+      "confidence": {
+        "score": 85,
+        "label": "high",
+        "reasons": [
+          {
+            "kind": "found_by_signal"
+          },
+          {
+            "kind": "signal_evidence",
+            "count": 1
+          },
+          {
+            "kind": "profile_metadata_extracted",
+            "count": 1
+          }
+        ]
+      },
+      "signal_evidence": [
+        "HTTP 200 (status_found)"
+      ],
+      "profile_evidence": [
+        {
+          "kind": "avatar_hash",
+          "field": "avatar_hash",
+          "value": "dhash64_v1:0123456789abcdef",
+          "source": {
+            "site": "Mastodon",
+            "url": "https://mastodon.example/@alice",
+            "origin": "derived",
+            "observed_at_ms": 1781192451000,
+            "access_path": {
+              "transport": "http"
+            }
+          }
+        },
+        {
+          "kind": "location",
+          "field": "location",
+          "value": "Wonderland",
+          "source": {
+            "site": "Mastodon",
+            "url": "https://mastodon.example/@alice",
+            "origin": "extractor",
+            "observed_at_ms": 1781192451000,
+            "access_path": {
+              "transport": "http"
+            }
+          }
+        }
+      ],
+      "cluster_ids": [
+        "identity-0001"
+      ],
+      "transport": "http",
+      "elapsed_ms": 25
+    },
+    {
+      "site": "Pixelfed",
+      "url": "https://pixelfed.example/alice",
+      "confidence": {
+        "score": 85,
+        "label": "high",
+        "reasons": [
+          {
+            "kind": "found_by_signal"
+          },
+          {
+            "kind": "signal_evidence",
+            "count": 1
+          },
+          {
+            "kind": "profile_metadata_extracted",
+            "count": 1
+          }
+        ]
+      },
+      "signal_evidence": [
+        "HTTP 200 (status_found)"
+      ],
+      "profile_evidence": [
+        {
+          "kind": "avatar_hash",
+          "field": "avatar_hash",
+          "value": "dhash64_v1:0123456789abcdef",
+          "source": {
+            "site": "Pixelfed",
+            "url": "https://pixelfed.example/alice",
+            "origin": "derived",
+            "observed_at_ms": 1781192451000,
+            "access_path": {
+              "transport": "http"
+            }
+          }
+        },
+        {
+          "kind": "location",
+          "field": "location",
+          "value": "Wonderland",
+          "source": {
+            "site": "Pixelfed",
+            "url": "https://pixelfed.example/alice",
+            "origin": "extractor",
+            "observed_at_ms": 1781192451000,
+            "access_path": {
+              "transport": "http"
+            }
+          }
+        }
+      ],
+      "cluster_ids": [
+        "identity-0001"
+      ],
+      "transport": "http",
+      "elapsed_ms": 25
+    }
+  ],
+  "high_confidence_accounts": [
+    {
+      "site": "Mastodon",
+      "url": "https://mastodon.example/@alice",
+      "confidence": {
+        "score": 85,
+        "label": "high",
+        "reasons": [
+          {
+            "kind": "found_by_signal"
+          },
+          {
+            "kind": "signal_evidence",
+            "count": 1
+          },
+          {
+            "kind": "profile_metadata_extracted",
+            "count": 1
+          }
+        ]
+      },
+      "signal_evidence": [
+        "HTTP 200 (status_found)"
+      ],
+      "profile_evidence": [
+        {
+          "kind": "avatar_hash",
+          "field": "avatar_hash",
+          "value": "dhash64_v1:0123456789abcdef",
+          "source": {
+            "site": "Mastodon",
+            "url": "https://mastodon.example/@alice",
+            "origin": "derived",
+            "observed_at_ms": 1781192451000,
+            "access_path": {
+              "transport": "http"
+            }
+          }
+        },
+        {
+          "kind": "location",
+          "field": "location",
+          "value": "Wonderland",
+          "source": {
+            "site": "Mastodon",
+            "url": "https://mastodon.example/@alice",
+            "origin": "extractor",
+            "observed_at_ms": 1781192451000,
+            "access_path": {
+              "transport": "http"
+            }
+          }
+        }
+      ],
+      "cluster_ids": [
+        "identity-0001"
+      ],
+      "transport": "http",
+      "elapsed_ms": 25
+    },
+    {
+      "site": "Pixelfed",
+      "url": "https://pixelfed.example/alice",
+      "confidence": {
+        "score": 85,
+        "label": "high",
+        "reasons": [
+          {
+            "kind": "found_by_signal"
+          },
+          {
+            "kind": "signal_evidence",
+            "count": 1
+          },
+          {
+            "kind": "profile_metadata_extracted",
+            "count": 1
+          }
+        ]
+      },
+      "signal_evidence": [
+        "HTTP 200 (status_found)"
+      ],
+      "profile_evidence": [
+        {
+          "kind": "avatar_hash",
+          "field": "avatar_hash",
+          "value": "dhash64_v1:0123456789abcdef",
+          "source": {
+            "site": "Pixelfed",
+            "url": "https://pixelfed.example/alice",
+            "origin": "derived",
+            "observed_at_ms": 1781192451000,
+            "access_path": {
+              "transport": "http"
+            }
+          }
+        },
+        {
+          "kind": "location",
+          "field": "location",
+          "value": "Wonderland",
+          "source": {
+            "site": "Pixelfed",
+            "url": "https://pixelfed.example/alice",
+            "origin": "extractor",
+            "observed_at_ms": 1781192451000,
+            "access_path": {
+              "transport": "http"
+            }
+          }
+        }
+      ],
+      "cluster_ids": [
+        "identity-0001"
+      ],
+      "transport": "http",
+      "elapsed_ms": 25
+    }
+  ],
+  "evidence_table": [
+    {
+      "site": "Mastodon",
+      "url": "https://mastodon.example/@alice",
+      "kind": "avatar_hash",
+      "field": "avatar_hash",
+      "value": "dhash64_v1:0123456789abcdef",
+      "source": {
+        "site": "Mastodon",
+        "url": "https://mastodon.example/@alice",
+        "origin": "derived",
+        "observed_at_ms": 1781192451000,
+        "access_path": {
+          "transport": "http"
+        }
+      }
+    },
+    {
+      "site": "Mastodon",
+      "url": "https://mastodon.example/@alice",
+      "kind": "location",
+      "field": "location",
+      "value": "Wonderland",
+      "source": {
+        "site": "Mastodon",
+        "url": "https://mastodon.example/@alice",
+        "origin": "extractor",
+        "observed_at_ms": 1781192451000,
+        "access_path": {
+          "transport": "http"
+        }
+      }
+    },
+    {
+      "site": "Pixelfed",
+      "url": "https://pixelfed.example/alice",
+      "kind": "avatar_hash",
+      "field": "avatar_hash",
+      "value": "dhash64_v1:0123456789abcdef",
+      "source": {
+        "site": "Pixelfed",
+        "url": "https://pixelfed.example/alice",
+        "origin": "derived",
+        "observed_at_ms": 1781192451000,
+        "access_path": {
+          "transport": "http"
+        }
+      }
+    },
+    {
+      "site": "Pixelfed",
+      "url": "https://pixelfed.example/alice",
+      "kind": "location",
+      "field": "location",
+      "value": "Wonderland",
+      "source": {
+        "site": "Pixelfed",
+        "url": "https://pixelfed.example/alice",
+        "origin": "extractor",
+        "observed_at_ms": 1781192451000,
+        "access_path": {
+          "transport": "http"
+        }
+      }
+    }
+  ],
+  "identity_clusters": [
+    {
+      "id": "identity-0001",
+      "members": [
+        {
+          "site": "Mastodon",
+          "username": "alice",
+          "url": "https://mastodon.example/@alice",
+          "evidence": [
+            {
+              "kind": "avatar_hash",
+              "field": "avatar_hash",
+              "value": "dhash64_v1:0123456789abcdef",
+              "source": {
+                "site": "Mastodon",
+                "url": "https://mastodon.example/@alice",
+                "origin": "derived",
+                "observed_at_ms": 1781192451000,
+                "access_path": {
+                  "transport": "http"
+                }
+              }
+            },
+            {
+              "kind": "location",
+              "field": "location",
+              "value": "Wonderland",
+              "source": {
+                "site": "Mastodon",
+                "url": "https://mastodon.example/@alice",
+                "origin": "extractor",
+                "observed_at_ms": 1781192451000,
+                "access_path": {
+                  "transport": "http"
+                }
+              }
+            }
+          ],
+          "confidence": {
+            "score": 85,
+            "label": "high",
+            "reasons": [
+              {
+                "kind": "found_by_signal"
+              },
+              {
+                "kind": "signal_evidence",
+                "count": 1
+              },
+              {
+                "kind": "profile_metadata_extracted",
+                "count": 1
+              }
+            ]
+          },
+          "observed_at_ms": 1781192451000
+        },
+        {
+          "site": "Pixelfed",
+          "username": "alice",
+          "url": "https://pixelfed.example/alice",
+          "evidence": [
+            {
+              "kind": "avatar_hash",
+              "field": "avatar_hash",
+              "value": "dhash64_v1:0123456789abcdef",
+              "source": {
+                "site": "Pixelfed",
+                "url": "https://pixelfed.example/alice",
+                "origin": "derived",
+                "observed_at_ms": 1781192451000,
+                "access_path": {
+                  "transport": "http"
+                }
+              }
+            },
+            {
+              "kind": "location",
+              "field": "location",
+              "value": "Wonderland",
+              "source": {
+                "site": "Pixelfed",
+                "url": "https://pixelfed.example/alice",
+                "origin": "extractor",
+                "observed_at_ms": 1781192451000,
+                "access_path": {
+                  "transport": "http"
+                }
+              }
+            }
+          ],
+          "confidence": {
+            "score": 85,
+            "label": "high",
+            "reasons": [
+              {
+                "kind": "found_by_signal"
+              },
+              {
+                "kind": "signal_evidence",
+                "count": 1
+              },
+              {
+                "kind": "profile_metadata_extracted",
+                "count": 1
+              }
+            ]
+          },
+          "observed_at_ms": 1781192451000
+        }
+      ],
+      "confidence": 90,
+      "reasons": [
+        {
+          "kind": "shared_location",
+          "value": "wonderland"
+        },
+        {
+          "kind": "shared_avatar_hash",
+          "value": "dhash64_v1:0123456789abcdef"
+        }
+      ],
+      "uncertain": true
+    }
+  ]
+}
