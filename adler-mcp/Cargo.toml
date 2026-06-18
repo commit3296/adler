@@ -12,8 +12,8 @@ keywords = ["osint", "username", "mcp", "ai"]
 readme = "../README.md"
 
 [dependencies]
-adler-core = { path = "../adler-core", version = "0.15.1" }
-adler-server = { path = "../adler-server", version = "0.15.1" }
+adler-core = { path = "../adler-core", version = "0.16.0" }
+adler-server = { path = "../adler-server", version = "0.16.0" }
 rmcp = { workspace = true }
 schemars.workspace = true
 serde.workspace = true
