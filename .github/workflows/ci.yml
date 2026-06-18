@@ -103,9 +103,12 @@ jobs:
       # `#[cfg(feature = "impersonate")]` regression would slip through.
       # Install the toolchain and check the feature compiles + tests.
       - name: Install BoringSSL build deps (impersonate feature)
+        timeout-minutes: 10
+        env:
+          DEBIAN_FRONTEND: noninteractive
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake clang libclang-dev
+          sudo apt-get install -y --no-install-recommends cmake clang libclang-dev
 
       - name: cargo clippy --features impersonate
         run: cargo clippy -p adler-cli --features impersonate --all-targets -- -D warnings

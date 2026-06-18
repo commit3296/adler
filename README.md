@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="banner.png" alt="Adler" />
+  <img src="assets/readme-web-ui.webp" alt="Adler Web UI running a scan with confidence chips and transport telemetry" />
 </p>
 
 <p align="center">
