@@ -1,7 +1,7 @@
 //! Browser backend for pages that are unusable from raw HTTP.
 //!
-//! A handful of sites (`bot-protected` tag — Instagram, X/Twitter, `TikTok`,
-//! Facebook, Threads, Snapchat, Weibo, …) refuse to render anything useful
+//! A handful of sites (`bot-protected` tag — Instagram, X/Twitter, Facebook,
+//! Threads, Snapchat, Weibo, …) refuse to render anything useful
 //! to a plain `reqwest` call: they ship a JavaScript login wall, a
 //! Cloudflare challenge, or a TLS-fingerprint check. From Adler's signal
 //! perspective the response looks identical for an existing account and a

@@ -292,7 +292,7 @@ pub(crate) struct Cli {
     pub(crate) sessions: Option<PathBuf>,
 
     /// Browser backend used for sites tagged `bot-protected` (Instagram,
-    /// X/Twitter, `TikTok`, Facebook, Threads, Snapchat, Weibo). `local`
+    /// X/Twitter, Facebook, Threads, Snapchat, Weibo). `local`
     /// needs Chrome installed; `browserbase` reads
     /// `ADLER_BROWSERBASE_API_KEY` / `ADLER_BROWSERBASE_PROJECT_ID` and
     /// charges per session-minute. Default `none` leaves those sites on

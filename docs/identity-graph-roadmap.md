@@ -213,7 +213,8 @@ issue links.
 Identity graph foundation work is complete as of v0.15.0. New work
 should build on it instead of extending this checklist indefinitely.
 
-- [ ] Investigate the remaining TikTok hydration issue:
+- [x] Restore TikTok detection through its public oEmbed endpoint and close
+  the remaining hydration issue:
   [#12](https://github.com/commit3296/adler/issues/12).
 - [ ] Draft a Registry Reliability v2 roadmap for site health, flaky
   detection triage, and automated registry maintenance.

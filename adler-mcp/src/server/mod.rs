@@ -918,24 +918,24 @@ mod tests {
             include_nsfw: Some(false),
         };
         let Json(output) = server.list_sites(Parameters(args));
-        let tiktok = output
+        let threads = output
             .disabled_matches
             .iter()
-            .find(|s| s.name == "TikTok")
-            .expect("TikTok should be a disabled social match");
-        assert!(tiktok.disabled_reason.contains("Honest Limits"));
+            .find(|s| s.name == "Threads")
+            .expect("Threads should be a disabled social match");
+        assert!(threads.disabled_reason.contains("Honest Limits"));
     }
 
     #[test]
     fn empty_filter_message_mentions_disabled_matches() {
         let server = AdlerMcp::new().expect("embedded registry must load");
         let filter = ScanFilter {
-            only: Some(vec!["TikTok".to_owned()]),
+            only: Some(vec!["Threads".to_owned()]),
             ..Default::default()
         };
         let message = server.empty_filter_message(&filter);
         assert!(message.contains("no enabled sites"));
-        assert!(message.contains("TikTok"));
+        assert!(message.contains("Threads"));
         assert!(message.contains("Honest Limits"));
     }
 

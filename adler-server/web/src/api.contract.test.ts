@@ -377,8 +377,8 @@ describe("adler-server HTTP API contract", () => {
                 message: "no enabled sites match the requested filter",
                 disabled_matches: [
                     {
-                        name: "TikTok",
-                        url: "https://www.tiktok.com/@{username}",
+                        name: "Threads",
+                        url: "https://www.threads.net/@{username}",
                         tags: ["social"],
                         disabled_reason: "Honest Limits",
                     },
@@ -387,14 +387,14 @@ describe("adler-server HTTP API contract", () => {
         );
 
         const err = await api
-            .startScan({ username: "alice", only: ["TikTok"] })
+            .startScan({ username: "alice", only: ["Threads"] })
             .then(
                 () => null,
                 (e) => e,
             );
 
         expect(err).toBeInstanceOf(ApiClientError);
-        expect(err.disabledMatches[0].name).toBe("TikTok");
+        expect(err.disabledMatches[0].name).toBe("Threads");
     });
 
     it("accepts finished scan snapshots with evidence, confidence, and clusters", async () => {

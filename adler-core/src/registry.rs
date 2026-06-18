@@ -664,7 +664,7 @@ mod tests {
             "sites": [
                 { "name": "Alive", "url": "https://alive.example/{username}",
                   "signals": [{ "kind": "status_found", "codes": [200] }] },
-                { "name": "TikTok", "url": "https://tiktok.example/@{username}",
+                { "name": "Parked Social", "url": "https://parked.example/@{username}",
                   "signals": [{ "kind": "status_found", "codes": [200] }],
                   "disabled": true,
                   "disabled_reason": "Honest Limits: parked",
@@ -673,7 +673,7 @@ mod tests {
         }"#;
         let registry = Registry::from_json_str(json).unwrap();
         let filter = SiteFilter {
-            include: vec!["tiktok".into()],
+            include: vec!["parked".into()],
             tags: vec!["social".into()],
             ..SiteFilter::default()
         };
@@ -681,7 +681,7 @@ mod tests {
         assert!(registry.filter_with(&filter).is_empty());
         let disabled = registry.disabled_matches_with(&filter);
         assert_eq!(disabled.len(), 1);
-        assert_eq!(disabled[0].name, "TikTok");
+        assert_eq!(disabled[0].name, "Parked Social");
         assert_eq!(
             disabled[0].disabled_reason.as_deref(),
             Some("Honest Limits: parked")
@@ -763,7 +763,7 @@ mod tests {
     }
 
     #[test]
-    fn tiktok_stays_parked_behind_hydration_wall() {
+    fn tiktok_uses_public_oembed_endpoint() {
         let registry = Registry::default_embedded_with_wmn().unwrap();
         let tiktok_entries: Vec<&Site> = registry
             .sites()
@@ -774,32 +774,37 @@ mod tests {
         assert_eq!(
             tiktok_entries.len(),
             1,
-            "WMN merge must not reintroduce TikTok's oEmbed probe"
+            "WMN merge must keep one TikTok probe"
         );
         let tiktok = tiktok_entries[0];
-        assert!(tiktok.disabled, "TikTok must not be probed by default");
+        assert!(
+            !tiktok.disabled,
+            "TikTok's public oEmbed endpoint is probeable by default"
+        );
         assert!(
             tiktok
-                .protection
-                .iter()
-                .any(|p| matches!(p, super::super::site::ProtectionKind::Captcha)),
-            "TikTok should be classified as captcha/headless protected"
+                .url
+                .as_str()
+                .contains("/oembed?url=https://www.tiktok.com/@{username}"),
+            "TikTok should use the public oEmbed endpoint, not the JS-only profile shell"
         );
-        let reason = tiktok
-            .disabled_reason
-            .as_deref()
-            .expect("disabled TikTok entry should explain why it is parked");
         assert!(
-            reason.contains("Honest Limits")
-                && reason.contains("JS-only SPA")
-                && reason.contains("never hydrates"),
-            "unexpected TikTok disabled_reason: {reason}"
+            tiktok.signals.iter().any(|signal| matches!(
+                signal,
+                super::super::site::Signal::BodyUsername { text }
+                    if text == "\"embed_product_id\":\"{username}\""
+            )),
+            "TikTok should expose exact username evidence from oEmbed"
+        );
+        assert!(
+            tiktok.protection.is_empty(),
+            "oEmbed path should not require browser/captcha routing"
         );
 
         let scanned = registry.filter(&["tiktok".into()], &[], &[], &[], true);
         assert!(
-            scanned.iter().all(|s| s.name != "TikTok"),
-            "disabled TikTok entry must not leak into scan filters"
+            scanned.iter().any(|s| s.name == "TikTok"),
+            "enabled TikTok oEmbed entry should be scan-filterable"
         );
     }
 
