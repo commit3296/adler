@@ -50,8 +50,10 @@ TikTok current status:
 - [x] Require deterministic regression coverage for the TikTok oEmbed
   shape: live `Found` response, `400` missing-user response, exact
   username evidence, and `--doctor` health behavior.
-- [ ] Keep TikTok in the smoke set when refreshing registry health
+- [x] Keep TikTok in the smoke set when refreshing registry health
   baselines, because the endpoint is public but still externally owned.
+  Use deterministic fixtures for CI-grade acceptance; live smoke is an
+  operator check because the endpoint is externally owned.
 
 Research order after TikTok:
 
@@ -60,8 +62,10 @@ Research order after TikTok:
    - [x] Require exact username evidence from the returned `author_url`.
    - [x] Cover found, 404 missing-user, and doctor behavior with
      deterministic fixtures.
-   - [ ] Document fallback behavior if the endpoint starts rate-limiting
-     or hiding unavailable profiles.
+   - [x] Document fallback behavior if the endpoint starts rate-limiting
+     or hiding unavailable profiles: keep `Uncertain` honest, prefer a
+     different stable metadata endpoint, and do not fall back to the
+     canonical JS shell unless it is explicitly browser/access modeled.
 2. **Reddit** — validate the authenticated session path and app-only OAuth
    guidance against current API behavior; do not imply unauthenticated
    absence when Reddit blocks profile visibility.
@@ -71,8 +75,22 @@ Research order after TikTok:
    - [x] Require exact username evidence from `/data/name`.
    - [x] Cover session-backed doctor behavior with deterministic fixtures.
    - [ ] Run a live OAuth smoke when operator credentials are available.
-3. **Patreon** — investigate whether a stable profile metadata endpoint or
-   browser-backed signal can distinguish real profiles from generic walls.
+3. **Patreon** — keep the current status-only profile probe honest while
+   looking for a stronger metadata path.
+   - [x] Verify the current public profile route still distinguishes
+     known-present and synthetic missing users through HTTP status
+     (`200`/`404`).
+   - [x] Document that the plain HTML body is not a stable exact-username
+     source: known-present profiles can redirect into generic Patreon
+     shells such as `/profile/creators?u=...` or `/cw/...`.
+   - [x] Cover the status-only doctor behavior with a deterministic
+     fixture.
+   - [x] Add a registry guard that prevents accidental `body_username` or
+     `json_username` evidence from being inferred from the generic HTML
+     shell.
+   - [ ] Revisit only when a stable public metadata endpoint, explicit
+     browser-backed signal, or operator-session path can produce
+     username-confirming evidence without leaking secrets.
 4. **Instagram** — keep parked/bot-protected by default unless a stable,
    responsible, non-CAPTCHA signal is available through an operator-owned
    session or explicit browser path.
@@ -83,6 +101,9 @@ Research order after TikTok:
 
 ## Track 4: Access Policy Cleanup
 
+- [x] Classify parked login-wall social entries with explicit
+  `protection: ["user-auth"]` while keeping them disabled and excluded
+  from scans.
 - [ ] Audit high-volume `Uncertain` sites for missing `access` metadata:
   geo, IP type, browser requirement, TLS impersonation, or session need.
 - [ ] Convert repeated datacenter-only failures into explicit access

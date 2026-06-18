@@ -689,29 +689,39 @@ mod tests {
     }
 
     #[test]
-    fn threads_stays_parked_behind_login_wall() {
+    fn parked_login_wall_entries_declare_user_auth_protection() {
         let registry = Registry::default_embedded().unwrap();
-        let threads = registry
-            .sites()
-            .iter()
-            .find(|s| s.name == "Threads")
-            .expect("Threads entry should document the login-wall limitation");
+        for name in ["Facebook", "Threads"] {
+            let site = registry
+                .sites()
+                .iter()
+                .find(|s| s.name == name)
+                .unwrap_or_else(|| {
+                    panic!("{name} entry should document the login-wall limitation")
+                });
 
-        assert!(threads.disabled, "Threads must not be probed by default");
-        let reason = threads
-            .disabled_reason
-            .as_deref()
-            .expect("disabled Threads entry should explain why it is parked");
-        assert!(
-            reason.contains("Honest Limits") && reason.contains("indistinguishable"),
-            "unexpected Threads disabled_reason: {reason}"
-        );
+            assert!(site.disabled, "{name} must not be probed by default");
+            let reason = site
+                .disabled_reason
+                .as_deref()
+                .unwrap_or_else(|| panic!("disabled {name} entry should explain why it is parked"));
+            assert!(
+                reason.contains("Honest Limits") && reason.contains("login wall"),
+                "unexpected {name} disabled_reason: {reason}"
+            );
+            assert!(
+                site.protection
+                    .iter()
+                    .any(|p| matches!(p, super::super::site::ProtectionKind::UserAuth)),
+                "{name} login-wall entry should declare user-auth protection"
+            );
 
-        let scanned = registry.filter(&["threads".into()], &[], &[], &[], true);
-        assert!(
-            scanned.is_empty(),
-            "disabled Threads entry must not leak into scan filters"
-        );
+            let scanned = registry.filter(&[name.to_ascii_lowercase()], &[], &[], &[], true);
+            assert!(
+                scanned.is_empty(),
+                "disabled {name} entry must not leak into scan filters"
+            );
+        }
     }
 
     #[test]
@@ -858,6 +868,61 @@ mod tests {
             scanned.iter().filter(|s| s.name == "Pinterest").count(),
             1,
             "enabled Pinterest oEmbed entry should be scan-filterable"
+        );
+    }
+
+    #[test]
+    fn patreon_remains_status_only_until_stable_metadata_signal_exists() {
+        let registry = Registry::default_embedded_with_wmn().unwrap();
+        let patreon_entries: Vec<&Site> = registry
+            .sites()
+            .iter()
+            .filter(|s| s.name == "Patreon")
+            .collect();
+
+        assert_eq!(
+            patreon_entries.len(),
+            1,
+            "WMN merge must not reintroduce a second Patreon probe"
+        );
+        let patreon = patreon_entries[0];
+        assert!(
+            !patreon.disabled,
+            "Patreon status probe should remain enabled"
+        );
+        assert_eq!(patreon.url.as_str(), "https://www.patreon.com/{username}");
+        assert!(
+            patreon.signals.iter().any(|signal| matches!(
+                signal,
+                super::super::site::Signal::StatusFound { codes } if codes == &[200]
+            )),
+            "Patreon should retain its live-verified HTTP 200 found signal"
+        );
+        assert!(
+            patreon.signals.iter().any(|signal| matches!(
+                signal,
+                super::super::site::Signal::StatusNotFound { codes } if codes == &[404]
+            )),
+            "Patreon should retain its live-verified HTTP 404 missing-user signal"
+        );
+        assert!(
+            patreon.signals.iter().all(|signal| !matches!(
+                signal,
+                super::super::site::Signal::BodyUsername { .. }
+                    | super::super::site::Signal::JsonUsername { .. }
+            )),
+            "Patreon must not infer exact username evidence from the generic HTML shell"
+        );
+        assert!(
+            patreon.tags.iter().any(|t| t == "bot-protected"),
+            "Patreon should stay classified as a bot-protected profile surface"
+        );
+
+        let scanned = registry.filter(&["patreon".into()], &[], &[], &[], true);
+        assert_eq!(
+            scanned.iter().filter(|s| s.name == "Patreon").count(),
+            1,
+            "enabled Patreon status probe should be scan-filterable"
         );
     }
 

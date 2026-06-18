@@ -115,15 +115,16 @@ The original identity graph follow-up issues (#75-#79) are complete as of
 v0.15.0. Future work should treat the identity graph as shipped
 foundation and focus on reliability and coverage around it:
 
-- TikTok detection is restored through its public oEmbed endpoint; the
-  remaining hydration issue
-  [#12](https://github.com/commit3296/adler/issues/12) can close with
-  this fix;
+- TikTok detection is restored through its public oEmbed endpoint, with
+  deterministic fixtures covering the missing-user and exact-username
+  evidence paths;
 - use the Registry Reliability v2 roadmap for site health, flaky
   detection triage, and automated registry maintenance:
   [registry-reliability-roadmap.md](registry-reliability-roadmap.md);
-- harden the first post-TikTok target set — Pinterest, Reddit, Patreon,
-  Instagram, X / Twitter, and Threads — without weakening privacy,
-  rate-limit, or responsible-use constraints;
+- Pinterest and Reddit now have stable evidence-backed paths; Patreon is
+  covered as a status-only route with guards against false exact-username
+  evidence; continue hardening the remaining post-TikTok target set —
+  Patreon stronger metadata, Instagram, X / Twitter, and Threads —
+  without weakening privacy, rate-limit, or responsible-use constraints;
 - keep confidence, avatar hashing, and cluster thresholds conservative
   until new contract tests justify changing them.
