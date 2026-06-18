@@ -75,9 +75,22 @@ Research order after TikTok:
    - [x] Require exact username evidence from `/data/name`.
    - [x] Cover session-backed doctor behavior with deterministic fixtures.
    - [ ] Run a live OAuth smoke when operator credentials are available.
-3. **Patreon** — next active research target. Investigate whether a
-   stable profile metadata endpoint or browser-backed signal can
-   distinguish real profiles from generic walls.
+3. **Patreon** — keep the current status-only profile probe honest while
+   looking for a stronger metadata path.
+   - [x] Verify the current public profile route still distinguishes
+     known-present and synthetic missing users through HTTP status
+     (`200`/`404`).
+   - [x] Document that the plain HTML body is not a stable exact-username
+     source: known-present profiles can redirect into generic Patreon
+     shells such as `/profile/creators?u=...` or `/cw/...`.
+   - [x] Cover the status-only doctor behavior with a deterministic
+     fixture.
+   - [x] Add a registry guard that prevents accidental `body_username` or
+     `json_username` evidence from being inferred from the generic HTML
+     shell.
+   - [ ] Revisit only when a stable public metadata endpoint, explicit
+     browser-backed signal, or operator-session path can produce
+     username-confirming evidence without leaking secrets.
 4. **Instagram** — keep parked/bot-protected by default unless a stable,
    responsible, non-CAPTCHA signal is available through an operator-owned
    session or explicit browser path.
