@@ -43,6 +43,16 @@ healthy without weakening Adler's honest-verdict model.
 
 ## Track 3: Stable Endpoint Research
 
+TikTok current status:
+
+- [x] Restore TikTok through its public oEmbed endpoint instead of the
+  hydrated profile shell.
+- [x] Require deterministic regression coverage for the TikTok oEmbed
+  shape: live `Found` response, `400` missing-user response, exact
+  username evidence, and `--doctor` health behavior.
+- [ ] Keep TikTok in the smoke set when refreshing registry health
+  baselines, because the endpoint is public but still externally owned.
+
 Research order after TikTok:
 
 1. **Pinterest** — keep the current public endpoint approach healthy and

@@ -10,7 +10,7 @@ use assert_cmd::Command;
 use assert_cmd::cargo::CommandCargoExt as _;
 use predicates::str;
 use tempfile::NamedTempFile;
-use wiremock::matchers::{any, path};
+use wiremock::matchers::{any, path, query_param};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 fn sites_file(json: &str) -> NamedTempFile {
@@ -370,6 +370,64 @@ async fn doctor_format_json_emits_structured_envelope() {
     assert_eq!(sites_arr[0]["verdict"], "healthy");
     assert!(sites_arr[0]["issues"].as_array().unwrap().is_empty());
     assert_eq!(parsed["summary"]["total"], 1);
+    assert_eq!(parsed["summary"]["healthy"], 1);
+    assert_eq!(parsed["summary"]["failing"], 0);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn doctor_tiktok_oembed_fixture_is_healthy() {
+    let server = MockServer::start().await;
+    Mock::given(any())
+        .and(path("/oembed"))
+        .and(query_param(
+            "url",
+            "https://www.tiktok.com/@charlidamelio",
+        ))
+        .respond_with(ResponseTemplate::new(200).set_body_string(
+            r#"{"author_url":"https://www.tiktok.com/@charlidamelio","embed_product_id":"charlidamelio"}"#,
+        ))
+        .mount(&server)
+        .await;
+    Mock::given(any())
+        .and(path("/oembed"))
+        .respond_with(
+            ResponseTemplate::new(400)
+                .set_body_string(r#"{"code":400,"message":"Cannot get user info"}"#),
+        )
+        .mount(&server)
+        .await;
+    let json = format!(
+        r#"{{"sites":[{{
+            "name":"TikTok",
+            "url":"{0}/oembed?url=https://www.tiktok.com/@{{username}}",
+            "signals":[
+                {{"kind":"status_found","codes":[200]}},
+                {{"kind":"body_present","text":"\"author_url\":"}},
+                {{"kind":"body_username","text":"\"embed_product_id\":\"{{username}}\""}},
+                {{"kind":"status_not_found","codes":[400]}},
+                {{"kind":"body_absent","text":"\"code\":400"}}
+            ],
+            "known_present":"charlidamelio"
+        }}]}}"#,
+        server.uri()
+    );
+    let sites = sites_file(&json);
+    let assert = adler()
+        .args([
+            "--sites",
+            sites.path().to_str().unwrap(),
+            "--no-progress",
+            "--doctor",
+            "--format",
+            "json",
+        ])
+        .assert()
+        .success();
+    let stdout = String::from_utf8(assert.get_output().stdout.clone()).unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&stdout).expect("valid JSON envelope");
+    assert_eq!(parsed["sites"][0]["name"], "TikTok");
+    assert_eq!(parsed["sites"][0]["verdict"], "healthy");
+    assert!(parsed["sites"][0]["issues"].as_array().unwrap().is_empty());
     assert_eq!(parsed["summary"]["healthy"], 1);
     assert_eq!(parsed["summary"]["failing"], 0);
 }
