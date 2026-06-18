@@ -216,10 +216,12 @@ should build on it instead of extending this checklist indefinitely.
 - [x] Restore TikTok detection through its public oEmbed endpoint and close
   the remaining hydration issue:
   [#12](https://github.com/commit3296/adler/issues/12).
-- [ ] Draft a Registry Reliability v2 roadmap for site health, flaky
-  detection triage, and automated registry maintenance.
-- [ ] Decide which JS-heavy or bot-protected sites deserve targeted
-  detection research after TikTok.
+- [x] Draft a Registry Reliability v2 roadmap for site health, flaky
+  detection triage, and automated registry maintenance:
+  [registry-reliability-roadmap.md](registry-reliability-roadmap.md).
+- [x] Decide which JS-heavy or bot-protected sites deserve targeted
+  detection research after TikTok. Initial order: Pinterest, Reddit,
+  Patreon, Instagram, X / Twitter, Threads.
 - [ ] Keep future confidence/avatar/cluster changes behind contract tests
   and conservative merge rules.
 
