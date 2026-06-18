@@ -7749,6 +7749,9 @@
       ],
       "known_present": "zuck",
       "popularity": 2,
+      "protection": [
+        "user-auth"
+      ],
       "disabled": true,
       "disabled_reason": "Honest Limits: login wall for all but Meta-special-cased accounts; same shape as Threads"
     },
@@ -27824,6 +27827,9 @@
       ],
       "known_present": "zuck",
       "popularity": 20,
+      "protection": [
+        "user-auth"
+      ],
       "disabled": true,
       "disabled_reason": "Honest Limits: login wall for all but Meta-special-cased accounts; indistinguishable from missing user"
     },

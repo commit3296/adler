@@ -689,29 +689,39 @@ mod tests {
     }
 
     #[test]
-    fn threads_stays_parked_behind_login_wall() {
+    fn parked_login_wall_entries_declare_user_auth_protection() {
         let registry = Registry::default_embedded().unwrap();
-        let threads = registry
-            .sites()
-            .iter()
-            .find(|s| s.name == "Threads")
-            .expect("Threads entry should document the login-wall limitation");
+        for name in ["Facebook", "Threads"] {
+            let site = registry
+                .sites()
+                .iter()
+                .find(|s| s.name == name)
+                .unwrap_or_else(|| {
+                    panic!("{name} entry should document the login-wall limitation")
+                });
 
-        assert!(threads.disabled, "Threads must not be probed by default");
-        let reason = threads
-            .disabled_reason
-            .as_deref()
-            .expect("disabled Threads entry should explain why it is parked");
-        assert!(
-            reason.contains("Honest Limits") && reason.contains("indistinguishable"),
-            "unexpected Threads disabled_reason: {reason}"
-        );
+            assert!(site.disabled, "{name} must not be probed by default");
+            let reason = site
+                .disabled_reason
+                .as_deref()
+                .unwrap_or_else(|| panic!("disabled {name} entry should explain why it is parked"));
+            assert!(
+                reason.contains("Honest Limits") && reason.contains("login wall"),
+                "unexpected {name} disabled_reason: {reason}"
+            );
+            assert!(
+                site.protection
+                    .iter()
+                    .any(|p| matches!(p, super::super::site::ProtectionKind::UserAuth)),
+                "{name} login-wall entry should declare user-auth protection"
+            );
 
-        let scanned = registry.filter(&["threads".into()], &[], &[], &[], true);
-        assert!(
-            scanned.is_empty(),
-            "disabled Threads entry must not leak into scan filters"
-        );
+            let scanned = registry.filter(&[name.to_ascii_lowercase()], &[], &[], &[], true);
+            assert!(
+                scanned.is_empty(),
+                "disabled {name} entry must not leak into scan filters"
+            );
+        }
     }
 
     #[test]
