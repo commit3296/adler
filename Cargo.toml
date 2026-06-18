@@ -3,7 +3,7 @@ resolver = "3"
 members = ["adler-core", "adler-cli", "adler-server", "adler-mcp"]
 
 [workspace.package]
-version = "0.15.0"
+version = "0.15.1"
 edition = "2024"
 rust-version = "1.85"
 license = "MIT"

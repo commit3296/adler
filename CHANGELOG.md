@@ -9,6 +9,11 @@ pre-1.0 bump rules.
 
 ## [Unreleased]
 
+## [0.15.1](https://github.com/commit3296/adler/compare/adler-mcp-v0.15.0...adler-mcp-v0.15.1) - 2026-06-18
+
+### Fixed
+- restore TikTok detection via oEmbed
+
 ### Fixed
 - *(registry)* restore TikTok detection through its public oEmbed endpoint
   instead of the JS-only profile shell.
