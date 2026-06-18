@@ -491,6 +491,11 @@ impl From<&ClusterReason> for ClusterReasonRow {
                 value: Some(value.clone()),
                 phrase: None,
             },
+            ClusterReason::SharedAvatarHash { value } => Self {
+                kind: "shared_avatar_hash".to_owned(),
+                value: Some(value.clone()),
+                phrase: None,
+            },
             ClusterReason::HistoricalCoOccurrence => Self {
                 kind: "historical_co_occurrence".to_owned(),
                 value: None,

@@ -42,6 +42,7 @@ const AFTER_HELP: &str = concat!(
     "    adler --format html alice > alice.html      # self-contained report\n",
     "    adler --quiet alice                         # found URLs only, scripting\n",
     "    adler --explain alice                       # show signal evidence per row\n",
+    "    adler --avatar-hash --format json alice     # opt-in avatar hash evidence\n",
     "\n",
     "  Access engine (reach the hard sites):\n",
     "    adler --proxy socks5://user:pass@host:1080 alice\n",
@@ -465,6 +466,12 @@ pub(crate) struct Cli {
     /// cache) so enrichment data is current.
     #[arg(long, help_heading = "Batch & enrichment")]
     pub(crate) enrich: bool,
+
+    /// Fetch extracted avatar URLs and attach privacy-safe perceptual avatar
+    /// hashes. Implies `--enrich` and a fresh scan; raw images are never
+    /// persisted.
+    #[arg(long, help_heading = "Batch & enrichment")]
+    pub(crate) avatar_hash: bool,
 
     /// Also search spelling variants of the username (separator swaps, leet,
     /// digit suffixes). Multiplies requests by the number of variants.

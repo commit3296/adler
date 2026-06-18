@@ -17,6 +17,7 @@ use crate::profile::{ProfileEvidence, ProfileEvidenceKind};
 const LINK_THRESHOLD: u8 = 60;
 const EXTERNAL_LINK_SCORE: u8 = 90;
 const AVATAR_URL_SCORE: u8 = 85;
+const AVATAR_HASH_SCORE: u8 = 45;
 const DISPLAY_NAME_SCORE: u8 = 60;
 const BIO_PHRASE_SCORE: u8 = 65;
 const LOCATION_SCORE: u8 = 45;
@@ -121,6 +122,11 @@ pub enum ClusterReason {
     /// Profiles share the same normalized avatar URL.
     SharedAvatarUrl {
         /// Normalized avatar URL.
+        value: String,
+    },
+    /// Profiles share the same normalized avatar perceptual hash.
+    SharedAvatarHash {
+        /// Normalized avatar perceptual hash.
         value: String,
     },
     /// Profiles historically appeared together in repeated scans.
@@ -321,6 +327,18 @@ fn profile_link(
         signals.push(LinkSignal::strong(
             AVATAR_URL_SCORE,
             ClusterReason::SharedAvatarUrl { value },
+        ));
+    }
+
+    if let Some(value) = shared_value(
+        left_profile,
+        right_profile,
+        ProfileEvidenceKind::AvatarHash,
+        normalize_hash,
+    ) {
+        signals.push(LinkSignal::weak(
+            AVATAR_HASH_SCORE,
+            ClusterReason::SharedAvatarHash { value },
         ));
     }
 
@@ -647,6 +665,10 @@ fn normalize_url(value: &str) -> String {
     format!("{scheme}://{host}{port}{path}{query}")
 }
 
+fn normalize_hash(value: &str) -> String {
+    value.trim().to_ascii_lowercase()
+}
+
 struct UnionFind {
     parent: Vec<usize>,
 }
@@ -816,6 +838,80 @@ mod tests {
         let clusters = build_identity_clusters("alice", &[github, gitlab]);
 
         assert!(clusters.is_empty());
+    }
+
+    #[test]
+    fn avatar_hash_only_matches_do_not_cluster() {
+        let mut github = found("GitHub", &[]);
+        github.profile_evidence = vec![ProfileEvidence::from_avatar_hash(
+            "GitHub",
+            &github.url,
+            "ahash64_v1:0123456789abcdef",
+            Some(100),
+            None,
+        )];
+        github.refresh_confidence();
+
+        let mut gitlab = found("GitLab", &[]);
+        gitlab.profile_evidence = vec![ProfileEvidence::from_avatar_hash(
+            "GitLab",
+            &gitlab.url,
+            "AHASH64_V1:0123456789ABCDEF",
+            Some(100),
+            None,
+        )];
+        gitlab.refresh_confidence();
+
+        let clusters = build_identity_clusters("alice", &[github, gitlab]);
+
+        assert!(clusters.is_empty());
+    }
+
+    #[test]
+    fn avatar_hash_with_shared_location_produces_uncertain_cluster() {
+        let mut github = found("GitHub", &[("location", "Berlin, Germany")]);
+        github
+            .profile_evidence
+            .push(ProfileEvidence::from_avatar_hash(
+                "GitHub",
+                &github.url,
+                "ahash64_v1:0123456789abcdef",
+                Some(100),
+                None,
+            ));
+        github.refresh_confidence();
+
+        let mut gitlab = found("GitLab", &[("location", "berlin germany")]);
+        gitlab
+            .profile_evidence
+            .push(ProfileEvidence::from_avatar_hash(
+                "GitLab",
+                &gitlab.url,
+                "AHASH64_V1:0123456789ABCDEF",
+                Some(100),
+                None,
+            ));
+        gitlab.refresh_confidence();
+
+        let clusters = build_identity_clusters("alice", &[github, gitlab]);
+
+        assert_eq!(clusters.len(), 1);
+        assert!(clusters[0].uncertain);
+        assert_eq!(clusters[0].confidence, 90);
+        assert!(
+            clusters[0]
+                .reasons
+                .contains(&ClusterReason::SharedAvatarHash {
+                    value: "ahash64_v1:0123456789abcdef".to_owned(),
+                })
+        );
+        assert!(
+            clusters[0]
+                .reasons
+                .contains(&ClusterReason::SharedLocation {
+                    value: "berlin germany".to_owned(),
+                })
+        );
     }
 
     #[test]

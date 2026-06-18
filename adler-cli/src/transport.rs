@@ -117,8 +117,9 @@ pub(crate) async fn build_client(cli: &Cli) -> Result<Client> {
     }
 
     builder
-        // --correlate needs profile fields, so it implies enrichment.
-        .enrich(cli.enrich || cli.correlate)
+        // --correlate and --avatar-hash need profile fields, so both imply
+        // enrichment.
+        .enrich(cli.enrich || cli.correlate || cli.avatar_hash)
         .respect_robots(cli.respect_robots)
         .build()
         .context("building HTTP client")

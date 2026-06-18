@@ -89,6 +89,8 @@ function formatReason(reason: ClusterReason): string {
             return `location: ${reason.value}`;
         case "shared_avatar_url":
             return `avatar URL: ${reason.value}`;
+        case "shared_avatar_hash":
+            return `avatar hash: ${reason.value}`;
         case "historical_co_occurrence":
             return "historical co-occurrence";
     }

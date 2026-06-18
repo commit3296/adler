@@ -31,8 +31,9 @@ timing.
 and registry-authored signals. It describes facts observed on a profile
 or profile-like endpoint: display names, bios, avatars, external links,
 locations, joined dates, profile titles, meta descriptions, and explicit
-username-confirmation facts. Evidence is shared by every surface and
-should not contain presentation text.
+username-confirmation facts. Optional avatar perceptual hashes are stored
+as derived evidence, not as raw image bytes. Evidence is shared by every
+surface and should not contain presentation text.
 
 `ObservedProfile` is the normalized aggregate for one found profile in a
 scan artifact. It collects the site, URL, username, profile evidence,
@@ -104,7 +105,8 @@ Web, MCP, and persisted-artifact compatibility tests cover it.
 Current experimental areas:
 
 - detailed confidence signal weights and cluster scoring thresholds;
-- avatar perceptual hashing, including image fetch/cache/privacy policy;
+- expansion of avatar perceptual hashing beyond the current opt-in CLI
+  fetch path;
 - performance limits for very large scan histories.
 
 ## Follow-up issues

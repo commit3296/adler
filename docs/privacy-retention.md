@@ -32,6 +32,15 @@ candidates, elapsed timings, and disabled-site context when the scan was
 launched through the Web API. Timelines, diffs, watch output, and
 investigation reports are derived from these artifacts.
 
+Avatar perceptual hashing is opt-in for CLI scans via `--avatar-hash`.
+When enabled, Adler fetches avatar URLs already found by enrichment,
+applies response size, content-type, timeout, and redirect limits, and
+uses the scan's global `--proxy` or `--tor` setting for those image
+requests. It stores only a normalized hash such as `ahash64_v1:...`.
+Raw image bytes are not persisted in scan JSON, reports, MCP output, or
+Web output. Avatar hashes are weak/supporting identity evidence: an
+avatar-hash-only match is not treated as a confident hard merge.
+
 Evidence access metadata is deliberately coarse. It can record the
 transport tier, whether Adler escalated to a heavier route, whether an
 authenticated access path was used, and when evidence was observed. It
@@ -84,6 +93,8 @@ without authorization.
 
 - Use `--no-cache` for one-shot scans that should not touch the result
   cache.
+- Use `--avatar-hash` only when external avatar fetching is authorized
+  for the investigation; leave it off for ordinary scans.
 - Use a temporary `XDG_CACHE_HOME` for throwaway Web or MCP sessions.
 - Delete `$XDG_CACHE_HOME/adler/scans/` or override it with
   `--scans-dir` when a case needs separate retention.

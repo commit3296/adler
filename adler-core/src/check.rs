@@ -177,10 +177,20 @@ impl CheckOutcome {
             .iter()
             .filter(|evidence| evidence.kind == ProfileEvidenceKind::Username)
             .count();
+        let non_metadata_evidence_count = self
+            .profile_evidence
+            .iter()
+            .filter(|evidence| {
+                matches!(
+                    evidence.kind,
+                    ProfileEvidenceKind::Username | ProfileEvidenceKind::AvatarHash
+                )
+            })
+            .count();
         let profile_evidence_count = self
             .profile_evidence
             .len()
-            .saturating_sub(username_evidence_count);
+            .saturating_sub(non_metadata_evidence_count);
         self.confidence = ConfidenceScore::from_signals(&ConfidenceSignals {
             kind: self.kind,
             reason: self.reason.clone(),
@@ -315,5 +325,44 @@ mod tests {
         assert_eq!(outcome.confidence, ConfidenceScore::default());
         outcome.refresh_confidence();
         assert_eq!(outcome.confidence.score, 65);
+    }
+
+    #[test]
+    fn avatar_hash_evidence_does_not_count_as_profile_metadata() {
+        let mut outcome = CheckOutcome {
+            site: "Example".to_owned(),
+            url: "https://example.com/alice".to_owned(),
+            kind: MatchKind::Found,
+            reason: None,
+            elapsed_ms: 10,
+            enrichment: std::collections::BTreeMap::new(),
+            evidence: vec!["HTTP 200 (status_found)".to_owned()],
+            profile_evidence: vec![ProfileEvidence::from_avatar_hash(
+                "Example",
+                "https://example.com/alice",
+                "ahash64_v1:0123456789abcdef",
+                Some(100),
+                None,
+            )],
+            confidence: ConfidenceScore::default(),
+            transport: Some(crate::TransportTier::Http),
+            escalations: 0,
+        };
+
+        outcome.refresh_confidence();
+
+        assert_eq!(outcome.confidence.score, 70);
+        assert!(
+            outcome
+                .confidence
+                .reasons
+                .contains(&crate::ConfidenceReason::WeakStatusOnly)
+        );
+        assert!(!outcome.confidence.reasons.iter().any(|reason| {
+            matches!(
+                reason,
+                crate::ConfidenceReason::ProfileMetadataExtracted { .. }
+            )
+        }));
     }
 }

@@ -137,11 +137,11 @@ issue links.
 - [x] Add `IdentityCluster` and `ClusterReason` models in `adler-core`.
   ([#77](https://github.com/commit3296/adler/issues/77))
 - [x] Build deterministic correlation rules before considering any ML:
-  shared external link, avatar URL equality, display name, bio phrase, and
-  location.
+  shared external link, avatar URL equality, avatar perceptual hash,
+  display name, bio phrase, and location.
 - [x] Add historical co-occurrence as a read-time support signal for
   already-linked profiles.
-- [ ] Add avatar hashing once image fetch, cache, privacy, and hashing
+- [x] Add avatar hashing once image fetch, cache, privacy, and hashing
   policy are designed.
 - [x] Assign cluster confidence separately from per-profile confidence.
 - [x] Make uncertain clusters explicit instead of silently merging weakly
@@ -195,17 +195,18 @@ issue links.
 
 ## Phase 9/10: Avatar hashing
 
-- [ ] Design privacy-safe avatar hashing before implementation:
+- [x] Design privacy-safe avatar hashing before implementation:
   external image fetching must be opt-in, raw image bytes must never be
   persisted, and hashes must not include operator-specific access data.
-- [ ] Add a bounded avatar fetch/hash helper with response size,
+- [x] Add a bounded avatar fetch/hash helper with response size,
   content-type, timeout, and redirect limits.
-- [ ] Add avatar perceptual hash as a supporting identity-cluster signal
+- [x] Add avatar perceptual hash as a supporting identity-cluster signal
   without replacing `SharedAvatarUrl`.
-- [ ] Keep avatar-hash-only matches uncertain and prevent username-only
-  or avatar-only hard merges.
-- [ ] Surface the new signal through CLI, Web, MCP, and reports only
+- [x] Prevent username-only and avatar-hash-only hard merges.
+- [x] Surface the new signal through CLI, Web, MCP, and reports only
   after the core model and contract tests are stable.
+- [x] Keep Web/MCP from fetching external avatar images in v1; they only
+  read and render avatar hash evidence already present in artifacts.
 
 ## Suggested first implementation slice
 

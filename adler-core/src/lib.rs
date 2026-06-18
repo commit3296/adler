@@ -131,6 +131,7 @@
 //! CHANGELOG](https://github.com/commit3296/adler/blob/main/CHANGELOG.md).
 
 mod access;
+mod avatar;
 mod ban;
 mod cache;
 mod check;
@@ -164,6 +165,10 @@ pub mod browser;
 
 pub use access::{
     AccessPolicy, CountryCode, EgressKind, EgressSpec, EgressSummary, Session, SessionStore,
+};
+pub use avatar::{
+    AVATAR_HASH_ALGORITHM, AvatarHashError, AvatarHashOptions, DEFAULT_AVATAR_HASH_MAX_BYTES,
+    DEFAULT_AVATAR_HASH_TIMEOUT, avatar_hash_from_bytes, fetch_avatar_hash,
 };
 pub use browser::{BrowserBackend, BrowserBudget, RenderedPage};
 pub use cache::Cache;

@@ -50,6 +50,7 @@ impersonate = ["adler-core/impersonate"]
 
 [dev-dependencies]
 assert_cmd.workspace = true
+image.workspace = true
 insta.workspace = true
 predicates.workspace = true
 serde_json.workspace = true
