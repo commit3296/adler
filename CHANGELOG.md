@@ -9,6 +9,11 @@ pre-1.0 bump rules.
 
 ## [Unreleased]
 
+## [0.15.0](https://github.com/commit3296/adler/compare/adler-mcp-v0.14.1...adler-mcp-v0.15.0) - 2026-06-18
+
+### Added
+- add opt-in avatar hashing signal
+
 ### Added
 - *(identity graph)* add opt-in CLI avatar perceptual hashing with
   bounded image fetches, derived `avatar_hash` evidence, and weak
