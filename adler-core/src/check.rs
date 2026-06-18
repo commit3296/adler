@@ -340,7 +340,7 @@ mod tests {
             profile_evidence: vec![ProfileEvidence::from_avatar_hash(
                 "Example",
                 "https://example.com/alice",
-                "ahash64_v1:0123456789abcdef",
+                "dhash64_v1:0123456789abcdef",
                 Some(100),
                 None,
             )],

@@ -1,0 +1,61 @@
+---
+source: adler-core/tests/json_contracts.rs
+expression: pretty_json(&outcome)
+---
+{
+  "site": "Mastodon",
+  "url": "https://mastodon.example/@alice",
+  "kind": "found",
+  "elapsed_ms": 25,
+  "evidence": [
+    "HTTP 200 (status_found)"
+  ],
+  "profile_evidence": [
+    {
+      "kind": "avatar_hash",
+      "field": "avatar_hash",
+      "value": "dhash64_v1:0123456789abcdef",
+      "source": {
+        "site": "Mastodon",
+        "url": "https://mastodon.example/@alice",
+        "origin": "derived",
+        "observed_at_ms": 1781192451000,
+        "access_path": {
+          "transport": "http"
+        }
+      }
+    },
+    {
+      "kind": "location",
+      "field": "location",
+      "value": "Wonderland",
+      "source": {
+        "site": "Mastodon",
+        "url": "https://mastodon.example/@alice",
+        "origin": "extractor",
+        "observed_at_ms": 1781192451000,
+        "access_path": {
+          "transport": "http"
+        }
+      }
+    }
+  ],
+  "confidence": {
+    "score": 85,
+    "label": "high",
+    "reasons": [
+      {
+        "kind": "found_by_signal"
+      },
+      {
+        "kind": "signal_evidence",
+        "count": 1
+      },
+      {
+        "kind": "profile_metadata_extracted",
+        "count": 1
+      }
+    ]
+  },
+  "transport": "http"
+}

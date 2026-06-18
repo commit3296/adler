@@ -59,6 +59,16 @@ fn username_evidence(
     )
 }
 
+fn avatar_hash_evidence(site: &str, url: &str, value: &str) -> ProfileEvidence {
+    ProfileEvidence::from_avatar_hash(
+        site,
+        url,
+        value,
+        Some(OBSERVED_AT_MS),
+        Some(EvidenceAccessPath::new(TransportTier::Http, 0, false)),
+    )
+}
+
 fn found_profile(site: &str, profile_evidence: Vec<ProfileEvidence>) -> CheckOutcome {
     let mut outcome = CheckOutcome {
         site: site.to_owned(),
@@ -143,6 +153,26 @@ fn gitlab_found() -> CheckOutcome {
     outcome
 }
 
+fn avatar_hash_found(site: &str, url: &str) -> CheckOutcome {
+    let mut outcome = found_profile(
+        site,
+        vec![
+            avatar_hash_evidence(site, url, "dhash64_v1:0123456789abcdef"),
+            evidence(
+                site,
+                url,
+                "location",
+                "Wonderland",
+                TransportTier::Http,
+                0,
+                false,
+            ),
+        ],
+    );
+    url.clone_into(&mut outcome.url);
+    outcome
+}
+
 fn forum_captcha() -> CheckOutcome {
     let mut outcome = CheckOutcome {
         site: "Forum".to_owned(),
@@ -196,6 +226,40 @@ fn investigation_report_json_contract() {
         .identity_clusters(clusters)
         .timeline(timeline)
         .disabled_sites(vec![disabled])
+        .generated_at_ms(GENERATED_AT_MS)
+        .build();
+
+    insta::assert_snapshot!(pretty_json(&report));
+}
+
+#[test]
+fn avatar_hash_evidence_json_contract() {
+    let outcome = avatar_hash_found("Mastodon", "https://mastodon.example/@alice");
+
+    insta::assert_snapshot!(pretty_json(&outcome));
+}
+
+#[test]
+fn avatar_hash_identity_cluster_json_contract() {
+    let outcomes = vec![
+        avatar_hash_found("Mastodon", "https://mastodon.example/@alice"),
+        avatar_hash_found("Pixelfed", "https://pixelfed.example/alice"),
+    ];
+    let clusters = build_identity_clusters("alice", &outcomes);
+
+    insta::assert_snapshot!(pretty_json(&clusters));
+}
+
+#[test]
+fn avatar_hash_investigation_report_json_contract() {
+    let outcomes = vec![
+        avatar_hash_found("Mastodon", "https://mastodon.example/@alice"),
+        avatar_hash_found("Pixelfed", "https://pixelfed.example/alice"),
+    ];
+    let clusters = build_identity_clusters("alice", &outcomes);
+
+    let report = InvestigationReport::builder("alice", &outcomes)
+        .identity_clusters(clusters)
         .generated_at_ms(GENERATED_AT_MS)
         .build();
 
