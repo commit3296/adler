@@ -9,6 +9,12 @@ pre-1.0 bump rules.
 
 ## [Unreleased]
 
+## [0.16.0](https://github.com/commit3296/adler/compare/v0.15.1...v0.16.0) - 2026-06-18
+
+### Added
+- add Reddit JSON username signal
+- add Pinterest oEmbed username evidence
+
 ## [0.15.1](https://github.com/commit3296/adler/compare/adler-mcp-v0.15.0...adler-mcp-v0.15.1) - 2026-06-18
 
 ### Fixed
