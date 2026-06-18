@@ -743,6 +743,14 @@ mod tests {
             "Reddit should be classified as requiring user auth"
         );
         assert!(
+            reddit.signals.iter().any(|signal| matches!(
+                signal,
+                super::super::site::Signal::JsonUsername { pointer }
+                    if pointer == "/data/name"
+            )),
+            "Reddit should expose exact username evidence from OAuth JSON"
+        );
+        assert!(
             reddit.tags.iter().any(|t| t == "reddit-oauth"),
             "Reddit should be discoverable as an OAuth-gated site"
         );

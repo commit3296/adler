@@ -634,6 +634,12 @@ pub enum Signal {
         /// contain the literal `{username}` placeholder.
         text: String,
     },
+    /// Votes **`Found`** when a JSON response field equals the site's
+    /// canonical username.
+    JsonUsername {
+        /// RFC 6901 JSON Pointer to the username field. Must start with `/`.
+        pointer: String,
+    },
     /// Votes **`NotFound`** when the response body contains `text`.
     BodyAbsent {
         /// Substring whose appearance votes for non-existence (e.g.
@@ -682,7 +688,10 @@ impl Signal {
     pub(crate) fn needs_body(&self) -> bool {
         matches!(
             self,
-            Self::BodyPresent { .. } | Self::BodyUsername { .. } | Self::BodyAbsent { .. }
+            Self::BodyPresent { .. }
+                | Self::BodyUsername { .. }
+                | Self::JsonUsername { .. }
+                | Self::BodyAbsent { .. }
         )
     }
 
@@ -720,6 +729,13 @@ impl Signal {
                     SignalVerdict::Ambiguous
                 }
             }
+            Self::JsonUsername { pointer } => {
+                if json_pointer_string_eq(probe.body, pointer, probe.username) {
+                    SignalVerdict::Found
+                } else {
+                    SignalVerdict::Ambiguous
+                }
+            }
             Self::BodyAbsent { text } => {
                 if probe.body.contains(text.as_str()) {
                     SignalVerdict::NotFound
@@ -749,6 +765,12 @@ impl Signal {
                 "body contains {:?} (body_username)",
                 render_username_marker(text, probe.username)
             ),
+            Self::JsonUsername { pointer } => {
+                format!(
+                    "json pointer {pointer:?} equals {:?} (json_username)",
+                    probe.username
+                )
+            }
             Self::BodyAbsent { text } => format!("body contains {text:?} (body_absent)"),
             Self::RedirectAbsent { fragment } => {
                 format!("final URL contains {fragment:?} (redirect_absent)")
@@ -759,7 +781,7 @@ impl Signal {
     /// Whether this signal confirms the concrete username for the current
     /// probe instead of only reporting a generic positive match.
     pub(crate) const fn confirms_username(&self) -> bool {
-        matches!(self, Self::BodyUsername { .. })
+        matches!(self, Self::BodyUsername { .. } | Self::JsonUsername { .. })
     }
 
     fn validate(&self) -> std::result::Result<(), String> {
@@ -784,6 +806,14 @@ impl Signal {
                     ));
                 }
             }
+            Self::JsonUsername { pointer } => {
+                if pointer.is_empty() {
+                    return Err("json username signal pointer is empty".into());
+                }
+                if !pointer.starts_with('/') {
+                    return Err("json username signal pointer must start with '/'".into());
+                }
+            }
             Self::RedirectAbsent { fragment } => {
                 if fragment.is_empty() {
                     return Err("redirect signal fragment is empty".into());
@@ -796,6 +826,16 @@ impl Signal {
 
 fn render_username_marker(template: &str, username: &str) -> String {
     template.replace(PLACEHOLDER, username)
+}
+
+fn json_pointer_string_eq(body: &str, pointer: &str, username: &str) -> bool {
+    let Ok(value) = serde_json::from_str::<serde_json::Value>(body) else {
+        return false;
+    };
+    value
+        .pointer(pointer)
+        .and_then(serde_json::Value::as_str)
+        .is_some_and(|value| value == username)
 }
 
 /// Aggregate per-signal verdicts into a final [`MatchKind`].
@@ -933,6 +973,26 @@ mod tests {
         .validate()
         .unwrap_err();
         assert!(err.to_string().contains("missing {username} placeholder"));
+    }
+
+    #[test]
+    fn validate_rejects_bad_json_username_pointer() {
+        let err = site_with(vec![Signal::JsonUsername {
+            pointer: String::new(),
+        }])
+        .validate()
+        .unwrap_err();
+        assert!(err.to_string().contains("json username signal pointer"));
+
+        let err = site_with(vec![Signal::JsonUsername {
+            pointer: "data/name".into(),
+        }])
+        .validate()
+        .unwrap_err();
+        assert!(
+            err.to_string().contains("must start with '/'"),
+            "unexpected error: {err}"
+        );
     }
 
     #[test]
@@ -1099,6 +1159,44 @@ mod tests {
     }
 
     #[test]
+    fn signal_json_username_votes_found_only_for_pointer_string() {
+        let signal = Signal::JsonUsername {
+            pointer: "/data/name".into(),
+        };
+        let probe = Probe {
+            status: 200,
+            final_url: "",
+            body: r#"{"kind":"t2","data":{"name":"johndoe"}}"#,
+            username: "johndoe",
+        };
+        assert_eq!(signal.evaluate(&probe), SignalVerdict::Found);
+        assert_eq!(
+            signal.describe_match(&probe),
+            r#"json pointer "/data/name" equals "johndoe" (json_username)"#
+        );
+
+        let probe = Probe {
+            username: "john.doe",
+            ..probe
+        };
+        assert_eq!(signal.evaluate(&probe), SignalVerdict::Ambiguous);
+
+        let probe = Probe {
+            body: r#"{"kind":"t2","data":{"name":42}}"#,
+            username: "42",
+            ..probe
+        };
+        assert_eq!(signal.evaluate(&probe), SignalVerdict::Ambiguous);
+
+        let probe = Probe {
+            body: "not json",
+            username: "johndoe",
+            ..probe
+        };
+        assert_eq!(signal.evaluate(&probe), SignalVerdict::Ambiguous);
+    }
+
+    #[test]
     fn generic_body_present_does_not_confirm_username() {
         assert!(
             !Signal::BodyPresent {
@@ -1109,6 +1207,12 @@ mod tests {
         assert!(
             Signal::BodyUsername {
                 text: "{username}".into()
+            }
+            .confirms_username()
+        );
+        assert!(
+            Signal::JsonUsername {
+                pointer: "/data/name".into()
             }
             .confirms_username()
         );
@@ -1175,6 +1279,12 @@ mod tests {
             .needs_body()
         );
         assert!(Signal::BodyPresent { text: "x".into() }.needs_body());
+        assert!(
+            Signal::JsonUsername {
+                pointer: "/data/name".into()
+            }
+            .needs_body()
+        );
         assert!(Signal::BodyAbsent { text: "x".into() }.needs_body());
     }
 

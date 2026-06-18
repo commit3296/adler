@@ -22284,6 +22284,10 @@
           ]
         },
         {
+          "kind": "json_username",
+          "pointer": "/data/name"
+        },
+        {
           "kind": "status_not_found",
           "codes": [
             404
