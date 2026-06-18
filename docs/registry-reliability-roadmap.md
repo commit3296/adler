@@ -50,8 +50,10 @@ TikTok current status:
 - [x] Require deterministic regression coverage for the TikTok oEmbed
   shape: live `Found` response, `400` missing-user response, exact
   username evidence, and `--doctor` health behavior.
-- [ ] Keep TikTok in the smoke set when refreshing registry health
+- [x] Keep TikTok in the smoke set when refreshing registry health
   baselines, because the endpoint is public but still externally owned.
+  Use deterministic fixtures for CI-grade acceptance; live smoke is an
+  operator check because the endpoint is externally owned.
 
 Research order after TikTok:
 
@@ -60,8 +62,10 @@ Research order after TikTok:
    - [x] Require exact username evidence from the returned `author_url`.
    - [x] Cover found, 404 missing-user, and doctor behavior with
      deterministic fixtures.
-   - [ ] Document fallback behavior if the endpoint starts rate-limiting
-     or hiding unavailable profiles.
+   - [x] Document fallback behavior if the endpoint starts rate-limiting
+     or hiding unavailable profiles: keep `Uncertain` honest, prefer a
+     different stable metadata endpoint, and do not fall back to the
+     canonical JS shell unless it is explicitly browser/access modeled.
 2. **Reddit** — validate the authenticated session path and app-only OAuth
    guidance against current API behavior; do not imply unauthenticated
    absence when Reddit blocks profile visibility.
@@ -71,8 +75,9 @@ Research order after TikTok:
    - [x] Require exact username evidence from `/data/name`.
    - [x] Cover session-backed doctor behavior with deterministic fixtures.
    - [ ] Run a live OAuth smoke when operator credentials are available.
-3. **Patreon** — investigate whether a stable profile metadata endpoint or
-   browser-backed signal can distinguish real profiles from generic walls.
+3. **Patreon** — next active research target. Investigate whether a
+   stable profile metadata endpoint or browser-backed signal can
+   distinguish real profiles from generic walls.
 4. **Instagram** — keep parked/bot-protected by default unless a stable,
    responsible, non-CAPTCHA signal is available through an operator-owned
    session or explicit browser path.

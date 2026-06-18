@@ -216,6 +216,10 @@ should build on it instead of extending this checklist indefinitely.
 - [x] Restore TikTok detection through its public oEmbed endpoint and close
   the remaining hydration issue:
   [#12](https://github.com/commit3296/adler/issues/12).
+- [x] Harden Pinterest through public oEmbed with exact username evidence
+  from `author_url`.
+- [x] Harden Reddit through an operator-session OAuth JSON path with exact
+  username evidence from `/data/name`.
 - [x] Draft a Registry Reliability v2 roadmap for site health, flaky
   detection triage, and automated registry maintenance:
   [registry-reliability-roadmap.md](registry-reliability-roadmap.md).
