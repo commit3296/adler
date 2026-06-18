@@ -82,6 +82,12 @@ names or external links, confidence scores with machine-readable
 reasons, and deterministic identity-cluster candidates when multiple
 found profiles share strong structured evidence.
 
+`adler --avatar-hash` is an opt-in enrichment step for cases where
+external avatar fetching is appropriate. It hashes extracted avatar
+images with bounded size/type/timeout checks and stores only the
+normalized hash; raw image bytes are not persisted. Avatar hashes are
+supporting evidence for clustering, not standalone identity proof.
+
 Use `adler --report-scan <SCAN_ID>` for a Markdown investigation report,
 `adler --report-scan <SCAN_ID> --report-format json` when another tool
 should consume the report model directly, or

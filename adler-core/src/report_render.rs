@@ -793,6 +793,7 @@ fn cluster_reason_text(reason: &ClusterReason) -> String {
         ClusterReason::SharedExternalLink { value } => format!("shared external link: {value}"),
         ClusterReason::SharedLocation { value } => format!("shared location: {value}"),
         ClusterReason::SharedAvatarUrl { value } => format!("shared avatar URL: {value}"),
+        ClusterReason::SharedAvatarHash { value } => format!("shared avatar hash: {value}"),
         ClusterReason::HistoricalCoOccurrence => "historical co-occurrence".to_owned(),
     }
 }
@@ -839,6 +840,7 @@ fn evidence_kind(kind: ProfileEvidenceKind) -> &'static str {
         ProfileEvidenceKind::DisplayName => "display_name",
         ProfileEvidenceKind::Bio => "bio",
         ProfileEvidenceKind::AvatarUrl => "avatar_url",
+        ProfileEvidenceKind::AvatarHash => "avatar_hash",
         ProfileEvidenceKind::ExternalLink => "external_link",
         ProfileEvidenceKind::Location => "location",
         ProfileEvidenceKind::JoinedDate => "joined_date",

@@ -110,12 +110,13 @@ const fn profile_evidence_kind_rank(kind: ProfileEvidenceKind) -> u8 {
         ProfileEvidenceKind::DisplayName => 1,
         ProfileEvidenceKind::Bio => 2,
         ProfileEvidenceKind::AvatarUrl => 3,
-        ProfileEvidenceKind::ExternalLink => 4,
-        ProfileEvidenceKind::Location => 5,
-        ProfileEvidenceKind::JoinedDate => 6,
-        ProfileEvidenceKind::ProfileTitle => 7,
-        ProfileEvidenceKind::MetaDescription => 8,
-        ProfileEvidenceKind::ExtractedField => 9,
+        ProfileEvidenceKind::AvatarHash => 4,
+        ProfileEvidenceKind::ExternalLink => 5,
+        ProfileEvidenceKind::Location => 6,
+        ProfileEvidenceKind::JoinedDate => 7,
+        ProfileEvidenceKind::ProfileTitle => 8,
+        ProfileEvidenceKind::MetaDescription => 9,
+        ProfileEvidenceKind::ExtractedField => 10,
     }
 }
 

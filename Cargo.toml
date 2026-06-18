@@ -75,6 +75,12 @@ secrecy = "0.10"
 async-trait = "0.1"
 url = "2"
 futures = "0.3"
+image = { version = "0.25", default-features = false, features = [
+    "gif",
+    "jpeg",
+    "png",
+    "webp",
+] }
 # Web server (adler-server crate): axum router + SSE. tower-http only
 # pulls the features we actually need (CORS for the Vite dev-server,
 # request tracing).

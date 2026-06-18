@@ -182,6 +182,7 @@ impl ProfileEvidenceLabel for adler_core::ProfileEvidenceKind {
             Self::DisplayName => "display_name",
             Self::Bio => "bio",
             Self::AvatarUrl => "avatar_url",
+            Self::AvatarHash => "avatar_hash",
             Self::ExternalLink => "external_link",
             Self::Location => "location",
             Self::JoinedDate => "joined_date",

@@ -35,6 +35,8 @@ pub enum ProfileEvidenceKind {
     Bio,
     /// Avatar or profile image URL.
     AvatarUrl,
+    /// Privacy-safe perceptual hash derived from an avatar image.
+    AvatarHash,
     /// External website or social link.
     ExternalLink,
     /// Location-like profile field.
@@ -108,6 +110,9 @@ pub enum EvidenceOrigin {
     Signal,
     /// Evidence came from a registry extractor rule.
     Extractor,
+    /// Evidence was derived from another observed fact without storing the
+    /// raw source material.
+    Derived,
 }
 
 impl ProfileEvidence {
@@ -165,6 +170,30 @@ impl ProfileEvidence {
             },
         }
     }
+
+    /// Build privacy-safe avatar hash evidence derived from a previously
+    /// extracted avatar URL.
+    #[must_use]
+    pub fn from_avatar_hash(
+        site: &str,
+        url: &str,
+        hash: &str,
+        observed_at_ms: Option<u64>,
+        access_path: Option<EvidenceAccessPath>,
+    ) -> Self {
+        Self {
+            kind: ProfileEvidenceKind::AvatarHash,
+            field: Some("avatar_hash".to_owned()),
+            value: hash.to_owned(),
+            source: EvidenceSource {
+                site: site.to_owned(),
+                url: url.to_owned(),
+                origin: EvidenceOrigin::Derived,
+                observed_at_ms,
+                access_path,
+            },
+        }
+    }
 }
 
 impl ProfileEvidenceKind {
@@ -175,6 +204,7 @@ impl ProfileEvidenceKind {
             "name" | "display_name" | "fullname" | "full_name" => Self::DisplayName,
             "bio" | "description" => Self::Bio,
             "avatar" | "avatar_url" | "image" | "profile_image" => Self::AvatarUrl,
+            "avatar_hash" | "avatar_perceptual_hash" | "profile_image_hash" => Self::AvatarHash,
             "website" | "url" | "link" | "external_url" => Self::ExternalLink,
             "location" => Self::Location,
             "joined" | "created" | "created_at" | "join_date" => Self::JoinedDate,
@@ -203,6 +233,10 @@ mod tests {
         assert_eq!(
             ProfileEvidenceKind::from_field("avatar"),
             ProfileEvidenceKind::AvatarUrl
+        );
+        assert_eq!(
+            ProfileEvidenceKind::from_field("avatar_hash"),
+            ProfileEvidenceKind::AvatarHash
         );
         assert_eq!(
             ProfileEvidenceKind::from_field("website"),
@@ -243,6 +277,24 @@ mod tests {
         assert_eq!(json["source"]["origin"], "signal");
         assert_eq!(json["source"]["observed_at_ms"], 123);
         assert_eq!(json["source"]["access_path"]["transport"], "http");
+    }
+
+    #[test]
+    fn avatar_hash_evidence_serializes_without_raw_image_data() {
+        let ev = ProfileEvidence::from_avatar_hash(
+            "Example",
+            "https://example.com/alice",
+            "ahash64_v1:0123456789abcdef",
+            Some(456),
+            Some(EvidenceAccessPath::new(TransportTier::Http, 0, false)),
+        );
+
+        let json = serde_json::to_value(&ev).unwrap();
+        assert_eq!(json["kind"], "avatar_hash");
+        assert_eq!(json["field"], "avatar_hash");
+        assert_eq!(json["value"], "ahash64_v1:0123456789abcdef");
+        assert_eq!(json["source"]["origin"], "derived");
+        assert!(!json.to_string().contains("PNG"));
     }
 
     #[test]

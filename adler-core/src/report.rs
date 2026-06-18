@@ -17,7 +17,7 @@ use crate::identity::IdentityCluster;
 use crate::profile::{EvidenceSource, ProfileEvidence, ProfileEvidenceKind};
 
 /// Current schema version for investigation report JSON.
-pub const INVESTIGATION_REPORT_SCHEMA_VERSION: u16 = 2;
+pub const INVESTIGATION_REPORT_SCHEMA_VERSION: u16 = 3;
 
 /// Structured report over one scan or scan-derived artifact.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -638,12 +638,13 @@ const fn evidence_kind_rank(kind: ProfileEvidenceKind) -> u8 {
         ProfileEvidenceKind::DisplayName => 1,
         ProfileEvidenceKind::Bio => 2,
         ProfileEvidenceKind::AvatarUrl => 3,
-        ProfileEvidenceKind::ExternalLink => 4,
-        ProfileEvidenceKind::Location => 5,
-        ProfileEvidenceKind::JoinedDate => 6,
-        ProfileEvidenceKind::ProfileTitle => 7,
-        ProfileEvidenceKind::MetaDescription => 8,
-        ProfileEvidenceKind::ExtractedField => 9,
+        ProfileEvidenceKind::AvatarHash => 4,
+        ProfileEvidenceKind::ExternalLink => 5,
+        ProfileEvidenceKind::Location => 6,
+        ProfileEvidenceKind::JoinedDate => 7,
+        ProfileEvidenceKind::ProfileTitle => 8,
+        ProfileEvidenceKind::MetaDescription => 9,
+        ProfileEvidenceKind::ExtractedField => 10,
     }
 }
 
@@ -782,7 +783,7 @@ mod tests {
         let report = InvestigationReport::builder("alice", &[low_found]).build();
         let json = serde_json::to_value(&report).unwrap();
 
-        assert_eq!(json["schema_version"], 2);
+        assert_eq!(json["schema_version"], 3);
         assert_eq!(json["limitations"][0]["kind"], "low_confidence_found");
         assert_eq!(json["found_accounts"][0]["confidence"]["label"], "low");
     }

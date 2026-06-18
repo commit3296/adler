@@ -47,6 +47,7 @@ export type ProfileEvidenceKind =
     | "display_name"
     | "bio"
     | "avatar_url"
+    | "avatar_hash"
     | "external_link"
     | "location"
     | "joined_date"
@@ -61,7 +62,7 @@ export interface ProfileEvidence {
     source: {
         site: string;
         url: string;
-        origin: "signal" | "extractor";
+        origin: "signal" | "extractor" | "derived";
         observed_at_ms?: number;
         access_path?: EvidenceAccessPath;
     };
@@ -152,6 +153,7 @@ export type ClusterReason =
     | { kind: "shared_external_link"; value: string }
     | { kind: "shared_location"; value: string }
     | { kind: "shared_avatar_url"; value: string }
+    | { kind: "shared_avatar_hash"; value: string }
     | { kind: "historical_co_occurrence" };
 
 export interface ObservedProfile {

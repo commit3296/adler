@@ -10,10 +10,12 @@
 use std::io::{self, IsTerminal as _, Write};
 use std::path::PathBuf;
 use std::process::ExitCode;
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use adler_core::{
-    Cache, CheckOutcome, Client, ExecutorOptions, Site, Username, correlate, executor, permute,
+    AvatarHashOptions, Cache, CheckOutcome, Client, EvidenceAccessPath, ExecutorOptions, MatchKind,
+    ProfileEvidence, ProfileEvidenceKind, Site, Username, correlate, executor, fetch_avatar_hash,
+    permute,
 };
 use anyhow::{Context as _, Result};
 
@@ -22,6 +24,7 @@ use crate::output::{
     print_correlation, print_hint, print_row, print_tally, should_show, stream_row, write_csv_row,
     write_outputs,
 };
+use crate::transport::TOR_PROXY;
 use crate::{Cli, OutputFormat, cache_path};
 
 /// Drive a username scan (with permutation variants), then emit results.
@@ -50,9 +53,10 @@ pub(crate) async fn run_scan(cli: &Cli, client: &Client, sites: &[Site]) -> Resu
     }
 
     // Load the cache once for the whole run (all permutation variants share
-    // it), not per variant. --enrich / --correlate want fresh data, so they
-    // bypass it. Each variant is a distinct username key within the cache.
-    let use_cache = !cli.no_cache && !cli.enrich && !cli.correlate;
+    // it), not per variant. --enrich / --correlate / --avatar-hash want
+    // fresh data, so they bypass it. Each variant is a distinct username key
+    // within the cache.
+    let use_cache = !cli.no_cache && !cli.enrich && !cli.correlate && !cli.avatar_hash;
     let mut cache =
         use_cache.then(|| Cache::load(cache_path(cli), Duration::from_secs(cli.cache_ttl)));
 
@@ -65,7 +69,7 @@ pub(crate) async fn run_scan(cli: &Cli, client: &Client, sites: &[Site]) -> Resu
     };
     // Interactive text streams each row live as it resolves; everything else
     // (piped text, JSON/NDJSON/HTML) collects first and emits at the end.
-    let live = matches!(cli.format, OutputFormat::Text) && stdout_tty;
+    let live = matches!(cli.format, OutputFormat::Text) && stdout_tty && !cli.avatar_hash;
 
     let started = Instant::now();
     let outcomes = scan_one(
@@ -105,7 +109,12 @@ pub(crate) async fn run_scan(cli: &Cli, client: &Client, sites: &[Site]) -> Resu
             if cli.correlate {
                 print_correlation(&mut out, &correlate(&outcomes))?;
             }
-            print_hint(&mut out, cli.enrich, cli.correlate, display.color)?;
+            print_hint(
+                &mut out,
+                cli.enrich || cli.avatar_hash,
+                cli.correlate,
+                display.color,
+            )?;
         }
     } else {
         let opts = OutputOpts {
@@ -283,7 +292,113 @@ async fn scan_one(
             .await,
         );
     }
+    attach_avatar_hashes(cli, &mut outcomes).await;
     outcomes
+}
+
+async fn attach_avatar_hashes(cli: &Cli, outcomes: &mut [CheckOutcome]) {
+    if !cli.avatar_hash {
+        return;
+    }
+
+    let client = match avatar_hash_client(cli) {
+        Ok(client) => client,
+        Err(err) => {
+            tracing::warn!(error = %err, "avatar hashing disabled: failed to build HTTP client");
+            return;
+        }
+    };
+
+    attach_avatar_hashes_with_client(&client, outcomes).await;
+}
+
+async fn attach_avatar_hashes_with_client(client: &reqwest::Client, outcomes: &mut [CheckOutcome]) {
+    for outcome in outcomes
+        .iter_mut()
+        .filter(|outcome| outcome.kind == MatchKind::Found)
+    {
+        if outcome
+            .profile_evidence
+            .iter()
+            .any(|evidence| evidence.kind == ProfileEvidenceKind::AvatarHash)
+        {
+            continue;
+        }
+        let Some(avatar_url) = avatar_url(outcome) else {
+            continue;
+        };
+
+        match fetch_avatar_hash(client, &avatar_url, AvatarHashOptions::default()).await {
+            Ok(hash) => {
+                let access_path = avatar_hash_access_path(outcome);
+                outcome
+                    .enrichment
+                    .insert("avatar_hash".to_owned(), hash.clone());
+                outcome
+                    .profile_evidence
+                    .push(ProfileEvidence::from_avatar_hash(
+                        &outcome.site,
+                        &outcome.url,
+                        &hash,
+                        now_ms(),
+                        access_path,
+                    ));
+                outcome.refresh_confidence();
+            }
+            Err(err) => {
+                tracing::debug!(
+                    site = %outcome.site,
+                    avatar_url = %avatar_url,
+                    error = %err,
+                    "avatar hash skipped"
+                );
+            }
+        }
+    }
+}
+
+fn avatar_hash_client(cli: &Cli) -> reqwest::Result<reqwest::Client> {
+    let mut builder = reqwest::Client::builder()
+        .user_agent(concat!("adler/", env!("CARGO_PKG_VERSION"), " avatar-hash"))
+        .timeout(AvatarHashOptions::default().timeout)
+        .redirect(reqwest::redirect::Policy::limited(3));
+    let proxy = if cli.tor {
+        Some(TOR_PROXY)
+    } else {
+        cli.proxy.as_deref()
+    };
+    if let Some(proxy) = proxy {
+        builder = builder.proxy(reqwest::Proxy::all(proxy)?);
+    }
+    builder.build()
+}
+
+fn avatar_url(outcome: &CheckOutcome) -> Option<String> {
+    outcome
+        .profile_evidence
+        .iter()
+        .find(|evidence| evidence.kind == ProfileEvidenceKind::AvatarUrl)
+        .map(|evidence| evidence.value.clone())
+        .or_else(|| outcome.enrichment.get("avatar").cloned())
+}
+
+fn avatar_hash_access_path(outcome: &CheckOutcome) -> Option<EvidenceAccessPath> {
+    outcome
+        .profile_evidence
+        .iter()
+        .find_map(|evidence| evidence.source.access_path.clone())
+        .or_else(|| {
+            outcome
+                .transport
+                .map(|transport| EvidenceAccessPath::new(transport, outcome.escalations, false))
+        })
+}
+
+fn now_ms() -> Option<u64> {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .ok()
+        .and_then(|duration| u64::try_from(duration.as_millis()).ok())
 }
 
 /// Read usernames for `--input`: one per line, `#` comments and blanks
@@ -332,7 +447,7 @@ async fn run_batch(
         "starting batch scan"
     );
 
-    let use_cache = !cli.no_cache && !cli.enrich && !cli.correlate;
+    let use_cache = !cli.no_cache && !cli.enrich && !cli.correlate && !cli.avatar_hash;
     let mut cache =
         use_cache.then(|| Cache::load(cache_path(cli), Duration::from_secs(cli.cache_ttl)));
 
@@ -589,7 +704,11 @@ async fn scan(
 mod tests {
     use super::*;
     use adler_core::MatchKind;
+    use image::{DynamicImage, ImageFormat, Rgb, RgbImage};
     use std::collections::BTreeMap;
+    use std::io::Cursor;
+    use wiremock::matchers::{method, path};
+    use wiremock::{Mock, MockServer, ResponseTemplate};
 
     fn outcome(site: &str, kind: MatchKind) -> CheckOutcome {
         CheckOutcome {
@@ -605,6 +724,21 @@ mod tests {
             transport: None,
             escalations: 0,
         }
+    }
+
+    fn png_bytes() -> Vec<u8> {
+        let image = RgbImage::from_fn(16, 16, |x, y| {
+            if (x + y) % 2 == 0 {
+                Rgb([255, 255, 255])
+            } else {
+                Rgb([0, 0, 0])
+            }
+        });
+        let mut cursor = Cursor::new(Vec::new());
+        DynamicImage::ImageRgb8(image)
+            .write_to(&mut cursor, ImageFormat::Png)
+            .unwrap();
+        cursor.into_inner()
     }
 
     #[test]
@@ -634,5 +768,60 @@ mod tests {
         ];
         let diff = diff_found(&prev, &now);
         assert!(diff.added.is_empty() && diff.removed.is_empty());
+    }
+
+    #[tokio::test]
+    async fn attach_avatar_hashes_adds_derived_evidence_without_raw_image_bytes() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/avatar.png"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .insert_header("content-type", "image/png")
+                    .set_body_bytes(png_bytes()),
+            )
+            .mount(&server)
+            .await;
+
+        let mut outcome = outcome("Example", MatchKind::Found);
+        let avatar_url = format!("{}/avatar.png", server.uri());
+        outcome
+            .enrichment
+            .insert("avatar".into(), avatar_url.clone());
+        outcome
+            .profile_evidence
+            .push(ProfileEvidence::from_enrichment(
+                "Example",
+                &outcome.url,
+                "avatar",
+                &avatar_url,
+            ));
+        outcome.refresh_confidence();
+        let client = reqwest::Client::builder()
+            .redirect(reqwest::redirect::Policy::limited(3))
+            .build()
+            .unwrap();
+        let mut outcomes = vec![outcome];
+
+        attach_avatar_hashes_with_client(&client, &mut outcomes).await;
+
+        let avatar_hash = outcomes[0]
+            .profile_evidence
+            .iter()
+            .find(|evidence| evidence.kind == ProfileEvidenceKind::AvatarHash)
+            .expect("avatar hash evidence");
+        assert!(avatar_hash.value.starts_with("ahash64_v1:"));
+        assert_eq!(
+            avatar_hash.source.origin,
+            adler_core::EvidenceOrigin::Derived
+        );
+        assert_eq!(
+            outcomes[0].enrichment.get("avatar_hash"),
+            Some(&avatar_hash.value)
+        );
+
+        let json = serde_json::to_string(&outcomes[0]).unwrap();
+        assert!(json.contains("avatar_hash"));
+        assert!(!json.contains("PNG"));
     }
 }
