@@ -119,9 +119,11 @@ foundation and focus on reliability and coverage around it:
   remaining hydration issue
   [#12](https://github.com/commit3296/adler/issues/12) can close with
   this fix;
-- define a Registry Reliability v2 roadmap for site health, flaky
-  detection triage, and automated registry maintenance;
-- harden detection for high-value JS-heavy sites without weakening
-  privacy, rate-limit, or responsible-use constraints;
+- use the Registry Reliability v2 roadmap for site health, flaky
+  detection triage, and automated registry maintenance:
+  [registry-reliability-roadmap.md](registry-reliability-roadmap.md);
+- harden the first post-TikTok target set — Pinterest, Reddit, Patreon,
+  Instagram, X / Twitter, and Threads — without weakening privacy,
+  rate-limit, or responsible-use constraints;
 - keep confidence, avatar hashing, and cluster thresholds conservative
   until new contract tests justify changing them.
