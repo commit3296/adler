@@ -115,9 +115,10 @@ The original identity graph follow-up issues (#75-#79) are complete as of
 v0.15.0. Future work should treat the identity graph as shipped
 foundation and focus on reliability and coverage around it:
 
-- resolve or explicitly defer
-  [#12](https://github.com/commit3296/adler/issues/12), the remaining
-  TikTok hydration issue;
+- TikTok detection is restored through its public oEmbed endpoint; the
+  remaining hydration issue
+  [#12](https://github.com/commit3296/adler/issues/12) can close with
+  this fix;
 - define a Registry Reliability v2 roadmap for site health, flaky
   detection triage, and automated registry maintenance;
 - harden detection for high-value JS-heavy sites without weakening

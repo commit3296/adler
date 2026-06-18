@@ -130,8 +130,8 @@ Reddit, Imgur, Patreon). The remaining ~26% breaks down roughly as:
 - **Sites that don't reliably distinguish found from not-found** for
   unauthenticated requests at all — investigated rather than shipped
   as false-positive entries: Reddit now requires an opt-in OAuth
-  session, Pinterest uses its public oEmbed endpoint, while TikTok and
-  Threads remain parked. See issues
+  session, Pinterest and TikTok use public oEmbed endpoints, while
+  Threads remains parked. See issues
   [#11–#14](https://github.com/commit3296/adler/issues?q=is%3Aissue+label%3A%22help+wanted%22)
   for the specific failure modes and what would unblock each.
 

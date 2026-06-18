@@ -216,7 +216,7 @@ mod tests {
     async fn list_sites_includes_disabled_catalog_entries() {
         let mock = MockServer::start().await;
         let enabled = site("A", &mock.uri(), "a");
-        let mut disabled = site("TikTok", &mock.uri(), "tiktok");
+        let mut disabled = site("Threads", &mock.uri(), "threads");
         disabled.disabled = true;
         disabled.disabled_reason = Some("Honest Limits: parked".to_owned());
         let client = Client::builder().build().unwrap();
@@ -235,7 +235,7 @@ mod tests {
         let body = to_bytes(resp.into_body(), 4096).await.unwrap();
         let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
         assert_eq!(v["sites"].as_array().unwrap().len(), 1);
-        assert_eq!(v["disabled"][0]["name"], "TikTok");
+        assert_eq!(v["disabled"][0]["name"], "Threads");
         assert_eq!(v["disabled"][0]["disabled_reason"], "Honest Limits: parked");
     }
 
@@ -704,25 +704,25 @@ mod tests {
 
     #[test]
     fn filter_catalog_disabled_matches_use_same_filter() {
-        let mut disabled = tagged_site("TikTok", "http://x", "tiktok", &["social"]);
+        let mut disabled = tagged_site("Threads", "http://x", "threads", &["social"]);
         disabled.disabled = true;
         disabled.disabled_reason = Some("Honest Limits".into());
         let sites = vec![site("GitHub", "http://x", "gh"), disabled];
         let req = StartScanRequest {
-            only: vec!["tik".into()],
+            only: vec!["threads".into()],
             tag: vec!["social".into()],
             ..Default::default()
         };
 
         let disabled = super::filter::disabled_matches(&sites, &req);
         assert_eq!(disabled.len(), 1);
-        assert_eq!(disabled[0].name, "TikTok");
+        assert_eq!(disabled[0].name, "Threads");
     }
 
     #[tokio::test]
     async fn start_scan_empty_filter_returns_disabled_matches() {
         let mock = MockServer::start().await;
-        let mut disabled = site("TikTok", &mock.uri(), "tiktok");
+        let mut disabled = site("Threads", &mock.uri(), "threads");
         disabled.disabled = true;
         disabled.disabled_reason = Some("Honest Limits: parked".to_owned());
         let client = Client::builder().build().unwrap();
@@ -733,7 +733,7 @@ mod tests {
                     .method("POST")
                     .uri("/api/scan")
                     .header(header::CONTENT_TYPE, "application/json")
-                    .body(Body::from(r#"{"username":"alice","only":["TikTok"]}"#))
+                    .body(Body::from(r#"{"username":"alice","only":["Threads"]}"#))
                     .unwrap(),
             )
             .await
@@ -744,7 +744,7 @@ mod tests {
         let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
         assert_eq!(v["error"], "empty_site_filter");
         assert_eq!(v["message"], "no enabled sites match the requested filter");
-        assert_eq!(v["disabled_matches"][0]["name"], "TikTok");
+        assert_eq!(v["disabled_matches"][0]["name"], "Threads");
     }
 
     #[tokio::test]

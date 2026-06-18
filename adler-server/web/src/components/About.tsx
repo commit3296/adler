@@ -33,7 +33,7 @@ export const About: Component = () => (
             <h3>Honest limits</h3>
             <p>
                 Recall depends on where you scan from: bot-protected sites
-                (Instagram, X, TikTok…) serve a login wall to plain requests
+                (Instagram, X, Facebook…) serve a login wall to plain requests
                 and read as <span class="about-unc">Uncertain</span> without a
                 browser backend. Some sites can't distinguish a real account
                 from a missing one at all and are deliberately left out rather

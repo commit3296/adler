@@ -135,10 +135,9 @@ the doctor stops flagging them every night.
   supplies a `reddit` session with an OAuth bearer token; CLI startup can
   derive that session from `REDDIT_CLIENT_ID` / `REDDIT_CLIENT_SECRET`
   via Reddit's app-only client-credentials flow.
-- **TikTok** — JS-rendered SPA; user data never hydrates into the
-  headless DOM (verified with 15 s post-load wait through
-  Browserbase). Needs full fingerprint spoofing + realistic
-  interaction.
+- **TikTok canonical pages** — JS-rendered SPA has the same hydration
+  problem, but the public oEmbed endpoint distinguishes present vs
+  absent users and is the enabled registry path.
 - **Pinterest canonical pages** — JS-rendered shell has the same
   hydration problem, but the public oEmbed endpoint distinguishes
   present vs absent users and is the enabled registry path.

@@ -161,7 +161,7 @@ fn empty_filter_result_exits_2() {
 fn disabled_only_filter_explains_parked_site() {
     let sites = sites_file(
         r#"{"sites":[
-            {"name":"TikTok","url":"https://www.tiktok.com/@{username}","signals":[{"kind":"status_found","codes":[200]}],"disabled":true,"disabled_reason":"Honest Limits: JS-only SPA never hydrates"}
+            {"name":"Threads","url":"https://www.threads.net/@{username}","signals":[{"kind":"status_found","codes":[200]}],"disabled":true,"disabled_reason":"Honest Limits: login wall"}
         ]}"#,
     );
     adler()
@@ -169,14 +169,14 @@ fn disabled_only_filter_explains_parked_site() {
             "--sites",
             sites.path().to_str().unwrap(),
             "--only",
-            "TikTok",
+            "Threads",
             "--no-progress",
             "alice",
         ])
         .assert()
         .code(2)
         .stderr(str::contains("no enabled sites match the filter"))
-        .stderr(str::contains("TikTok: Honest Limits"));
+        .stderr(str::contains("Threads: Honest Limits"));
 }
 
 #[test]

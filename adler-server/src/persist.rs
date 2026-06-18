@@ -1403,10 +1403,10 @@ mod tests {
             deadline_secs: Some(30),
             egress_names: vec!["us-resi".into()],
             disabled_matches: vec![PersistedDisabledMatch {
-                name: "TikTok".into(),
-                url: "https://www.tiktok.com/@{username}".into(),
+                name: "Threads".into(),
+                url: "https://www.threads.net/@{username}".into(),
                 tags: vec!["social".into()],
-                disabled_reason: "Honest Limits: JS hydration".into(),
+                disabled_reason: "Honest Limits: login wall".into(),
             }],
         };
         let s = sample("ctx", 1_700_000_000_000).with_request_context(context.clone());

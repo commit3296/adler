@@ -27873,7 +27873,7 @@
     },
     {
       "name": "TikTok",
-      "url": "https://www.tiktok.com/@{username}",
+      "url": "https://www.tiktok.com/oembed?url=https://www.tiktok.com/@{username}",
       "signals": [
         {
           "kind": "status_found",
@@ -27882,24 +27882,29 @@
           ]
         },
         {
-          "kind": "body_absent",
-          "text": "\"statusCode\":10221"
+          "kind": "body_present",
+          "text": "\"author_url\":"
+        },
+        {
+          "kind": "body_username",
+          "text": "\"embed_product_id\":\"{username}\""
+        },
+        {
+          "kind": "status_not_found",
+          "codes": [
+            400
+          ]
         },
         {
           "kind": "body_absent",
-          "text": "Govt. of India decided to block 59 apps"
+          "text": "\"code\":400"
         }
       ],
       "known_present": "charlidamelio",
       "tags": [
         "social"
       ],
-      "protection": [
-        "captcha"
-      ],
-      "popularity": 7,
-      "disabled": true,
-      "disabled_reason": "Honest Limits: JS-only SPA, profile data never hydrates into headless-browser DOM"
+      "popularity": 7
     },
     {
       "name": "timich.ru",

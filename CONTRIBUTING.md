@@ -122,7 +122,7 @@ either the map in `scripts/import_sherlock.py` or the site's `tags` directly.
 
 The single most useful lesson from validating the registry: **a bot-protected
 canonical profile page is a bad detection target.** Sites like Instagram,
-X/Twitter, and TikTok serve a login wall or JS app to a plain HTTP request
+X/Twitter, Facebook, and Threads serve a login wall or JS app to a plain HTTP request
 (no browser, no residential IP), so the response looks the same for an
 existing and a missing account — Adler can only return `Uncertain`.
 
@@ -131,6 +131,7 @@ The robust entries route around this with a stable machine endpoint:
 | Site | URL used | Why it works |
 | --- | --- | --- |
 | Pinterest | `…/oembed.json?url=…/{username}/` | oEmbed API: 200 vs 404 |
+| TikTok | `…/oembed?url=…/@{username}` | oEmbed API: 200 vs 400 |
 | Medium | `…/feed/@{username}` | RSS feed: present vs error page |
 | GitLab | `…/api/v4/users?username={username}` | public API: `[]` when absent |
 

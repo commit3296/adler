@@ -41,7 +41,7 @@ export const DatacenterHint: Component = () => {
                     </div>
                     <div class="dc-banner-detail">
                         Datacenter / VPS IPs are blocked by Instagram, X/Twitter,
-                        Facebook, TikTok and similar. To verify them, route the
+                        Facebook and similar. To verify them, route the
                         scanner through one of:
                     </div>
                     <ul class="dc-banner-list">

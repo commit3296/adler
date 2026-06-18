@@ -29,6 +29,6 @@ roblox	Roblox	https://www.roblox.com/user.aspx?username={username}
 bandcamp	Bandcamp	https://{username}.bandcamp.com
 codewars	Codewars	https://www.codewars.com/users/{username}
 telegram	Telegram	https://t.me/{username}
-tiktok	TikTok	https://www.tiktok.com/@{username}
+tiktok	TikTok	https://www.tiktok.com/oembed?url=https://www.tiktok.com/@{username}
 youtube	YouTube	https://www.youtube.com/@{username}
 spotify	Spotify	https://open.spotify.com/user/{username}
