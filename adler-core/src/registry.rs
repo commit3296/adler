@@ -836,6 +836,14 @@ mod tests {
             pinterest.url.as_str() != "https://www.pinterest.com/{username}/",
             "Pinterest must not fall back to the canonical JS shell"
         );
+        assert!(
+            pinterest.signals.iter().any(|signal| matches!(
+                signal,
+                super::super::site::Signal::BodyUsername { text }
+                    if text == "\"author_url\":\"https://www.pinterest.com/{username}/\""
+            )),
+            "Pinterest should expose exact username evidence from oEmbed"
+        );
 
         let scanned = registry.filter(&["pinterest".into()], &[], &[], &[], true);
         assert_eq!(

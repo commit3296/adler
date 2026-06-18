@@ -55,9 +55,13 @@ TikTok current status:
 
 Research order after TikTok:
 
-1. **Pinterest** — keep the current public endpoint approach healthy and
-   document fallback behavior if the endpoint starts rate-limiting or
-   hiding unavailable profiles.
+1. **Pinterest** — keep the current public endpoint approach healthy.
+   - [x] Use public oEmbed instead of the canonical JS shell.
+   - [x] Require exact username evidence from the returned `author_url`.
+   - [x] Cover found, 404 missing-user, and doctor behavior with
+     deterministic fixtures.
+   - [ ] Document fallback behavior if the endpoint starts rate-limiting
+     or hiding unavailable profiles.
 2. **Reddit** — validate the authenticated session path and app-only OAuth
    guidance against current API behavior; do not imply unauthenticated
    absence when Reddit blocks profile visibility.

@@ -234,6 +234,24 @@ mod tests {
         site
     }
 
+    fn pinterest_oembed_site(server: &MockServer) -> Site {
+        let mut site = default_site(
+            "Pinterest",
+            &format!(
+                "{}/oembed.json?url=https://www.pinterest.com/{{username}}/",
+                server.uri()
+            ),
+        );
+        site.signals = vec![
+            Signal::StatusFound { codes: vec![200] },
+            Signal::BodyUsername {
+                text: r#""author_url":"https://www.pinterest.com/{username}/""#.into(),
+            },
+            Signal::StatusNotFound { codes: vec![404] },
+        ];
+        site
+    }
+
     fn user() -> Username {
         Username::new("alice").unwrap()
     }
@@ -628,6 +646,72 @@ mod tests {
                 "body contains \"\\\"code\\\":400\" (body_absent)"
             ]
         );
+        assert!(
+            outcome.profile_evidence.is_empty(),
+            "NotFound oEmbed responses must not emit username evidence"
+        );
+    }
+
+    #[tokio::test]
+    async fn pinterest_oembed_found_emits_exact_username_evidence() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/oembed.json"))
+            .respond_with(ResponseTemplate::new(200).set_body_string(
+                r#"{"provider_name":"Pinterest","title":"Alice","author_name":"Alice","author_url":"https://www.pinterest.com/alice/"}"#,
+            ))
+            .mount(&server)
+            .await;
+
+        let outcome = build_client()
+            .check(&pinterest_oembed_site(&server), &user())
+            .await;
+
+        assert_eq!(outcome.kind, MatchKind::Found);
+        assert_eq!(outcome.transport, Some(crate::TransportTier::Http));
+        assert_eq!(
+            outcome.evidence,
+            [
+                "HTTP 200 (status_found)",
+                "body contains \"\\\"author_url\\\":\\\"https://www.pinterest.com/alice/\\\"\" (body_username)"
+            ]
+        );
+        assert_eq!(outcome.profile_evidence.len(), 1);
+        let evidence = &outcome.profile_evidence[0];
+        assert_eq!(evidence.kind, ProfileEvidenceKind::Username);
+        assert_eq!(evidence.value, "alice");
+        assert_eq!(evidence.source.origin, EvidenceOrigin::Signal);
+        assert!(
+            evidence
+                .source
+                .access_path
+                .as_ref()
+                .is_some_and(|path| path.transport == crate::TransportTier::Http)
+        );
+        assert!(
+            outcome
+                .confidence
+                .reasons
+                .iter()
+                .any(|reason| matches!(reason, ConfidenceReason::ExactUsernameMatch { count: 1 }))
+        );
+    }
+
+    #[tokio::test]
+    async fn pinterest_oembed_404_is_not_found_without_username_evidence() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/oembed.json"))
+            .respond_with(ResponseTemplate::new(404).set_body_string(r#"{"message":"Not found"}"#))
+            .mount(&server)
+            .await;
+
+        let outcome = build_client()
+            .check(&pinterest_oembed_site(&server), &user())
+            .await;
+
+        assert_eq!(outcome.kind, MatchKind::NotFound);
+        assert_eq!(outcome.evidence, ["HTTP 404 (status_not_found)"]);
         assert!(
             outcome.profile_evidence.is_empty(),
             "NotFound oEmbed responses must not emit username evidence"

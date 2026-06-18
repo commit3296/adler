@@ -20062,6 +20062,10 @@
           ]
         },
         {
+          "kind": "body_username",
+          "text": "\"author_url\":\"https://www.pinterest.com/{username}/\""
+        },
+        {
           "kind": "status_not_found",
           "codes": [
             404
