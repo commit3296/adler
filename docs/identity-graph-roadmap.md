@@ -208,6 +208,20 @@ issue links.
 - [x] Keep Web/MCP from fetching external avatar images in v1; they only
   read and render avatar hash evidence already present in artifacts.
 
+## Post-v0.15: Next tracks
+
+Identity graph foundation work is complete as of v0.15.0. New work
+should build on it instead of extending this checklist indefinitely.
+
+- [ ] Investigate the remaining TikTok hydration issue:
+  [#12](https://github.com/commit3296/adler/issues/12).
+- [ ] Draft a Registry Reliability v2 roadmap for site health, flaky
+  detection triage, and automated registry maintenance.
+- [ ] Decide which JS-heavy or bot-protected sites deserve targeted
+  detection research after TikTok.
+- [ ] Keep future confidence/avatar/cluster changes behind contract tests
+  and conservative merge rules.
+
 ## Suggested first implementation slice
 
 - [x] Create the `ProfileEvidence` and `ConfidenceScore` types in

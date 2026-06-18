@@ -109,15 +109,18 @@ Current experimental areas:
   fetch path;
 - performance limits for very large scan histories.
 
-## Follow-up issues
+## Post-v0.15 follow-up
 
-- [#75](https://github.com/commit3296/adler/issues/75):
-  extend evidence source metadata.
-- [#76](https://github.com/commit3296/adler/issues/76):
-  refine confidence signal rules.
-- [#77](https://github.com/commit3296/adler/issues/77):
-  add stable `IdentityCluster` model.
-- [#78](https://github.com/commit3296/adler/issues/78):
-  generate investigation reports.
-- [#79](https://github.com/commit3296/adler/issues/79):
-  add compatibility and performance hardening.
+The original identity graph follow-up issues (#75-#79) are complete as of
+v0.15.0. Future work should treat the identity graph as shipped
+foundation and focus on reliability and coverage around it:
+
+- resolve or explicitly defer
+  [#12](https://github.com/commit3296/adler/issues/12), the remaining
+  TikTok hydration issue;
+- define a Registry Reliability v2 roadmap for site health, flaky
+  detection triage, and automated registry maintenance;
+- harden detection for high-value JS-heavy sites without weakening
+  privacy, rate-limit, or responsible-use constraints;
+- keep confidence, avatar hashing, and cluster thresholds conservative
+  until new contract tests justify changing them.
