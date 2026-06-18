@@ -75,6 +75,8 @@ secrecy = "0.10"
 async-trait = "0.1"
 url = "2"
 futures = "0.3"
+# Avatar hashing is opt-in and never persists raw image bytes. Keep image
+# decoding scoped to the formats Adler explicitly fetches for avatar evidence.
 image = { version = "0.25", default-features = false, features = [
     "gif",
     "jpeg",

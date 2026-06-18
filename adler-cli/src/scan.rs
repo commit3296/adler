@@ -18,6 +18,7 @@ use adler_core::{
     permute,
 };
 use anyhow::{Context as _, Result};
+use futures::{StreamExt as _, stream};
 
 use crate::output::{
     CSV_COLUMNS, DisplayOpts, OutputOpts, any_found, make_progress_bar, outcome_csv_fields,
@@ -26,6 +27,8 @@ use crate::output::{
 };
 use crate::transport::TOR_PROXY;
 use crate::{Cli, OutputFormat, cache_path};
+
+const AVATAR_HASH_CONCURRENCY: usize = 4;
 
 /// Drive a username scan (with permutation variants), then emit results.
 ///
@@ -313,23 +316,25 @@ async fn attach_avatar_hashes(cli: &Cli, outcomes: &mut [CheckOutcome]) {
 }
 
 async fn attach_avatar_hashes_with_client(client: &reqwest::Client, outcomes: &mut [CheckOutcome]) {
-    for outcome in outcomes
-        .iter_mut()
-        .filter(|outcome| outcome.kind == MatchKind::Found)
-    {
-        if outcome
-            .profile_evidence
-            .iter()
-            .any(|evidence| evidence.kind == ProfileEvidenceKind::AvatarHash)
-        {
-            continue;
-        }
-        let Some(avatar_url) = avatar_url(outcome) else {
-            continue;
-        };
+    let candidates = avatar_hash_candidates(outcomes);
+    let mut results = stream::iter(candidates)
+        .map(|candidate| async move {
+            let result =
+                fetch_avatar_hash(client, &candidate.avatar_url, AvatarHashOptions::default())
+                    .await;
+            (candidate, result)
+        })
+        .buffer_unordered(AVATAR_HASH_CONCURRENCY)
+        .collect::<Vec<_>>()
+        .await;
+    results.sort_by_key(|(candidate, _)| candidate.outcome_index);
 
-        match fetch_avatar_hash(client, &avatar_url, AvatarHashOptions::default()).await {
+    for (candidate, result) in results {
+        match result {
             Ok(hash) => {
+                let Some(outcome) = outcomes.get_mut(candidate.outcome_index) else {
+                    continue;
+                };
                 let access_path = avatar_hash_access_path(outcome);
                 outcome
                     .enrichment
@@ -347,14 +352,41 @@ async fn attach_avatar_hashes_with_client(client: &reqwest::Client, outcomes: &m
             }
             Err(err) => {
                 tracing::debug!(
-                    site = %outcome.site,
-                    avatar_url = %avatar_url,
+                    site = %candidate.site,
+                    avatar_url = %candidate.avatar_url,
                     error = %err,
                     "avatar hash skipped"
                 );
             }
         }
     }
+}
+
+struct AvatarHashCandidate {
+    outcome_index: usize,
+    site: String,
+    avatar_url: String,
+}
+
+fn avatar_hash_candidates(outcomes: &[CheckOutcome]) -> Vec<AvatarHashCandidate> {
+    outcomes
+        .iter()
+        .enumerate()
+        .filter(|(_, outcome)| outcome.kind == MatchKind::Found)
+        .filter(|(_, outcome)| {
+            !outcome
+                .profile_evidence
+                .iter()
+                .any(|evidence| evidence.kind == ProfileEvidenceKind::AvatarHash)
+        })
+        .filter_map(|(outcome_index, outcome)| {
+            avatar_url(outcome).map(|avatar_url| AvatarHashCandidate {
+                outcome_index,
+                site: outcome.site.clone(),
+                avatar_url,
+            })
+        })
+        .collect()
 }
 
 fn avatar_hash_client(cli: &Cli) -> reqwest::Result<reqwest::Client> {
@@ -810,7 +842,7 @@ mod tests {
             .iter()
             .find(|evidence| evidence.kind == ProfileEvidenceKind::AvatarHash)
             .expect("avatar hash evidence");
-        assert!(avatar_hash.value.starts_with("ahash64_v1:"));
+        assert!(avatar_hash.value.starts_with("dhash64_v1:"));
         assert_eq!(
             avatar_hash.source.origin,
             adler_core::EvidenceOrigin::Derived
@@ -823,5 +855,58 @@ mod tests {
         let json = serde_json::to_string(&outcomes[0]).unwrap();
         assert!(json.contains("avatar_hash"));
         assert!(!json.contains("PNG"));
+    }
+
+    #[tokio::test]
+    async fn attach_avatar_hashes_applies_unordered_results_to_original_outcomes() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/slow.png"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .insert_header("content-type", "image/png")
+                    .set_delay(Duration::from_millis(25))
+                    .set_body_bytes(png_bytes()),
+            )
+            .mount(&server)
+            .await;
+        Mock::given(method("GET"))
+            .and(path("/fast.png"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .insert_header("content-type", "image/png")
+                    .set_body_bytes(png_bytes()),
+            )
+            .mount(&server)
+            .await;
+
+        let mut slow = outcome("Slow", MatchKind::Found);
+        slow.enrichment
+            .insert("avatar".into(), format!("{}/slow.png", server.uri()));
+        let mut fast = outcome("Fast", MatchKind::Found);
+        fast.enrichment
+            .insert("avatar".into(), format!("{}/fast.png", server.uri()));
+        let client = reqwest::Client::builder()
+            .redirect(reqwest::redirect::Policy::limited(3))
+            .build()
+            .unwrap();
+        let mut outcomes = vec![slow, fast];
+
+        attach_avatar_hashes_with_client(&client, &mut outcomes).await;
+
+        assert_eq!(outcomes[0].site, "Slow");
+        assert_eq!(outcomes[1].site, "Fast");
+        assert!(
+            outcomes[0]
+                .profile_evidence
+                .iter()
+                .any(|evidence| evidence.kind == ProfileEvidenceKind::AvatarHash)
+        );
+        assert!(
+            outcomes[1]
+                .profile_evidence
+                .iter()
+                .any(|evidence| evidence.kind == ProfileEvidenceKind::AvatarHash)
+        );
     }
 }

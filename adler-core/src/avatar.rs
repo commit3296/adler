@@ -1,7 +1,7 @@
 //! Privacy-safe avatar perceptual hashing helpers.
 //!
 //! Adler never stores raw avatar bytes. The fetch helper reads a bounded
-//! image response, computes a deterministic 64-bit average hash, and returns
+//! image response, computes a deterministic 64-bit difference hash, and returns
 //! only the normalized hash string.
 
 use std::time::Duration;
@@ -10,8 +10,8 @@ use image::imageops::FilterType;
 use reqwest::header::{CONTENT_LENGTH, CONTENT_TYPE};
 use thiserror::Error;
 
-/// Stable prefix for Adler's first avatar perceptual hash algorithm.
-pub const AVATAR_HASH_ALGORITHM: &str = "ahash64_v1";
+/// Stable prefix for Adler's current avatar perceptual hash algorithm.
+pub const AVATAR_HASH_ALGORITHM: &str = "dhash64_v1";
 
 /// Default maximum response body size for avatar hash fetches.
 pub const DEFAULT_AVATAR_HASH_MAX_BYTES: usize = 1_000_000;
@@ -122,14 +122,17 @@ pub async fn fetch_avatar_hash(
 /// image bytes.
 pub fn avatar_hash_from_bytes(bytes: &[u8]) -> Result<String, AvatarHashError> {
     let image = image::load_from_memory(bytes)?;
-    let gray = image.resize_exact(8, 8, FilterType::Triangle).to_luma8();
-    let sum: u32 = gray.pixels().map(|pixel| u32::from(pixel[0])).sum();
-    let average = sum / 64;
+    let gray = image.resize_exact(9, 8, FilterType::Triangle).to_luma8();
 
     let mut bits = 0_u64;
-    for (index, pixel) in gray.pixels().enumerate() {
-        if u32::from(pixel[0]) > average {
-            bits |= 1_u64 << index;
+    for y in 0..8 {
+        for x in 0..8 {
+            let left = gray.get_pixel(x, y)[0];
+            let right = gray.get_pixel(x + 1, y)[0];
+            let index = y * 8 + x;
+            if left > right {
+                bits |= 1_u64 << index;
+            }
         }
     }
 
@@ -190,7 +193,7 @@ mod tests {
         let right = avatar_hash_from_bytes(&image).unwrap();
 
         assert_eq!(left, right);
-        assert!(left.starts_with("ahash64_v1:"));
+        assert!(left.starts_with("dhash64_v1:"));
     }
 
     #[test]
