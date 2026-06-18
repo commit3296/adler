@@ -65,6 +65,12 @@ Research order after TikTok:
 2. **Reddit** — validate the authenticated session path and app-only OAuth
    guidance against current API behavior; do not imply unauthenticated
    absence when Reddit blocks profile visibility.
+   - [x] Keep Reddit behind the named `reddit` operator session.
+   - [x] Use authenticated OAuth JSON rather than the unauthenticated
+     profile shell.
+   - [x] Require exact username evidence from `/data/name`.
+   - [x] Cover session-backed doctor behavior with deterministic fixtures.
+   - [ ] Run a live OAuth smoke when operator credentials are available.
 3. **Patreon** — investigate whether a stable profile metadata endpoint or
    browser-backed signal can distinguish real profiles from generic walls.
 4. **Instagram** — keep parked/bot-protected by default unless a stable,

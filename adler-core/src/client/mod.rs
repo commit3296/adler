@@ -252,6 +252,22 @@ mod tests {
         site
     }
 
+    fn reddit_oauth_site(server: &MockServer) -> Site {
+        let mut site = default_site(
+            "Reddit",
+            &format!("{}/user/{{username}}/about", server.uri()),
+        );
+        site.signals = vec![
+            Signal::StatusFound { codes: vec![200] },
+            Signal::JsonUsername {
+                pointer: "/data/name".into(),
+            },
+            Signal::StatusNotFound { codes: vec![404] },
+        ];
+        site.access.session = Some("reddit".to_owned());
+        site
+    }
+
     fn user() -> Username {
         Username::new("alice").unwrap()
     }
@@ -715,6 +731,100 @@ mod tests {
         assert!(
             outcome.profile_evidence.is_empty(),
             "NotFound oEmbed responses must not emit username evidence"
+        );
+    }
+
+    #[tokio::test]
+    async fn reddit_oauth_json_username_emits_authenticated_exact_evidence() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/user/alice/about"))
+            .and(wiremock::matchers::header("authorization", "Bearer token"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_string(r#"{"kind":"t2","data":{"name":"alice"}}"#),
+            )
+            .mount(&server)
+            .await;
+        let mut headers = std::collections::BTreeMap::new();
+        headers.insert("Authorization".to_owned(), "Bearer token".to_owned());
+        let mut store = SessionStore::new();
+        store.insert("reddit", crate::access::Session::from_headers(headers));
+        let client = Client::builder()
+            .timeout(std::time::Duration::from_secs(2))
+            .min_request_interval(std::time::Duration::ZERO)
+            .max_retries(0)
+            .sessions(store)
+            .build()
+            .expect("client builds");
+
+        let outcome = client.check(&reddit_oauth_site(&server), &user()).await;
+
+        assert_eq!(outcome.kind, MatchKind::Found);
+        assert_eq!(
+            outcome.evidence,
+            [
+                "HTTP 200 (status_found)",
+                "json pointer \"/data/name\" equals \"alice\" (json_username)"
+            ]
+        );
+        assert_eq!(outcome.profile_evidence.len(), 1);
+        let evidence = &outcome.profile_evidence[0];
+        assert_eq!(evidence.kind, ProfileEvidenceKind::Username);
+        assert_eq!(evidence.value, "alice");
+        assert_eq!(evidence.source.origin, EvidenceOrigin::Signal);
+        let access = evidence
+            .source
+            .access_path
+            .as_ref()
+            .expect("access metadata");
+        assert_eq!(access.transport, crate::TransportTier::Http);
+        assert!(access.authenticated);
+        assert!(!access.session_required);
+        assert!(
+            outcome
+                .confidence
+                .reasons
+                .iter()
+                .any(|reason| matches!(reason, ConfidenceReason::ExactUsernameMatch { count: 1 }))
+        );
+        assert!(
+            outcome
+                .confidence
+                .reasons
+                .iter()
+                .any(|reason| matches!(reason, ConfidenceReason::AuthenticatedAccess))
+        );
+    }
+
+    #[tokio::test]
+    async fn reddit_oauth_404_is_not_found_without_username_evidence() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/user/alice/about"))
+            .and(wiremock::matchers::header("authorization", "Bearer token"))
+            .respond_with(ResponseTemplate::new(404).set_body_string(r#"{"message":"Not Found"}"#))
+            .mount(&server)
+            .await;
+        let mut headers = std::collections::BTreeMap::new();
+        headers.insert("Authorization".to_owned(), "Bearer token".to_owned());
+        let mut store = SessionStore::new();
+        store.insert("reddit", crate::access::Session::from_headers(headers));
+        let client = Client::builder()
+            .timeout(std::time::Duration::from_secs(2))
+            .min_request_interval(std::time::Duration::ZERO)
+            .max_retries(0)
+            .sessions(store)
+            .build()
+            .expect("client builds");
+
+        let outcome = client.check(&reddit_oauth_site(&server), &user()).await;
+
+        assert_eq!(outcome.kind, MatchKind::NotFound);
+        assert_eq!(outcome.evidence, ["HTTP 404 (status_not_found)"]);
+        assert!(
+            outcome.profile_evidence.is_empty(),
+            "NotFound OAuth responses must not emit username evidence"
         );
     }
 

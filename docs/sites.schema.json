@@ -224,6 +224,18 @@
         },
         {
           "additionalProperties": false,
+          "required": ["kind", "pointer"],
+          "properties": {
+            "kind": { "const": "json_username" },
+            "pointer": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^/"
+            }
+          }
+        },
+        {
+          "additionalProperties": false,
           "required": ["kind", "text"],
           "properties": {
             "kind": { "const": "body_absent" },

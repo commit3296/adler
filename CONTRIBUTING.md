@@ -103,7 +103,9 @@ A site is a `name`, a `url` template with `{username}`, and a list of
 ```
 
 Signal kinds: `status_found` / `status_not_found` (by HTTP code),
-`body_present` / `body_absent` (substring in the body), `redirect_absent`
+`body_present` / `body_absent` (substring in the body), `body_username`
+(substring with a rendered `{username}`), `json_username` (JSON Pointer whose
+string value must equal the canonical username), and `redirect_absent`
 (substring in the final URL). Aggregation is **negative-priority** — any
 NotFound vote wins over Found, and with no votes the verdict is `Uncertain`.
 The field-level shape is described by [`docs/sites.schema.json`](docs/sites.schema.json)
