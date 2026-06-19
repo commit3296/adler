@@ -623,6 +623,59 @@ async fn doctor_stackoverflow_api_fixture_is_healthy() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn doctor_pypi_profile_marker_ignores_client_challenge() {
+    let server = MockServer::start().await;
+    Mock::given(any())
+        .and(path("/user/dev/"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_string(r"<html><head><title>Profile of dev · PyPI</title></head></html>"),
+        )
+        .mount(&server)
+        .await;
+    Mock::given(any())
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_string(r"<html><head><title>Client Challenge</title></head></html>"),
+        )
+        .mount(&server)
+        .await;
+    let json = format!(
+        r#"{{"sites":[{{
+            "name":"pypi",
+            "url":"{0}/user/{{username}}/",
+            "signals":[
+                {{"kind":"body_username","text":"Profile of {{username}}"}},
+                {{"kind":"status_not_found","codes":[404]}},
+                {{"kind":"body_absent","text":"Page Not Found (404) · PyPI"}}
+            ],
+            "known_present":"dev",
+            "tags":["bot-protected","coding","protection:other"]
+        }}]}}"#,
+        server.uri()
+    );
+    let sites = sites_file(&json);
+    let assert = adler()
+        .args([
+            "--sites",
+            sites.path().to_str().unwrap(),
+            "--no-progress",
+            "--doctor",
+            "--format",
+            "json",
+        ])
+        .assert()
+        .success();
+    let stdout = String::from_utf8(assert.get_output().stdout.clone()).unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&stdout).expect("valid JSON envelope");
+    assert_eq!(parsed["sites"][0]["name"], "pypi");
+    assert_eq!(parsed["sites"][0]["verdict"], "healthy");
+    assert!(parsed["sites"][0]["issues"].as_array().unwrap().is_empty());
+    assert_eq!(parsed["summary"]["healthy"], 1);
+    assert_eq!(parsed["summary"]["failing"], 0);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn doctor_reddit_oauth_json_fixture_is_healthy_with_session() {
     let server = MockServer::start().await;
     Mock::given(any())

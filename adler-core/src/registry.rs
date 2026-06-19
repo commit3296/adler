@@ -979,6 +979,49 @@ mod tests {
     }
 
     #[test]
+    fn pypi_uses_strict_profile_marker_not_status_only() {
+        let registry = Registry::default_embedded_with_wmn().unwrap();
+        let pypi_entries: Vec<&Site> = registry
+            .sites()
+            .iter()
+            .filter(|s| s.name == "pypi")
+            .collect();
+
+        assert_eq!(pypi_entries.len(), 1, "WMN merge must keep one PyPI probe");
+        let pypi = pypi_entries[0];
+        assert!(!pypi.disabled, "PyPI profile probe should remain enabled");
+        assert_eq!(pypi.url.as_str(), "https://pypi.org/user/{username}/");
+        assert!(
+            pypi.signals.iter().any(|signal| matches!(
+                signal,
+                super::super::site::Signal::BodyUsername { text }
+                    if text == "Profile of {username}"
+            )),
+            "PyPI should require an exact profile username marker"
+        );
+        assert!(
+            pypi.signals.iter().all(|signal| !matches!(
+                signal,
+                super::super::site::Signal::StatusFound { .. }
+                    | super::super::site::Signal::BodyPresent { .. }
+            )),
+            "PyPI must not infer Found from HTTP 200 or a generic profile shell"
+        );
+        assert!(
+            pypi.tags.iter().any(|tag| tag == "bot-protected")
+                && pypi.tags.iter().any(|tag| tag == "protection:other"),
+            "PyPI should document its current JS challenge surface"
+        );
+
+        let scanned = registry.filter(&["pypi".into()], &[], &[], &[], true);
+        assert_eq!(
+            scanned.iter().filter(|s| s.name == "pypi").count(),
+            1,
+            "enabled PyPI entry should be scan-filterable"
+        );
+    }
+
+    #[test]
     fn source_field_round_trips() {
         let json = r#"{
             "sites": [

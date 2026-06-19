@@ -16112,14 +16112,8 @@
       "url": "https://pypi.org/user/{username}/",
       "signals": [
         {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
-          "kind": "body_present",
-          "text": "Profile of"
+          "kind": "body_username",
+          "text": "Profile of {username}"
         },
         {
           "kind": "status_not_found",
@@ -16137,7 +16131,9 @@
         "pydude"
       ],
       "tags": [
+        "bot-protected",
         "coding",
+        "protection:other",
         "source:wmn"
       ],
       "popularity": 42

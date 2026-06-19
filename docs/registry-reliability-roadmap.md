@@ -146,3 +146,14 @@ Research order after TikTok:
 - [x] Repair only that target if a stable signal exists.
 - [x] Add targeted tests or fixtures proving the new signal does not
   create false `Found` results for random usernames.
+
+## Second PR Slice
+
+- [x] Repair PyPI's false-positive signature by removing `200 == Found`
+  and requiring a strict profile username marker.
+- [x] Mark PyPI's raw user profile path as bot-protected/protection-other
+  so browser/access research is explicit.
+- [x] Add targeted tests proving PyPI's client-challenge shell does not
+  create false `Found` results for random usernames.
+- [ ] Continue the remaining too-permissive direct-run candidates:
+  Weibo and Replit.
