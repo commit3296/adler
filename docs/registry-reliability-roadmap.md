@@ -163,3 +163,12 @@ Research order after TikTok:
   `weibo` session, removing embedded cookies, and removing `200 == Found`.
 - [x] Add targeted tests proving Weibo has no embedded Cookie header and
   stays session-gated in both embedded registry sources.
+
+## Third PR Slice
+
+- [x] Refresh the direct top-set doctor baseline after the
+  StackOverflow, PyPI, Replit, and Weibo false-positive repairs.
+- [ ] Investigate Ko-Fi as the remaining direct-run false-positive
+  candidate from the refreshed top-set baseline.
+- [ ] Keep CodePen as a protection-metadata candidate unless targeted
+  research finds a stable exact evidence endpoint.
