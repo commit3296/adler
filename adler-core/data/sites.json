@@ -17602,24 +17602,20 @@
     },
     {
       "name": "npm",
-      "url": "https://www.npmjs.com/~{username}",
+      "url": "https://registry.npmjs.org/-/v1/search?text=maintainer%3A{username}&size=3",
       "signals": [
         {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
+          "kind": "body_username",
+          "text": "\"username\":\"{username}\""
         },
         {
-          "kind": "status_not_found",
-          "codes": [
-            404
-          ]
+          "kind": "body_absent",
+          "text": "\"total\":0"
         }
       ],
       "known_present": "kennethsweezy",
       "tags": [
-        "bot-protected",
+        "api",
         "coding",
         "dev"
       ],
