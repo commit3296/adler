@@ -35,6 +35,16 @@ pub(crate) struct DoctorOpts<'a> {
     pub(crate) format: OutputFormat,
 }
 
+impl DoctorOpts<'_> {
+    fn suggest_protection_only(&self) -> bool {
+        self.suggest_protection
+            && !self.fix
+            && !self.apply
+            && !self.suggest_known_present
+            && !self.suggest_extract
+    }
+}
+
 pub(crate) async fn run_doctor(
     client: &Client,
     sites: &[Site],
@@ -62,6 +72,13 @@ pub(crate) async fn run_doctor(
             );
         }
     }
+    if opts.suggest_protection_only() {
+        // `--suggest-protection` is telemetry-only: it reads persisted scan
+        // history and must not launch a live registry health walk.
+        print_protection_suggestions(opts.scans_dir);
+        return Ok(ExitCode::SUCCESS);
+    }
+
     let walk = walk_doctor_sites(client, sites, opts.format, opts.color).await?;
     render_doctor_summary(opts.format, sites.len(), &walk)?;
     run_doctor_suggestions(client, &opts, &walk).await?;
