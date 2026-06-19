@@ -1075,6 +1075,64 @@ mod tests {
     }
 
     #[test]
+    fn weibo_requires_session_and_has_no_embedded_cookie() {
+        for (label, registry) in [
+            ("default", Registry::default_embedded().unwrap()),
+            (
+                "default+wmn",
+                Registry::default_embedded_with_wmn().unwrap(),
+            ),
+        ] {
+            let weibo_entries: Vec<&Site> = registry
+                .sites()
+                .iter()
+                .filter(|s| s.name == "Weibo")
+                .collect();
+
+            assert_eq!(
+                weibo_entries.len(),
+                1,
+                "{label} should keep one Weibo probe"
+            );
+            let weibo = weibo_entries[0];
+            assert!(!weibo.disabled, "{label} Weibo probe should remain enabled");
+            assert_eq!(
+                weibo.url.as_str(),
+                "https://weibo.com/ajax/profile/info?custom={username}"
+            );
+            assert_eq!(weibo.access.session.as_deref(), Some("weibo"));
+            assert!(
+                weibo
+                    .protection
+                    .iter()
+                    .any(|p| matches!(p, super::super::site::ProtectionKind::UserAuth)),
+                "{label} Weibo should document that profile probes need user auth"
+            );
+            assert!(
+                weibo
+                    .request_headers
+                    .keys()
+                    .all(|key| !key.eq_ignore_ascii_case("cookie")),
+                "{label} Weibo must not embed operator cookies"
+            );
+            assert!(
+                weibo.signals.iter().all(|signal| !matches!(
+                    signal,
+                    super::super::site::Signal::StatusFound { .. }
+                )),
+                "{label} Weibo must not infer Found from HTTP 200"
+            );
+            assert!(
+                weibo.signals.iter().any(|signal| matches!(
+                    signal,
+                    super::super::site::Signal::BodyPresent { text } if text == "\"user\":"
+                )),
+                "{label} Weibo should require the authenticated profile API user object"
+            );
+        }
+    }
+
+    #[test]
     fn source_field_round_trips() {
         let json = r#"{
             "sites": [

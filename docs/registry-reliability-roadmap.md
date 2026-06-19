@@ -159,4 +159,7 @@ Research order after TikTok:
   `replit` session and exact username evidence instead of `200 == Found`.
 - [x] Add targeted tests proving a missing Replit session skips the
   network probe and returns `session_required`.
-- [ ] Continue the remaining too-permissive direct-run candidate: Weibo.
+- [x] Repair Weibo's false-positive signature by requiring the named
+  `weibo` session, removing embedded cookies, and removing `200 == Found`.
+- [x] Add targeted tests proving Weibo has no embedded Cookie header and
+  stays session-gated in both embedded registry sources.

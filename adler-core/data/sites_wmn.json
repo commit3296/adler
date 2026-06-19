@@ -22010,12 +22010,6 @@
       "url": "https://weibo.com/ajax/profile/info?custom={username}",
       "signals": [
         {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
           "kind": "body_present",
           "text": "\"user\":"
         },
@@ -22034,13 +22028,19 @@
         "guoailun12",
         "fbb0916"
       ],
+      "protection": [
+        "user-auth"
+      ],
       "tags": [
         "bot-protected",
         "region:cn",
         "social",
         "source:wmn"
       ],
-      "popularity": 23
+      "popularity": 23,
+      "access": {
+        "session": "weibo"
+      }
     },
     {
       "name": "Wikidot",
