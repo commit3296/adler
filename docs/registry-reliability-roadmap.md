@@ -141,8 +141,8 @@ Research order after TikTok:
 ## First PR Slice
 
 - [x] Generate and commit a fresh doctor baseline artifact or summary.
-- [ ] Pick one target from the research order and write a short
+- [x] Pick one target from the baseline queue and write a short
   investigation note with response examples.
-- [ ] Repair only that target if a stable signal exists.
-- [ ] Add targeted tests or fixtures proving the new signal does not
+- [x] Repair only that target if a stable signal exists.
+- [x] Add targeted tests or fixtures proving the new signal does not
   create false `Found` results for random usernames.

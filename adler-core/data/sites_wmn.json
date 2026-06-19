@@ -18515,38 +18515,19 @@
       "url": "https://api.stackexchange.com/2.3/users?order=desc&sort=name&inname={username}&site=stackoverflow",
       "signals": [
         {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
-          "kind": "body_present",
-          "text": "\"items\":[{"
-        },
-        {
-          "kind": "status_not_found",
-          "codes": [
-            200
-          ]
+          "kind": "body_username",
+          "text": "\"display_name\":\"{username}\""
         },
         {
           "kind": "body_absent",
           "text": "\"items\":[]"
         }
       ],
-      "known_present": [
-        "vonc",
-        "bergi"
-      ],
+      "known_present": "jon-skeet",
       "tags": [
-        "bot-protected",
         "coding",
         "source:wmn",
         "tech"
-      ],
-      "protection": [
-        "cloudflare"
       ],
       "popularity": 40
     },

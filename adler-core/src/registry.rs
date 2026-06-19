@@ -927,6 +927,58 @@ mod tests {
     }
 
     #[test]
+    fn stackoverflow_uses_api_with_exact_username_signal() {
+        let registry = Registry::default_embedded_with_wmn().unwrap();
+        let stackoverflow_entries: Vec<&Site> = registry
+            .sites()
+            .iter()
+            .filter(|s| s.name == "StackOverflow")
+            .collect();
+
+        assert_eq!(
+            stackoverflow_entries.len(),
+            1,
+            "WMN merge must keep one StackOverflow probe"
+        );
+        let stackoverflow = stackoverflow_entries[0];
+        assert!(
+            !stackoverflow.disabled,
+            "StackOverflow API probe should remain enabled"
+        );
+        assert!(
+            stackoverflow
+                .url
+                .as_str()
+                .starts_with("https://api.stackexchange.com/2.3/users?"),
+            "StackOverflow should use the StackExchange API, got {}",
+            stackoverflow.url.as_str()
+        );
+        assert!(
+            stackoverflow.signals.iter().any(|signal| matches!(
+                signal,
+                super::super::site::Signal::BodyUsername { text }
+                    if text == "\"display_name\":\"{username}\""
+            )),
+            "StackOverflow should require exact display_name username evidence"
+        );
+        assert!(
+            stackoverflow.signals.iter().all(|signal| !matches!(
+                signal,
+                super::super::site::Signal::StatusFound { .. }
+                    | super::super::site::Signal::BodyPresent { .. }
+            )),
+            "StackOverflow must not infer Found from HTTP 200 or non-empty partial search results"
+        );
+
+        let scanned = registry.filter(&["stackoverflow".into()], &[], &[], &[], true);
+        assert_eq!(
+            scanned.iter().filter(|s| s.name == "StackOverflow").count(),
+            1,
+            "enabled StackOverflow API entry should be scan-filterable"
+        );
+    }
+
+    #[test]
     fn source_field_round_trips() {
         let json = r#"{
             "sites": [
