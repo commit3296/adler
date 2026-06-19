@@ -31544,21 +31544,15 @@
     },
     {
       "name": "Weibo",
-      "url": "https://weibo.com/{username}",
+      "url": "https://weibo.com/ajax/profile/info?custom={username}",
       "signals": [
-        {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
         {
           "kind": "body_absent",
           "text": "<h2>400 Bad Request</h2>"
         },
         {
           "kind": "body_present",
-          "text": "{\"ok\":1,\"data\":{\"user\":"
+          "text": "\"user\":"
         }
       ],
       "request_headers": {
@@ -31573,9 +31567,11 @@
         "Pragma": "no-cache",
         "Cache-Control": "no-cache",
         "Accept-Encoding": "gzip, deflate, br, zstd",
-        "TE": "trailers",
-        "Cookie": "SUB=_2AkMQDkYqf8NxqwFRmf4QzWnqbop-wwHEieKmUrfxJRMxHRl-yT9kqm4gtRB6O45oxc8K9O2Jsarg5zYMmQy3bR_LfISF; expires=Saturday, 06-Dec-2025 09:51:25 GMT; path=/; domain=.weibo.com; secure; httponly; SameSite=None, SUBP=0033WrSXqPxfM72-Ws9jqgMF55529P9D9Whze9rurqv2pUdg7sY.DTbO; expires=Saturday, 06-Dec-2025 09:51:25 GMT; path=/; domain=.weibo.com, SRT=D.QqHBTrsMMFkSVdRtOeYoWrSNUdRr4Q9QUeE8U3vkW3WzMdbbN-sPVcStNbHi5mYNUCsuPDbhVdrrS3MNAZSLiDP65FJtNqbLJ%219qRQHeiQ9SOdsM5Oi84byJS%21bOMX77%2AB.vAflW-P9Rc0lR-ykKDvnJqiQVbiRVPBtS%21r3J8sQVqbgVdWiMZ4siOzu4DbmKPWf5c4uVePpVQRpVEP%21SqWqdNumPFHL; expires=Mon, 04-Dec-2034 09:51:25 GMT; Max-Age=315360000; path=/; domain=.passport.weibo.com; secure; HttpOnly, SRF=1733478685; expires=Mon, 04-Dec-2034 09:51:25 GMT; Max-Age=315360000; path=/; domain=.passport.weibo.com; secure"
+        "TE": "trailers"
       },
+      "protection": [
+        "user-auth"
+      ],
       "tags": [
         "bot-protected",
         "cn",
@@ -31584,7 +31580,10 @@
         "source:maigret"
       ],
       "known_present": "clairekuo",
-      "popularity": 23
+      "popularity": 23,
+      "access": {
+        "session": "weibo"
+      }
     },
     {
       "name": "Weld",

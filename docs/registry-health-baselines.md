@@ -46,7 +46,7 @@ Unhealthy entries:
 | X | known-present users reported `NotFound` | access/browser research |
 | Reddit | `Uncertain(session_required)` without operator credentials | expected session-gated |
 | VK | known-present user reported `Uncertain` | access or endpoint research |
-| Weibo | random absent username reported `Found` | too-permissive signature |
+| Weibo | random absent username reported `Found` | fixed: profile API is session-gated; embedded cookies removed and unauthenticated scans now return `session_required` |
 | DeviantArt | known-present users reported `Uncertain` | access or endpoint research |
 | Ko-Fi | known-present users hit `cloudflare_challenge`; random absent also reported `Found` | mixed protection + signature |
 | StackOverflow | random absent username reported `Found` | fixed: switched to StackExchange API exact username evidence |
@@ -61,8 +61,10 @@ Triage notes:
   surfaces into `Found`/`NotFound` fixes from this snapshot alone.
 - Reddit is expected to require the named `reddit` session path; this
   direct run confirms the unauthenticated path stays honest.
-- The next registry-fix candidate is the remaining too-permissive
-  signature: Weibo.
+- The direct-run false-positive registry candidates from this snapshot
+  are now closed: StackOverflow uses exact API evidence, PyPI keeps JS
+  challenges uncertain, and Replit/Weibo are explicit session-gated
+  probes.
 - The first access-policy candidates are protection-heavy sites with
   repeatable Cloudflare evidence, starting with CodePen and Ko-Fi only
   after a targeted mock/live check proves the registry metadata change
