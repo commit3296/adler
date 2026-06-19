@@ -168,7 +168,17 @@ Research order after TikTok:
 
 - [x] Refresh the direct top-set doctor baseline after the
   StackOverflow, PyPI, Replit, and Weibo false-positive repairs.
-- [ ] Investigate Ko-Fi as the remaining direct-run false-positive
+- [x] Investigate Ko-Fi as the remaining direct-run false-positive
   candidate from the refreshed top-set baseline.
+- [x] Remove Ko-Fi's status-only Found rule so Cloudflare challenge
+  shells stay `Uncertain` instead of producing false positives.
+- [x] Repair X's username-availability API signature by removing the
+  conflicting HTTP 200 Found/NotFound status rules.
+- [x] Repair VK's profile signature by replacing the redirect conflict
+  with exact canonical profile evidence.
+- [x] Classify DeviantArt as CloudFront/bot-protected based on the live
+  direct-run edge block.
+- [x] Refresh the direct top-set doctor baseline after the X/VK/Ko-Fi
+  service fixes.
 - [ ] Keep CodePen as a protection-metadata candidate unless targeted
   research finds a stable exact evidence endpoint.

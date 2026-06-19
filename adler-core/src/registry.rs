@@ -1133,6 +1133,153 @@ mod tests {
     }
 
     #[test]
+    fn x_uses_username_availability_reason_without_status_200_conflict() {
+        let registry = Registry::default_embedded_with_wmn().unwrap();
+        let x_entries: Vec<&Site> = registry.sites().iter().filter(|s| s.name == "X").collect();
+
+        assert_eq!(x_entries.len(), 1, "WMN merge must keep one X probe");
+        let x = x_entries[0];
+        assert!(
+            !x.disabled,
+            "X username availability API probe should remain enabled"
+        );
+        assert_eq!(
+            x.url.as_str(),
+            "https://api.x.com/i/users/username_available.json?username={username}"
+        );
+        assert!(
+            x.signals.iter().any(|signal| matches!(
+                signal,
+                super::super::site::Signal::BodyPresent { text }
+                    if text == "\"reason\":\"taken\""
+            )),
+            "X should report Found only when the API says the username is taken"
+        );
+        assert!(
+            x.signals.iter().any(|signal| matches!(
+                signal,
+                super::super::site::Signal::BodyAbsent { text }
+                    if text == "\"reason\":\"available\""
+            )),
+            "X should report NotFound only when the API says the username is available"
+        );
+        assert!(
+            x.signals.iter().all(|signal| !matches!(
+                signal,
+                super::super::site::Signal::StatusFound { .. }
+                    | super::super::site::Signal::StatusNotFound { .. }
+            )),
+            "X must not use HTTP 200 as both Found and NotFound"
+        );
+    }
+
+    #[test]
+    fn vk_uses_exact_canonical_marker_without_redirect_conflict() {
+        for (label, registry) in [
+            ("default", Registry::default_embedded().unwrap()),
+            (
+                "default+wmn",
+                Registry::default_embedded_with_wmn().unwrap(),
+            ),
+        ] {
+            let vk_entries: Vec<&Site> =
+                registry.sites().iter().filter(|s| s.name == "VK").collect();
+
+            assert_eq!(vk_entries.len(), 1, "{label} should keep one VK probe");
+            let vk = vk_entries[0];
+            assert!(!vk.disabled, "{label} VK probe should remain enabled");
+            assert_eq!(vk.url.as_str(), "https://vk.com/{username}");
+            assert!(
+                vk.signals.iter().any(|signal| matches!(
+                    signal,
+                    super::super::site::Signal::BodyUsername { text }
+                        if text == "data-canonical=\"https://vk.com/{username}\""
+                )),
+                "{label} VK should require exact canonical profile evidence"
+            );
+            assert!(
+                vk.signals.iter().any(|signal| matches!(
+                    signal,
+                    super::super::site::Signal::StatusNotFound { codes } if codes == &[404]
+                )),
+                "{label} VK should still classify direct HTTP 404 as NotFound"
+            );
+            assert!(
+                vk.signals.iter().all(|signal| !matches!(
+                    signal,
+                    super::super::site::Signal::StatusFound { .. }
+                        | super::super::site::Signal::RedirectAbsent { .. }
+                )),
+                "{label} VK must not combine a generic 200 Found rule with redirect absence"
+            );
+        }
+    }
+
+    #[test]
+    fn kofi_requires_profile_marker_not_status_only() {
+        let registry = Registry::default_embedded_with_wmn().unwrap();
+        let kofi_entries: Vec<&Site> = registry
+            .sites()
+            .iter()
+            .filter(|s| s.name == "Ko-Fi")
+            .collect();
+
+        assert_eq!(kofi_entries.len(), 1, "WMN merge must keep one Ko-Fi probe");
+        let kofi = kofi_entries[0];
+        assert!(!kofi.disabled, "Ko-Fi probe should remain enabled");
+        assert_eq!(kofi.url.as_str(), "https://ko-fi.com/{username}");
+        assert!(
+            kofi.signals.iter().any(|signal| matches!(
+                signal,
+                super::super::site::Signal::BodyPresent { text }
+                    if text == "id=\"profile-header\""
+            )),
+            "Ko-Fi should require the real profile header marker"
+        );
+        assert!(
+            kofi.signals
+                .iter()
+                .all(|signal| !matches!(signal, super::super::site::Signal::StatusFound { .. })),
+            "Ko-Fi must not infer Found from a generic HTTP 200 or challenge shell"
+        );
+        assert!(
+            kofi.protection
+                .iter()
+                .any(|p| matches!(p, super::super::site::ProtectionKind::Cloudflare))
+                && kofi.tags.iter().any(|t| t == "bot-protected"),
+            "Ko-Fi should stay routed as a Cloudflare-protected profile surface"
+        );
+    }
+
+    #[test]
+    fn deviantart_is_classified_as_cloudfront_protected() {
+        let registry = Registry::default_embedded_with_wmn().unwrap();
+        let deviantart_entries: Vec<&Site> = registry
+            .sites()
+            .iter()
+            .filter(|s| s.name == "DeviantArt")
+            .collect();
+
+        assert_eq!(
+            deviantart_entries.len(),
+            1,
+            "WMN merge must keep one DeviantArt probe"
+        );
+        let deviantart = deviantart_entries[0];
+        assert!(
+            deviantart.tags.iter().any(|t| t == "bot-protected"),
+            "DeviantArt should route through browser-capable transports when configured"
+        );
+        assert!(
+            deviantart
+                .protection
+                .iter()
+                .any(|p| matches!(p, super::super::site::ProtectionKind::Cloudfront)),
+            "DeviantArt should document its current CloudFront edge block"
+        );
+    }
+
+    #[test]
     fn source_field_round_trips() {
         let json = r#"{
             "sites": [

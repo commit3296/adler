@@ -30664,14 +30664,18 @@
       "url": "https://vk.com/{username}",
       "signals": [
         {
-          "kind": "status_found",
+          "kind": "body_username",
+          "text": "data-canonical=\"https://vk.com/{username}\""
+        },
+        {
+          "kind": "status_not_found",
           "codes": [
-            200
+            404
           ]
         },
         {
-          "kind": "redirect_absent",
-          "fragment": "/profile/{}"
+          "kind": "body_absent",
+          "text": "not_found"
         }
       ],
       "known_present": "brown",
