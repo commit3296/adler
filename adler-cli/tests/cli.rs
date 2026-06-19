@@ -676,6 +676,56 @@ async fn doctor_pypi_profile_marker_ignores_client_challenge() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn scan_replit_without_session_is_session_required_without_probe() {
+    let server = MockServer::start().await;
+    Mock::given(any())
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_string(r#"{"__typename":"User","username":"alice"}"#),
+        )
+        .mount(&server)
+        .await;
+    let json = format!(
+        r#"{{"sites":[{{
+            "name":"Replit",
+            "url":"{0}/@{{username}}",
+            "signals":[
+                {{"kind":"body_username","text":"\"username\":\"{{username}}\""}},
+                {{"kind":"status_not_found","codes":[404]}},
+                {{"kind":"body_absent","text":"\"statusCode\":404"}}
+            ],
+            "known_present":"alice",
+            "protection":["user-auth"],
+            "tags":["bot-protected","coding"],
+            "access":{{"session":"replit"}}
+        }}]}}"#,
+        server.uri()
+    );
+    let sites = sites_file(&json);
+    let assert = adler()
+        .args([
+            "--sites",
+            sites.path().to_str().unwrap(),
+            "--no-progress",
+            "--format",
+            "json",
+            "alice",
+        ])
+        .assert()
+        .code(1);
+    let stdout = String::from_utf8(assert.get_output().stdout.clone()).unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&stdout).expect("valid JSON array");
+    assert_eq!(parsed[0]["site"], "Replit");
+    assert_eq!(parsed[0]["kind"], "uncertain");
+    assert_eq!(parsed[0]["reason"], "session_required");
+    assert_eq!(
+        server.received_requests().await.unwrap_or_default().len(),
+        0,
+        "missing session must skip the Replit probe entirely"
+    );
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn doctor_reddit_oauth_json_fixture_is_healthy_with_session() {
     let server = MockServer::start().await;
     Mock::given(any())

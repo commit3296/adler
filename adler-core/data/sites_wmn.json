@@ -16524,14 +16524,8 @@
       "url": "https://replit.com/@{username}",
       "signals": [
         {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
-          "kind": "body_present",
-          "text": "\"__typename\":\"User\""
+          "kind": "body_username",
+          "text": "\"username\":\"{username}\""
         },
         {
           "kind": "status_not_found",
@@ -16548,11 +16542,18 @@
         "wuweijie",
         "alansmithee"
       ],
+      "protection": [
+        "user-auth"
+      ],
       "tags": [
+        "bot-protected",
         "coding",
         "source:wmn"
       ],
-      "popularity": 46
+      "popularity": 46,
+      "access": {
+        "session": "replit"
+      }
     },
     {
       "name": "Researchgate",

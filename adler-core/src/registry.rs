@@ -1022,6 +1022,59 @@ mod tests {
     }
 
     #[test]
+    fn replit_requires_session_and_exact_username_marker() {
+        let registry = Registry::default_embedded_with_wmn().unwrap();
+        let replit_entries: Vec<&Site> = registry
+            .sites()
+            .iter()
+            .filter(|s| s.name == "Replit")
+            .collect();
+
+        assert_eq!(
+            replit_entries.len(),
+            1,
+            "WMN merge must keep one Replit probe"
+        );
+        let replit = replit_entries[0];
+        assert!(
+            !replit.disabled,
+            "Replit profile probe should remain enabled"
+        );
+        assert_eq!(replit.url.as_str(), "https://replit.com/@{username}");
+        assert_eq!(replit.access.session.as_deref(), Some("replit"));
+        assert!(
+            replit
+                .protection
+                .iter()
+                .any(|p| matches!(p, super::super::site::ProtectionKind::UserAuth)),
+            "Replit should document that profile probes need user auth"
+        );
+        assert!(
+            replit.signals.iter().any(|signal| matches!(
+                signal,
+                super::super::site::Signal::BodyUsername { text }
+                    if text == "\"username\":\"{username}\""
+            )),
+            "Replit should require exact username evidence when a session is supplied"
+        );
+        assert!(
+            replit.signals.iter().all(|signal| !matches!(
+                signal,
+                super::super::site::Signal::StatusFound { .. }
+                    | super::super::site::Signal::BodyPresent { .. }
+            )),
+            "Replit must not infer Found from HTTP 200 or a generic login/user shell"
+        );
+
+        let scanned = registry.filter(&["replit".into()], &[], &[], &[], true);
+        assert_eq!(
+            scanned.iter().filter(|s| s.name == "Replit").count(),
+            1,
+            "enabled Replit entry should be scan-filterable"
+        );
+    }
+
+    #[test]
     fn source_field_round_trips() {
         let json = r#"{
             "sites": [
