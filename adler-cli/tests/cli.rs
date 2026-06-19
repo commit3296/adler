@@ -330,6 +330,48 @@ async fn doctor_reports_healthy_for_well_behaved_site() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn suggest_protection_reads_history_without_live_doctor_probe() {
+    let server = MockServer::start().await;
+    Mock::given(any())
+        .respond_with(ResponseTemplate::new(200))
+        .mount(&server)
+        .await;
+    let json = format!(
+        r#"{{"sites":[{{"name":"Mock","url":"{}/{{username}}","signals":[
+            {{"kind":"status_found","codes":[200]}}
+        ],"known_present":"alice"}}]}}"#,
+        server.uri()
+    );
+    let sites = sites_file(&json);
+    let scans_dir = tempfile::tempdir().expect("temp scans dir");
+    let assert = adler()
+        .args([
+            "--sites",
+            sites.path().to_str().unwrap(),
+            "--no-progress",
+            "--doctor",
+            "--suggest-protection",
+            "--scans-dir",
+            scans_dir.path().to_str().unwrap(),
+        ])
+        .assert()
+        .success();
+
+    let stdout = String::from_utf8(assert.get_output().stdout.clone()).unwrap();
+    assert!(stdout.contains("telemetry suggestions"), "{stdout}");
+    assert!(stdout.contains("no parseable scans found"), "{stdout}");
+    assert!(
+        !stdout.contains("[OK]") && !stdout.contains("[FAIL]"),
+        "--suggest-protection must not run the live doctor walk: {stdout}"
+    );
+    let received = server.received_requests().await.unwrap_or_default();
+    assert!(
+        received.is_empty(),
+        "--suggest-protection must not probe registry sites"
+    );
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn doctor_format_json_emits_structured_envelope() {
     let server = MockServer::start().await;
     Mock::given(any())
