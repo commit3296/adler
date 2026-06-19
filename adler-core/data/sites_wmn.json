@@ -13942,27 +13942,15 @@
     },
     {
       "name": "npm",
-      "url": "https://www.npmjs.com/~{username}",
+      "url": "https://registry.npmjs.org/-/v1/search?text=maintainer%3A{username}&size=3",
       "signals": [
         {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
-          "kind": "body_present",
-          "text": "\"id\":"
-        },
-        {
-          "kind": "status_not_found",
-          "codes": [
-            404
-          ]
+          "kind": "body_username",
+          "text": "\"username\":\"{username}\""
         },
         {
           "kind": "body_absent",
-          "text": "<h1>not found</h1>"
+          "text": "\"total\":0"
         }
       ],
       "known_present": [
@@ -13970,6 +13958,7 @@
         "rich_harris"
       ],
       "tags": [
+        "api",
         "coding",
         "source:wmn"
       ],

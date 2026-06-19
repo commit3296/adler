@@ -180,5 +180,8 @@ Research order after TikTok:
   direct-run edge block.
 - [x] Refresh the direct top-set doctor baseline after the X/VK/Ko-Fi
   service fixes.
+- [x] Move npm to the public registry search API with exact maintainer
+  username evidence.
+- [x] Refresh the direct top-set doctor baseline after the npm API fix.
 - [ ] Keep CodePen as a protection-metadata candidate unless targeted
   research finds a stable exact evidence endpoint.

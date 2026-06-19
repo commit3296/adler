@@ -194,6 +194,60 @@ Triage notes:
   semantics and browser/protection routing for CodePen, Ko-Fi, and
   DeviantArt.
 
+## 2026-06-19 Direct Top-50 Snapshot After npm API Fix
+
+Command:
+
+```bash
+cargo run -q -p adler-cli -- \
+  --doctor --top 50 --no-progress --no-cache \
+  --max-retries 0 --timeout 8 --concurrency 12 \
+  --format json
+```
+
+Scope:
+
+- Same scope as the earlier 2026-06-19 direct snapshots.
+- Run after moving npm from the Cloudflare-protected web profile to the
+  public registry search API with exact maintainer username evidence.
+- Direct local egress, no proxy pool, no browser backend, no operator
+  sessions.
+
+Summary:
+
+- Total: 40 sites.
+- Healthy: 31.
+- Unhealthy: 9.
+
+Newly healthy since the previous direct snapshot:
+
+- npm: the probe now uses
+  `registry.npmjs.org/-/v1/search?text=maintainer:{username}` and
+  requires exact `"username":"{username}"` evidence. Empty search
+  results are classified by `"total":0`.
+
+Unhealthy entries:
+
+| Site | Observed issue | Current bucket |
+| --- | --- | --- |
+| Instagram | known-present users reported `NotFound` | access/browser research |
+| Twitter | known-present users reported `Uncertain` | access/browser research |
+| Reddit | `Uncertain(session_required)` without operator credentials | expected session-gated |
+| Weibo | `Uncertain(session_required)` without operator credentials | expected session-gated |
+| DeviantArt | known-present users reported `Uncertain` | CloudFront/browser research |
+| Ko-Fi | known-present users hit `cloudflare_challenge` | Cloudflare/browser research |
+| pypi | known-present users reported `Uncertain` behind the client challenge | fixed false-positive class; access/protection research remains |
+| Replit | `Uncertain(session_required)` without operator credentials | expected session-gated |
+| CodePen | known-present users hit `cloudflare_challenge` | protection metadata candidate |
+
+Triage notes:
+
+- npm's new signal detects public maintainer evidence, not private npm
+  accounts with no published package ownership.
+- The remaining direct-run failures are now mostly access/session or
+  browser-protection cases rather than obvious top-set raw signature
+  bugs.
+
 ## 2026-06-19 Persisted Scan Protection Telemetry
 
 Command:

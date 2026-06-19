@@ -1022,6 +1022,60 @@ mod tests {
     }
 
     #[test]
+    fn npm_uses_registry_search_with_exact_maintainer_signal() {
+        for (label, registry) in [
+            ("default", Registry::default_embedded().unwrap()),
+            (
+                "default+wmn",
+                Registry::default_embedded_with_wmn().unwrap(),
+            ),
+        ] {
+            let npm_entries: Vec<&Site> = registry
+                .sites()
+                .iter()
+                .filter(|s| s.name == "npm")
+                .collect();
+
+            assert_eq!(npm_entries.len(), 1, "{label} should keep one npm probe");
+            let npm = npm_entries[0];
+            assert!(!npm.disabled, "{label} npm probe should remain enabled");
+            assert_eq!(
+                npm.url.as_str(),
+                "https://registry.npmjs.org/-/v1/search?text=maintainer%3A{username}&size=3"
+            );
+            assert!(
+                npm.signals.iter().any(|signal| matches!(
+                    signal,
+                    super::super::site::Signal::BodyUsername { text }
+                        if text == "\"username\":\"{username}\""
+                )),
+                "{label} npm should require exact maintainer username evidence"
+            );
+            assert!(
+                npm.signals.iter().any(|signal| matches!(
+                    signal,
+                    super::super::site::Signal::BodyAbsent { text } if text == "\"total\":0"
+                )),
+                "{label} npm should classify an empty registry-search result as NotFound"
+            );
+            assert!(
+                npm.signals.iter().all(|signal| !matches!(
+                    signal,
+                    super::super::site::Signal::StatusFound { .. }
+                        | super::super::site::Signal::StatusNotFound { .. }
+                        | super::super::site::Signal::BodyPresent { .. }
+                )),
+                "{label} npm must not use status-only or generic body markers"
+            );
+            assert!(
+                npm.tags.iter().any(|tag| tag == "api")
+                    && npm.tags.iter().all(|tag| tag != "bot-protected"),
+                "{label} npm registry-search path should stay on the raw HTTP API path"
+            );
+        }
+    }
+
+    #[test]
     fn replit_requires_session_and_exact_username_marker() {
         let registry = Registry::default_embedded_with_wmn().unwrap();
         let replit_entries: Vec<&Site> = registry
