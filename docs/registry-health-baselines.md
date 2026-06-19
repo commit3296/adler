@@ -70,6 +70,69 @@ Triage notes:
   after a targeted mock/live check proves the registry metadata change
   does not mask a broken signature.
 
+## 2026-06-19 Direct Top-50 Snapshot After False-Positive Fixes
+
+Command:
+
+```bash
+cargo run -q -p adler-cli -- \
+  --doctor --top 50 --no-progress --no-cache \
+  --max-retries 0 --timeout 8 --concurrency 12 \
+  --format json
+```
+
+Scope:
+
+- Same scope as the earlier 2026-06-19 direct snapshot.
+- Run after the StackOverflow, PyPI, Replit, and Weibo registry repairs
+  landed.
+- Direct local egress, no proxy pool, no browser backend, no operator
+  sessions.
+
+Summary:
+
+- Total: 40 sites.
+- Healthy: 28.
+- Unhealthy: 12.
+
+Healthy checks included YouTube, Wikipedia, TikTok, GitHub, Pinterest,
+Snapchat, Twitch, Telegram, Medium, Tumblr, SoundCloud, Vimeo, Flickr,
+Behance, Dribbble, WordPress, Blogger, Bandcamp, MixCloud, last.fm,
+Patreon, GitLab, BitBucket, StackOverflow, Docker Hub, Keybase,
+HackerOne, and dev.to.
+
+Unhealthy entries:
+
+| Site | Observed issue | Current bucket |
+| --- | --- | --- |
+| Instagram | known-present users reported `NotFound` | access/browser research |
+| Twitter | known-present users reported `Uncertain` | access/browser research |
+| X | known-present users reported `NotFound` | access/browser research |
+| Reddit | `Uncertain(session_required)` without operator credentials | expected session-gated |
+| VK | known-present user reported `Uncertain` | access or endpoint research |
+| Weibo | `Uncertain(session_required)` without operator credentials | expected session-gated |
+| DeviantArt | known-present users reported `Uncertain` | access or endpoint research |
+| Ko-Fi | known-present users hit `cloudflare_challenge`; random absent still reported `Found` | remaining false-positive signature candidate |
+| npm | known-present user reported `Uncertain` | access or endpoint research |
+| pypi | known-present users reported `Uncertain` behind the client challenge | fixed false-positive class; access/protection research remains |
+| Replit | `Uncertain(session_required)` without operator credentials | expected session-gated |
+| CodePen | known-present users hit `cloudflare_challenge` | protection metadata candidate |
+
+Triage notes:
+
+- StackOverflow moved from the false-positive queue to healthy after the
+  StackExchange API exact-username evidence change.
+- PyPI, Replit, and Weibo no longer produce unauthenticated false
+  `Found` results in this direct run. They remain visible as
+  protection/session cases, which is the expected conservative behavior.
+- Ko-Fi is the only remaining direct-run false-positive candidate in
+  this top set. Treat it as the next focused registry investigation:
+  first prove whether a stable exact marker or API-backed endpoint
+  exists; if not, prefer protection/session gating over a permissive
+  `Found` rule.
+- CodePen still shows repeatable Cloudflare challenge behavior for
+  known-present users, but no absent-user false positive in this run.
+
 ## 2026-06-19 Persisted Scan Protection Telemetry
 
 Command:
