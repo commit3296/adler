@@ -19,9 +19,11 @@ healthy without weakening Adler's honest-verdict model.
 
 ## Track 1: Site Health Inventory
 
+- [x] Commit a direct top-50 doctor baseline summary:
+  [registry-health-baselines.md](registry-health-baselines.md).
 - [ ] Produce a current doctor baseline from datacenter, residential, and
   optional browser-backed runs.
-- [ ] Classify failures by dominant reason:
+- [x] Classify the first direct-run failures by dominant reason:
   `cloudflare_challenge`, `rate_limited`, `session_required`,
   `geo_unavailable`, `browser_budget`, stale `known_present`, and
   signal drift.
@@ -32,6 +34,9 @@ healthy without weakening Adler's honest-verdict model.
 
 ## Track 2: Automated Triage
 
+- [x] Record a persisted-scan `--suggest-protection` summary and keep the
+  output as a review queue instead of bulk-applying it:
+  [registry-health-baselines.md](registry-health-baselines.md).
 - [ ] Make nightly doctor output easier to prioritize by grouping repeated
   failures by reason, tag, popularity, and protection metadata.
 - [ ] Keep auto-opened registry-health PRs small: one failure class or one
@@ -135,7 +140,7 @@ Research order after TikTok:
 
 ## First PR Slice
 
-- [ ] Generate and commit a fresh doctor baseline artifact or summary.
+- [x] Generate and commit a fresh doctor baseline artifact or summary.
 - [ ] Pick one target from the research order and write a short
   investigation note with response examples.
 - [ ] Repair only that target if a stable signal exists.

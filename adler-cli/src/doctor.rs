@@ -50,15 +50,6 @@ pub(crate) async fn run_doctor(
     sites: &[Site],
     opts: DoctorOpts<'_>,
 ) -> Result<ExitCode> {
-    tracing::info!(
-        count = sites.len(),
-        fix = opts.fix,
-        apply = opts.apply,
-        suggest_known_present = opts.suggest_known_present,
-        suggest_extract = opts.suggest_extract,
-        format = ?opts.format,
-        "starting doctor"
-    );
     // The suggest/apply helper paths still emit human text; the structured
     // formats target the headline walk. csv/html aren't a natural fit for
     // doctor output — surface that rather than letting --format silently
@@ -75,9 +66,21 @@ pub(crate) async fn run_doctor(
     if opts.suggest_protection_only() {
         // `--suggest-protection` is telemetry-only: it reads persisted scan
         // history and must not launch a live registry health walk.
+        tracing::info!(scans_dir = ?opts.scans_dir, "starting protection telemetry suggestions");
         print_protection_suggestions(opts.scans_dir);
         return Ok(ExitCode::SUCCESS);
     }
+
+    tracing::info!(
+        count = sites.len(),
+        fix = opts.fix,
+        apply = opts.apply,
+        suggest_known_present = opts.suggest_known_present,
+        suggest_extract = opts.suggest_extract,
+        suggest_protection = opts.suggest_protection,
+        format = ?opts.format,
+        "starting doctor"
+    );
 
     let walk = walk_doctor_sites(client, sites, opts.format, opts.color).await?;
     render_doctor_summary(opts.format, sites.len(), &walk)?;
