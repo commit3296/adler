@@ -51,7 +51,7 @@ Unhealthy entries:
 | Ko-Fi | known-present users hit `cloudflare_challenge`; random absent also reported `Found` | mixed protection + signature |
 | StackOverflow | random absent username reported `Found` | fixed: switched to StackExchange API exact username evidence |
 | npm | known-present user reported `Uncertain` | access or endpoint research |
-| pypi | random absent username reported `Found` | too-permissive signature |
+| pypi | random absent username reported `Found` | fixed: removed `200 == Found`; strict profile username marker now keeps JS challenge responses uncertain |
 | Replit | random absent username reported `Found` | too-permissive signature |
 | CodePen | known-present users hit `cloudflare_challenge` | protection metadata candidate |
 
@@ -62,7 +62,7 @@ Triage notes:
 - Reddit is expected to require the named `reddit` session path; this
   direct run confirms the unauthenticated path stays honest.
 - The next registry-fix candidates are the remaining too-permissive
-  signatures: Weibo, pypi, and Replit.
+  signatures: Weibo and Replit.
 - The first access-policy candidates are protection-heavy sites with
   repeatable Cloudflare evidence, starting with CodePen and Ko-Fi only
   after a targeted mock/live check proves the registry metadata change
