@@ -573,6 +573,56 @@ async fn doctor_patreon_status_fixture_is_healthy() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn doctor_stackoverflow_api_fixture_is_healthy() {
+    let server = MockServer::start().await;
+    Mock::given(any())
+        .and(path("/2.3/users"))
+        .and(query_param("inname", "jon-skeet"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_string(r#"{"items":[{"display_name":"jon-skeet"}]}"#),
+        )
+        .mount(&server)
+        .await;
+    Mock::given(any())
+        .and(path("/2.3/users"))
+        .respond_with(ResponseTemplate::new(200).set_body_string(r#"{"items":[]}"#))
+        .mount(&server)
+        .await;
+    let json = format!(
+        r#"{{"sites":[{{
+            "name":"StackOverflow",
+            "url":"{0}/2.3/users?order=desc&sort=name&inname={{username}}&site=stackoverflow",
+            "signals":[
+                {{"kind":"body_username","text":"\"display_name\":\"{{username}}\""}},
+                {{"kind":"body_absent","text":"\"items\":[]"}}
+            ],
+            "known_present":"jon-skeet"
+        }}]}}"#,
+        server.uri()
+    );
+    let sites = sites_file(&json);
+    let assert = adler()
+        .args([
+            "--sites",
+            sites.path().to_str().unwrap(),
+            "--no-progress",
+            "--doctor",
+            "--format",
+            "json",
+        ])
+        .assert()
+        .success();
+    let stdout = String::from_utf8(assert.get_output().stdout.clone()).unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&stdout).expect("valid JSON envelope");
+    assert_eq!(parsed["sites"][0]["name"], "StackOverflow");
+    assert_eq!(parsed["sites"][0]["verdict"], "healthy");
+    assert!(parsed["sites"][0]["issues"].as_array().unwrap().is_empty());
+    assert_eq!(parsed["summary"]["healthy"], 1);
+    assert_eq!(parsed["summary"]["failing"], 0);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn doctor_reddit_oauth_json_fixture_is_healthy_with_session() {
     let server = MockServer::start().await;
     Mock::given(any())

@@ -25759,21 +25759,15 @@
     },
     {
       "name": "StackOverflow",
-      "url": "https://stackoverflow.com/users/filter?search={username}",
+      "url": "https://api.stackexchange.com/2.3/users?order=desc&sort=name&inname={username}&site=stackoverflow",
       "signals": [
         {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
+          "kind": "body_username",
+          "text": "\"display_name\":\"{username}\""
         },
         {
           "kind": "body_absent",
           "text": "\"items\":[]"
-        },
-        {
-          "kind": "body_present",
-          "text": "\"items\":[{"
         }
       ],
       "tags": [
@@ -25781,7 +25775,7 @@
         "source:maigret",
         "tech"
       ],
-      "known_present": "maigret",
+      "known_present": "jon-skeet",
       "popularity": 40
     },
     {
