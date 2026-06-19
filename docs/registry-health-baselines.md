@@ -133,6 +133,67 @@ Triage notes:
 - CodePen still shows repeatable Cloudflare challenge behavior for
   known-present users, but no absent-user false positive in this run.
 
+## 2026-06-19 Direct Top-50 Snapshot After X/VK Service Fixes
+
+Command:
+
+```bash
+cargo run -q -p adler-cli -- \
+  --doctor --top 50 --no-progress --no-cache \
+  --max-retries 0 --timeout 8 --concurrency 12 \
+  --format json
+```
+
+Scope:
+
+- Same scope as the earlier 2026-06-19 direct snapshots.
+- Run after the X username-availability signal fix, the VK canonical
+  profile marker fix, Ko-Fi's status-only Found removal, and
+  DeviantArt's CloudFront/bot-protected classification.
+- Direct local egress, no proxy pool, no browser backend, no operator
+  sessions.
+
+Summary:
+
+- Total: 40 sites.
+- Healthy: 30.
+- Unhealthy: 10.
+
+Newly healthy since the previous direct snapshot:
+
+- X: the username-availability endpoint now keys off the JSON
+  `reason` marker instead of treating HTTP 200 as both Found and
+  NotFound.
+- VK: the profile probe now requires the exact canonical profile marker
+  and no longer conflicts with the old redirect rule.
+
+Unhealthy entries:
+
+| Site | Observed issue | Current bucket |
+| --- | --- | --- |
+| Instagram | known-present users reported `NotFound` | access/browser research |
+| Twitter | known-present users reported `Uncertain` | access/browser research |
+| Reddit | `Uncertain(session_required)` without operator credentials | expected session-gated |
+| Weibo | `Uncertain(session_required)` without operator credentials | expected session-gated |
+| DeviantArt | known-present users reported `Uncertain` | CloudFront/browser research |
+| Ko-Fi | known-present users hit `cloudflare_challenge` | Cloudflare/browser research |
+| npm | known-present user reported `Uncertain` | access or endpoint research |
+| pypi | known-present users reported `Uncertain` behind the client challenge | fixed false-positive class; access/protection research remains |
+| Replit | `Uncertain(session_required)` without operator credentials | expected session-gated |
+| CodePen | known-present users hit `cloudflare_challenge` | protection metadata candidate |
+
+Triage notes:
+
+- Ko-Fi is no longer a direct-run false-positive candidate after the
+  status-only Found rule was removed. It remains a protected profile
+  surface until a stable exact marker can be reached through a browser
+  or a supported public endpoint exists.
+- DeviantArt's current direct failure is an edge-protection issue, not a
+  signature issue observed from this egress.
+- The next high-value registry work should focus on npm endpoint
+  semantics and browser/protection routing for CodePen, Ko-Fi, and
+  DeviantArt.
+
 ## 2026-06-19 Persisted Scan Protection Telemetry
 
 Command:

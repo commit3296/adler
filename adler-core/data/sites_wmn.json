@@ -4340,8 +4340,12 @@
       ],
       "tags": [
         "art",
+        "bot-protected",
         "images",
         "source:wmn"
+      ],
+      "protection": [
+        "cloudfront"
       ],
       "popularity": 28
     },
@@ -10409,12 +10413,6 @@
       "name": "Ko-Fi",
       "url": "https://ko-fi.com/{username}",
       "signals": [
-        {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
         {
           "kind": "body_present",
           "text": "id=\"profile-header\""
@@ -21350,14 +21348,8 @@
       "url": "https://vk.com/{username}",
       "signals": [
         {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
-          "kind": "body_present",
-          "text": "content=\"profile\""
+          "kind": "body_username",
+          "text": "data-canonical=\"https://vk.com/{username}\""
         },
         {
           "kind": "status_not_found",
@@ -22495,20 +22487,8 @@
       "url": "https://api.x.com/i/users/username_available.json?username={username}",
       "signals": [
         {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
           "kind": "body_present",
           "text": "\"reason\":\"taken\""
-        },
-        {
-          "kind": "status_not_found",
-          "codes": [
-            200
-          ]
         },
         {
           "kind": "body_absent",
