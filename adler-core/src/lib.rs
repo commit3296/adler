@@ -82,7 +82,7 @@
 //!   ([`discover_known_present`](crate::doctor::discover_known_present)),
 //!   site scaffolding ([`scaffold_site`](crate::doctor::scaffold_site)).
 //!
-//! Bot-protected sites (Instagram, X/Twitter today):
+//! Bot-protected sites (for example `Ko-Fi`, `CodePen`, and `DeviantArt`):
 //!
 //! - [`BrowserBackend`] trait — abstract real-Chrome driver.
 //!   Configurable on the [`Client`] via

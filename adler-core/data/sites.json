@@ -29188,24 +29188,23 @@
     },
     {
       "name": "Twitter",
-      "url": "https://x.com/{username}",
+      "url": "https://api.x.com/i/users/username_available.json?username={username}&suggest=0",
       "signals": [
         {
           "kind": "body_present",
-          "text": "data-testid=\"primaryColumn\""
+          "text": "\"valid\":false,\"reason\":\"taken\""
         },
         {
           "kind": "body_absent",
-          "text": "data-testid=\"mask\""
+          "text": "\"valid\":true,\"reason\":\"available\""
         }
       ],
       "known_present": [
-        "jack",
         "elonmusk",
         "naval"
       ],
       "tags": [
-        "bot-protected",
+        "api",
         "social"
       ],
       "regex_check": "^[a-zA-Z0-9_]{1,15}$",

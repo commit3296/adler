@@ -309,6 +309,65 @@ Triage notes:
   problems or services without a stable public exact-username endpoint
   from this egress.
 
+## 2026-06-21 Direct Top-50 Snapshot After X/Twitter API Alias Cleanup
+
+Command:
+
+```bash
+cargo run -q -p adler-cli -- \
+  --doctor --top 50 --no-progress --no-cache \
+  --max-retries 0 --timeout 8 --concurrency 12 \
+  --format json
+```
+
+Scope:
+
+- Same direct local-egress scope as the earlier 2026-06-21 snapshot.
+- Run after moving the legacy `Twitter` registry entry from the
+  `x.com/{username}` HTML profile shell to the X username-availability
+  API.
+- `X` and `Twitter` are both raw API probes in this snapshot; neither
+  is routed as `bot-protected`.
+- No proxy pool, no browser backend, no operator sessions.
+
+Summary:
+
+- Total: 40 sites.
+- Healthy: 32.
+- Unhealthy: 8.
+
+Changed since the previous direct snapshot:
+
+- `Twitter` now reports healthy from the API instead of `Uncertain`
+  from the HTML shell.
+- `X` remains healthy on the same public API model.
+- `last.fm` was healthy in this run; the previous transient flake
+  remains noted as a stability candidate, not a registry signature fix.
+
+Unhealthy entries:
+
+| Site | Observed issue | Current bucket |
+| --- | --- | --- |
+| Instagram | `Uncertain(session_required)` without operator credentials | expected session-gated |
+| Reddit | `Uncertain(session_required)` without operator credentials | expected session-gated |
+| Weibo | `Uncertain(session_required)` without operator credentials | expected session-gated |
+| DeviantArt | known-present users reported `Uncertain` | CloudFront/browser research |
+| Ko-Fi | known-present users hit `cloudflare_challenge` | Cloudflare/browser research |
+| pypi | known-present users reported `Uncertain` behind the client challenge | fixed false-positive class; access/protection research remains |
+| Replit | `Uncertain(session_required)` without operator credentials | expected session-gated |
+| CodePen | known-present users hit `cloudflare_challenge` | protection metadata candidate |
+
+Triage notes:
+
+- The legacy `Twitter` name remains available for compatibility, but it
+  no longer duplicates the browser-only profile-shell behavior.
+- The harmless `suggest=0` query parameter keeps `Twitter` and `X` as
+  distinct registry URLs so the default+WMN merge does not drop the WMN
+  `X` entry.
+- Remaining unhealthy entries are now concentrated in explicit
+  session-required paths, protected profile surfaces, or PyPI's client
+  challenge.
+
 ## 2026-06-19 Persisted Scan Protection Telemetry
 
 Command:

@@ -291,10 +291,10 @@ pub struct FixSuggestion {
 /// requests; intended for opt-in `--fix` use, not the hot scan path.
 ///
 /// Routes through the [`BrowserBackend`](crate::BrowserBackend) configured
-/// on `client` when the site is tagged `bot-protected` (Instagram,
-/// Twitter, …), so the diff sees a real JS-rendered profile rather than
-/// two identical login-wall shells. Without a backend, falls back to raw
-/// HTTP; bot-protected sites will then typically return `None`.
+/// on `client` when the site is tagged `bot-protected` (`Ko-Fi`,
+/// `CodePen`, `DeviantArt`, …), so the diff sees a real JS-rendered profile
+/// rather than two identical login-wall shells. Without a backend, falls back
+/// to raw HTTP; bot-protected sites will then typically return `None`.
 pub async fn suggest_fix(client: &Client, site: &Site) -> Option<FixSuggestion> {
     // Diffing uses the primary (first) known_present candidate. If the
     // site declares several, the others are doctor-only fallbacks; for

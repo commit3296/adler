@@ -1187,44 +1187,67 @@ mod tests {
     }
 
     #[test]
-    fn x_uses_username_availability_reason_without_status_200_conflict() {
+    fn x_and_twitter_use_username_availability_reason_without_status_200_conflict() {
         let registry = Registry::default_embedded_with_wmn().unwrap();
-        let x_entries: Vec<&Site> = registry.sites().iter().filter(|s| s.name == "X").collect();
 
-        assert_eq!(x_entries.len(), 1, "WMN merge must keep one X probe");
-        let x = x_entries[0];
-        assert!(
-            !x.disabled,
-            "X username availability API probe should remain enabled"
-        );
-        assert_eq!(
-            x.url.as_str(),
-            "https://api.x.com/i/users/username_available.json?username={username}"
-        );
-        assert!(
-            x.signals.iter().any(|signal| matches!(
-                signal,
-                super::super::site::Signal::BodyPresent { text }
-                    if text == "\"reason\":\"taken\""
-            )),
-            "X should report Found only when the API says the username is taken"
-        );
-        assert!(
-            x.signals.iter().any(|signal| matches!(
-                signal,
-                super::super::site::Signal::BodyAbsent { text }
-                    if text == "\"reason\":\"available\""
-            )),
-            "X should report NotFound only when the API says the username is available"
-        );
-        assert!(
-            x.signals.iter().all(|signal| !matches!(
-                signal,
-                super::super::site::Signal::StatusFound { .. }
-                    | super::super::site::Signal::StatusNotFound { .. }
-            )),
-            "X must not use HTTP 200 as both Found and NotFound"
-        );
+        for (name, url, found_marker, absent_marker) in [
+            (
+                "X",
+                "https://api.x.com/i/users/username_available.json?username={username}",
+                "\"reason\":\"taken\"",
+                "\"reason\":\"available\"",
+            ),
+            (
+                "Twitter",
+                "https://api.x.com/i/users/username_available.json?username={username}&suggest=0",
+                "\"valid\":false,\"reason\":\"taken\"",
+                "\"valid\":true,\"reason\":\"available\"",
+            ),
+        ] {
+            let entries: Vec<&Site> = registry.sites().iter().filter(|s| s.name == name).collect();
+
+            assert_eq!(entries.len(), 1, "registry must keep one {name} probe");
+            let site = entries[0];
+            assert!(
+                !site.disabled,
+                "{name} username availability API probe should remain enabled"
+            );
+            assert_eq!(
+                site.url.as_str(),
+                url,
+                "{name} should use the X username availability API"
+            );
+            assert!(
+                site.signals.iter().any(|signal| matches!(
+                    signal,
+                    super::super::site::Signal::BodyPresent { text } if text == found_marker
+                )),
+                "{name} should report Found only when the API says the username is taken"
+            );
+            assert!(
+                site.signals.iter().any(|signal| matches!(
+                    signal,
+                    super::super::site::Signal::BodyAbsent { text } if text == absent_marker
+                )),
+                "{name} should report NotFound only when the API says the username is available"
+            );
+            assert!(
+                site.signals.iter().all(|signal| !matches!(
+                    signal,
+                    super::super::site::Signal::StatusFound { .. }
+                        | super::super::site::Signal::StatusNotFound { .. }
+                )),
+                "{name} must not use HTTP 200 as both Found and NotFound"
+            );
+            assert!(
+                site.tags.iter().any(|tag| tag == "api")
+                    && site
+                        .tags
+                        .iter()
+                        .all(|tag| tag != crate::client::BOT_PROTECTED_TAG),
+                "{name} should stay on the raw HTTP API path"
+            );
+        }
     }
 
     #[test]
