@@ -1012,6 +1012,12 @@ mod tests {
                 && pypi.tags.iter().any(|tag| tag == "protection:other"),
             "PyPI should document its current JS challenge surface"
         );
+        assert!(
+            pypi.protection
+                .iter()
+                .any(|p| matches!(p, super::super::site::ProtectionKind::ClientChallenge)),
+            "PyPI should expose its browser client challenge as structured protection"
+        );
 
         let scanned = registry.filter(&["pypi".into()], &[], &[], &[], true);
         assert_eq!(

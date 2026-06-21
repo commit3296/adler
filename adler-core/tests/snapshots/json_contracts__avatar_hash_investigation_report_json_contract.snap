@@ -3,7 +3,7 @@ source: adler-core/tests/json_contracts.rs
 expression: pretty_json(&report)
 ---
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "username": "alice",
   "generated_at_ms": 1781192452000,
   "summary": {

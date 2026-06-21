@@ -59,6 +59,11 @@ pub(crate) fn detect_in_body(body: &str) -> Option<UncertainReason> {
             "cf-browser-verification",
             UncertainReason::CloudflareChallenge,
         ),
+        ("Client Challenge", UncertainReason::ClientChallenge),
+        (
+            "/_fs-ch-1T1wmsGaOgGaSxcX/script.js",
+            UncertainReason::ClientChallenge,
+        ),
         ("captcha-bypass", UncertainReason::Captcha),
         (
             "Please enable cookies",
@@ -173,6 +178,14 @@ mod tests {
         assert_eq!(
             detect_in_body("Please wait, Checking your browser before accessing reddit.com"),
             Some(UncertainReason::CloudflareChallenge)
+        );
+    }
+
+    #[test]
+    fn in_body_flags_generic_client_challenge() {
+        assert_eq!(
+            detect_in_body("<title>Client Challenge</title>"),
+            Some(UncertainReason::ClientChallenge)
         );
     }
 

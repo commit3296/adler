@@ -44,6 +44,9 @@ pub enum UncertainReason {
     RateLimited,
     /// A Cloudflare interstitial / "checking your browser" page.
     CloudflareChallenge,
+    /// A generic JavaScript/browser client challenge that is not tied to a
+    /// known WAF vendor.
+    ClientChallenge,
     /// A captcha gate.
     Captcha,
     /// The path is disallowed by the host's `robots.txt` (`--respect-robots`).
@@ -88,6 +91,7 @@ impl fmt::Display for UncertainReason {
         match self {
             Self::RateLimited => f.write_str("rate_limited"),
             Self::CloudflareChallenge => f.write_str("cloudflare_challenge"),
+            Self::ClientChallenge => f.write_str("client_challenge"),
             Self::Captcha => f.write_str("captcha"),
             Self::RobotsDisallowed => f.write_str("robots_disallowed"),
             Self::Deadline => f.write_str("deadline reached"),
@@ -305,6 +309,10 @@ mod tests {
     #[test]
     fn reason_display_matches_legacy_note_text() {
         assert_eq!(UncertainReason::RateLimited.to_string(), "rate_limited");
+        assert_eq!(
+            UncertainReason::ClientChallenge.to_string(),
+            "client_challenge"
+        );
         assert_eq!(UncertainReason::Deadline.to_string(), "deadline reached");
         assert_eq!(
             UncertainReason::Network("boom".into()).to_string(),

@@ -112,7 +112,8 @@
             "enum": [
               "cloudflare", "cloudfront", "ddos-guard",
               "cf-js-challenge", "cf-firewall", "tls-fingerprint",
-              "anubis", "captcha", "user-agent", "user-auth"
+              "anubis", "client-challenge", "captcha", "user-agent",
+              "user-auth"
             ]
           }
         },

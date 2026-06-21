@@ -165,6 +165,8 @@ Research order after TikTok:
   and requiring a strict profile username marker.
 - [x] Mark PyPI's raw user profile path as bot-protected/protection-other
   so browser/access research is explicit.
+- [x] Promote PyPI's generic browser client challenge to structured
+  `protection: ["client-challenge"]` and `Uncertain(client_challenge)`.
 - [x] Add targeted tests proving PyPI's client-challenge shell does not
   create false `Found` results for random usernames.
 - [x] Repair Replit's false-positive signature by requiring the named
