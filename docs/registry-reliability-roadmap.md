@@ -96,10 +96,16 @@ Research order after TikTok:
    - [ ] Revisit only when a stable public metadata endpoint, explicit
      browser-backed signal, or operator-session path can produce
      username-confirming evidence without leaking secrets.
-4. **Instagram** — keep parked/bot-protected by default unless a stable,
-   responsible, non-CAPTCHA signal is available through an operator-owned
-   session or explicit browser path.
-5. **X / Twitter** — same policy as Instagram: no false NotFound, no
+4. **Instagram** — use the `web_profile_info` JSON endpoint with the
+   required `X-IG-App-ID` header, explicit operator session, and exact
+   username evidence.
+   - [x] Replace the generic HTML profile-shell signature with the API
+     endpoint.
+   - [x] Require exact `/data/user/username` JSON evidence.
+   - [x] Treat API HTTP 404 as NotFound.
+   - [x] Keep the canonical probe on the raw HTTP session API path
+     rather than routing it as `bot-protected`.
+5. **X / Twitter** — no false NotFound, no
    CAPTCHA solving, no fragile hydrated-page scraping as a default signal.
 6. **Threads** — revisit only if a stable public profile endpoint appears
    or an operator-session path can be modeled without leaking secrets.
@@ -183,5 +189,9 @@ Research order after TikTok:
 - [x] Move npm to the public registry search API with exact maintainer
   username evidence.
 - [x] Refresh the direct top-set doctor baseline after the npm API fix.
+- [x] Move canonical Instagram to a session-gated `web_profile_info`
+  path with exact `/data/user/username` evidence and `X-IG-App-ID`.
+- [x] Refresh the direct top-set doctor baseline after the Instagram
+  session API model.
 - [ ] Keep CodePen as a protection-metadata candidate unless targeted
   research finds a stable exact evidence endpoint.

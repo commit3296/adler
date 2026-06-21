@@ -73,7 +73,8 @@ pub struct Site {
     /// `{"X-IG-App-ID": "936619743392459"}` to unlock Instagram's
     /// `web_profile_info` endpoint, or a custom `User-Agent`). Browser
     /// backends apply them via `Network.setExtraHTTPHeaders` before
-    /// navigation; the raw-HTTP path doesn't read this yet.
+    /// navigation; the raw HTTP transport applies them directly on the
+    /// outgoing request.
     #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
     pub request_headers: std::collections::BTreeMap<String, String>,
     /// Optional regular expression describing usernames a site will

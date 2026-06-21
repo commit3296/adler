@@ -40,8 +40,8 @@ pub(crate) struct FetchRequest<'a> {
     pub body: Option<&'a str>,
     /// Resolved User-Agent for this request (rotation handled upstream).
     pub user_agent: Option<&'a str>,
-    /// Per-site extra headers. Applied by the browser transport today;
-    /// the HTTP transport does not apply them yet (see Phase 2).
+    /// Per-site/session extra headers. Applied by both raw HTTP and
+    /// browser transports.
     pub headers: &'a BTreeMap<String, String>,
     /// Whether the response body is needed (signals / enrichment). When
     /// `false`, the HTTP transport may issue a HEAD.

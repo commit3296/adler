@@ -78,7 +78,7 @@
         },
         "request_headers": {
           "type": "object",
-          "description": "Extra HTTP headers sent with the probe (e.g. `X-IG-App-ID` for Instagram). Browser backends apply via setExtraHTTPHeaders/setUserAgentOverride; the raw-HTTP path doesn't read this yet.",
+          "description": "Extra HTTP headers sent with the probe (e.g. `X-IG-App-ID` for Instagram). Raw HTTP applies them directly; browser backends apply them via setExtraHTTPHeaders/setUserAgentOverride.",
           "additionalProperties": { "type": "string" }
         },
         "regex_check": {

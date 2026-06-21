@@ -47,7 +47,7 @@ the dimensions that matter when sites push back:
 | ---------------------------- | :---: | :---: | :---: | :---: | :---: |
 | Approx. sites                | 400 | 3,000 | 600 | 5,400 | 2,600 [^cmp-1] |
 | Verdict model                | Found / NotFound | Found / NotFound | Found / NotFound | Found / NotFound | **Found / NotFound / Uncertain(reason)** |
-| Bot-protected sites (Instagram, X, …) | — | — | — | — | **headless Chrome via `--browser-backend`** |
+| Bot-protected sites (X/Twitter, Ko-Fi, …) | — | — | — | — | **headless Chrome via `--browser-backend`** |
 | TLS-fingerprint blocking     | — | — | — | — | **Chrome 134 handshake via `--features impersonate`** |
 | Proxy routing                | one global | one global + Tor + I2P | — | — | one global **or** per-site policy via `--proxy-pool` |
 | Cookies / sessions           | — | global `cookies.txt` | — | — | **per-site named sessions** via `--sessions` |
@@ -112,9 +112,10 @@ The residential lift is real: ~40 sites swap their verdict between
 Cloudflare-walled or geo-restricted (RU-segment, plus platforms like
 Reddit, Imgur, Patreon). The remaining ~26% breaks down roughly as:
 
-- **Bot-protected sites** tagged `bot-protected` (Instagram and
-  X/Twitter today) — these serve a JS login wall to a plain HTTP
-  request; a clean IP doesn't help, you need a browser backend.
+- **Bot-protected sites** tagged `bot-protected` (X/Twitter, Ko-Fi,
+  CodePen, and similar surfaces today) — these serve a JS login wall to
+  a plain HTTP request; a clean IP doesn't help, you need a browser
+  backend.
   Exclude them with `--exclude-tag bot-protected`.
 - **Stale Sherlock-imported `known_present` accounts** that no
   longer exist on the live site. The `--doctor --suggest-known-present`
@@ -379,9 +380,9 @@ that's the whole reason it scores ahead of Sherlock / Maigret on the
 hard subset of the registry:
 
 - **Browser backend** (`--browser-backend local` / `browserbase`) — real
-  headless Chrome for sites tagged `bot-protected` (Instagram, X /
-  Twitter today). Bounded by `--browser-budget` so a misconfigured flag
-  can't burn a quota.
+  headless Chrome for sites tagged `bot-protected` (X / Twitter,
+  Ko-Fi, CodePen, and similar surfaces today). Bounded by
+  `--browser-budget` so a misconfigured flag can't burn a quota.
 - **TLS-fingerprint impersonation** (`cargo install --features
   impersonate`) — in-process Chrome 134 BoringSSL handshake for sites
   tagged `protection: tls-fingerprint`. Much cheaper than a real
