@@ -248,6 +248,67 @@ Triage notes:
   browser-protection cases rather than obvious top-set raw signature
   bugs.
 
+## 2026-06-21 Direct Top-50 Snapshot After Instagram Session API Model
+
+Command:
+
+```bash
+cargo run -q -p adler-cli -- \
+  --doctor --top 50 --no-progress --no-cache \
+  --max-retries 0 --timeout 8 --concurrency 12 \
+  --format json
+```
+
+Scope:
+
+- Same direct local-egress scope as the 2026-06-19 snapshots.
+- Run after moving canonical Instagram from the generic HTML profile
+  shell to `api/v1/users/web_profile_info` with `X-IG-App-ID`, exact
+  `/data/user/username` JSON evidence, and an explicit
+  `access.session = instagram` requirement.
+- No proxy pool, no browser backend, no operator sessions.
+
+Summary:
+
+- Total: 40 sites.
+- Healthy: 30.
+- Unhealthy: 10.
+
+Changed since the previous direct snapshot:
+
+- Instagram no longer reports known-present users as `NotFound` from
+  the generic HTML shell. The canonical probe is now an operator-session
+  API path: without an `instagram` session it returns
+  `Uncertain(session_required)`, and with a session it can produce exact
+  username evidence from `/data/user/username`.
+
+Unhealthy entries:
+
+| Site | Observed issue | Current bucket |
+| --- | --- | --- |
+| Instagram | `Uncertain(session_required)` without operator credentials | expected session-gated |
+| Twitter | known-present users reported `Uncertain` | access/API research |
+| Reddit | `Uncertain(session_required)` without operator credentials | expected session-gated |
+| Weibo | `Uncertain(session_required)` without operator credentials | expected session-gated |
+| DeviantArt | known-present users reported `Uncertain` | CloudFront/browser research |
+| last.fm | known-present user intermittently reported `Uncertain` | transient direct-run flake |
+| Ko-Fi | known-present users hit `cloudflare_challenge` | Cloudflare/browser research |
+| pypi | known-present users reported `Uncertain` behind the client challenge | fixed false-positive class; access/protection research remains |
+| Replit | `Uncertain(session_required)` without operator credentials | expected session-gated |
+| CodePen | known-present users hit `cloudflare_challenge` | protection metadata candidate |
+
+Triage notes:
+
+- Instagram is no longer a canonical HTML-shell probe in the direct top
+  set. The separate `Instagram (Imginn)` and `Instagram_archives`
+  registry entries remain independent aliases with their own health.
+- `last.fm` flapped during this local run; targeted reruns alternated
+  between healthy and `Uncertain`, so treat it as a separate stability
+  candidate rather than part of the Instagram change.
+- The remaining direct-run failures are access/session/protection
+  problems or services without a stable public exact-username endpoint
+  from this egress.
+
 ## 2026-06-19 Persisted Scan Protection Telemetry
 
 Command:

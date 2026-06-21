@@ -1228,6 +1228,84 @@ mod tests {
     }
 
     #[test]
+    fn instagram_uses_web_profile_info_api_with_exact_username_marker() {
+        let registry = Registry::default_embedded_with_wmn().unwrap();
+        let instagram_entries: Vec<&Site> = registry
+            .sites()
+            .iter()
+            .filter(|s| s.name == "Instagram")
+            .collect();
+
+        assert_eq!(
+            instagram_entries.len(),
+            1,
+            "WMN merge must keep one Instagram probe"
+        );
+        let instagram = instagram_entries[0];
+        assert!(
+            !instagram.disabled,
+            "Instagram API probe should remain enabled"
+        );
+        assert_eq!(
+            instagram.url.as_str(),
+            "https://www.instagram.com/api/v1/users/web_profile_info/?username={username}"
+        );
+        assert_eq!(
+            instagram
+                .request_headers
+                .get("X-IG-App-ID")
+                .map(String::as_str),
+            Some("936619743392459"),
+            "Instagram web_profile_info requires the public app id header"
+        );
+        assert_eq!(
+            instagram.access.session.as_deref(),
+            Some("instagram"),
+            "Instagram API should be operator-session gated to avoid unstable unauthenticated 401s"
+        );
+        assert!(
+            instagram
+                .protection
+                .iter()
+                .any(|p| matches!(p, super::super::site::ProtectionKind::UserAuth)),
+            "Instagram should document its user-auth requirement"
+        );
+        assert!(
+            instagram.signals.iter().any(|signal| matches!(
+                signal,
+                super::super::site::Signal::JsonUsername { pointer }
+                    if pointer == "/data/user/username"
+            )),
+            "Instagram should require exact username evidence from top-level API JSON"
+        );
+        assert!(
+            instagram.signals.iter().any(|signal| matches!(
+                signal,
+                super::super::site::Signal::StatusNotFound { codes } if codes == &[404]
+            )),
+            "Instagram API should classify HTTP 404 as NotFound"
+        );
+        assert!(
+            instagram.signals.iter().all(|signal| !matches!(
+                signal,
+                super::super::site::Signal::StatusFound { .. }
+                    | super::super::site::Signal::BodyPresent { .. }
+                    | super::super::site::Signal::BodyUsername { .. }
+                    | super::super::site::Signal::BodyAbsent { .. }
+            )),
+            "Instagram must not infer Found or NotFound from the generic HTML shell"
+        );
+        assert!(
+            instagram.tags.iter().any(|tag| tag == "api")
+                && instagram
+                    .tags
+                    .iter()
+                    .all(|tag| tag != crate::client::BOT_PROTECTED_TAG),
+            "Instagram web_profile_info should stay on the raw HTTP session API path"
+        );
+    }
+
+    #[test]
     fn vk_uses_exact_canonical_marker_without_redirect_conflict() {
         for (label, registry) in [
             ("default", Registry::default_embedded().unwrap()),

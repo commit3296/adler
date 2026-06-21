@@ -9583,37 +9583,36 @@
     },
     {
       "name": "Instagram",
-      "url": "https://www.instagram.com/{username}/",
+      "url": "https://www.instagram.com/api/v1/users/web_profile_info/?username={username}",
       "signals": [
         {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
-          "kind": "body_present",
-          "text": "\"routePath\":\"\\/{username}\\/{?tab}\\/{?view_type}\\/{?igshid}\\/\""
+          "kind": "json_username",
+          "pointer": "/data/user/username"
         },
         {
           "kind": "status_not_found",
           "codes": [
-            200
+            404
           ]
-        },
-        {
-          "kind": "body_absent",
-          "text": "\"routePath\":null"
         }
       ],
+      "request_headers": {
+        "X-IG-App-ID": "936619743392459"
+      },
+      "access": {
+        "session": "instagram"
+      },
       "known_present": [
         "jennaortega",
         "cristiano"
       ],
       "tags": [
-        "bot-protected",
+        "api",
         "social",
         "source:wmn"
+      ],
+      "protection": [
+        "user-auth"
       ],
       "popularity": 3
     },
