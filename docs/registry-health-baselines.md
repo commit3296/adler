@@ -368,6 +368,63 @@ Triage notes:
   session-required paths, protected profile surfaces, or PyPI's client
   challenge.
 
+## 2026-06-22 Direct Top-50 Snapshot After PyPI Client-Challenge Classification
+
+Command:
+
+```bash
+cargo run -q -p adler-cli -- \
+  --doctor --top 50 --no-progress --no-cache \
+  --max-retries 0 --timeout 8 --concurrency 12 \
+  --format json
+```
+
+Scope:
+
+- Same direct local-egress scope as the 2026-06-21 snapshots.
+- Run after promoting PyPI's generic browser challenge to structured
+  `protection: ["client-challenge"]` and
+  `Uncertain(client_challenge)`.
+- No proxy pool, no browser backend, no operator sessions.
+
+Summary:
+
+- Total: 40 sites.
+- Healthy: 31.
+- Unhealthy: 9.
+
+Changed since the previous direct snapshot:
+
+- PyPI now reports `Uncertain(client_challenge)` instead of an
+  unclassified `Uncertain` for both known-present and random usernames.
+- `last.fm` flapped back to `Uncertain` in this run; previous targeted
+  and top-set runs showed it can alternate between healthy and
+  unhealthy from the same direct egress.
+
+Unhealthy entries:
+
+| Site | Observed issue | Current bucket |
+| --- | --- | --- |
+| Instagram | `Uncertain(session_required)` without operator credentials | expected session-gated |
+| Reddit | `Uncertain(session_required)` without operator credentials | expected session-gated |
+| Weibo | `Uncertain(session_required)` without operator credentials | expected session-gated |
+| DeviantArt | known-present users reported `Uncertain` | CloudFront/browser research |
+| last.fm | known-present user intermittently reported `Uncertain` | transient direct-run flake |
+| Ko-Fi | known-present users hit `cloudflare_challenge` | Cloudflare/browser research |
+| pypi | known-present users reported `Uncertain(client_challenge)` behind the client challenge | fixed false-positive class; access/protection research remains |
+| Replit | `Uncertain(session_required)` without operator credentials | expected session-gated |
+| CodePen | known-present users hit `cloudflare_challenge` | protection metadata candidate |
+
+Triage notes:
+
+- This snapshot is a diagnostics improvement, not a recall increase:
+  PyPI remains unhealthy without a browser/session path, but its failure
+  mode is now machine-readable.
+- CodePen and Ko-Fi still present Cloudflare challenges across profile
+  and feed-style endpoints from this egress.
+- DeviantArt profile, oEmbed, and RSS-style endpoints still return
+  CloudFront blocks from this egress.
+
 ## 2026-06-19 Persisted Scan Protection Telemetry
 
 Command:

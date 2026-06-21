@@ -16122,6 +16122,9 @@
         "protection:other",
         "source:wmn"
       ],
+      "protection": [
+        "client-challenge"
+      ],
       "popularity": 42
     },
     {

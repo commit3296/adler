@@ -217,6 +217,9 @@ pub enum ProtectionKind {
     /// `Anubis` proof-of-work challenge. Used by codeberg + a
     /// growing number of FOSS projects to discourage scraping.
     Anubis,
+    /// Generic JavaScript/browser challenge whose vendor is not modeled
+    /// more specifically yet.
+    ClientChallenge,
     /// Generic captcha challenge (hCaptcha, reCAPTCHA, …). Almost
     /// always blocking — `Uncertain` is the honest answer.
     Captcha,

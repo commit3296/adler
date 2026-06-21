@@ -28,7 +28,7 @@ use crate::scan::{FinishedScan, ScanId, Summary};
 /// large enough for any plausible human-driven OSINT session.
 pub(crate) const MAX_PERSISTED_SCANS: usize = 200;
 /// Current on-disk schema version for [`PersistedScan`].
-pub(crate) const PERSISTED_SCAN_SCHEMA_VERSION: u16 = 3;
+pub(crate) const PERSISTED_SCAN_SCHEMA_VERSION: u16 = 4;
 
 /// Self-contained snapshot of a completed scan. Round-trips losslessly
 /// through JSON; tests assert that.

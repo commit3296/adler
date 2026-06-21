@@ -306,6 +306,7 @@ fn apply_uncertain_reason_rules(signals: &ConfidenceSignals, score: &mut Confide
             score.add_reason(ConfidenceReason::SessionRequired);
         }
         UncertainReason::CloudflareChallenge
+        | UncertainReason::ClientChallenge
         | UncertainReason::Captcha
         | UncertainReason::RateLimited
         | UncertainReason::BrowserBudget
@@ -453,7 +454,7 @@ mod tests {
     fn transport_blocked_outcome_remains_low_confidence() {
         let score = ConfidenceScore::from_signals(&ConfidenceSignals {
             kind: MatchKind::Uncertain,
-            reason: Some(UncertainReason::GeoUnavailable),
+            reason: Some(UncertainReason::ClientChallenge),
             signal_evidence_count: 0,
             profile_evidence_count: 0,
             username_evidence_count: 0,

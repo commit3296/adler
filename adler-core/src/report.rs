@@ -17,7 +17,7 @@ use crate::identity::IdentityCluster;
 use crate::profile::{EvidenceSource, ProfileEvidence, ProfileEvidenceKind};
 
 /// Current schema version for investigation report JSON.
-pub const INVESTIGATION_REPORT_SCHEMA_VERSION: u16 = 3;
+pub const INVESTIGATION_REPORT_SCHEMA_VERSION: u16 = 4;
 
 /// Structured report over one scan or scan-derived artifact.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -613,6 +613,7 @@ fn push_uncertain_limitations(outcome: &CheckOutcome, limitations: &mut Vec<Repo
         UncertainReason::RateLimited => Some(ReportLimitationKind::RateLimited),
         UncertainReason::BrowserBudget => Some(ReportLimitationKind::BrowserBudget),
         UncertainReason::CloudflareChallenge
+        | UncertainReason::ClientChallenge
         | UncertainReason::BrowserFailed(_)
         | UncertainReason::Network(_)
         | UncertainReason::BodyRead(_) => Some(ReportLimitationKind::TransportBlocked),
@@ -783,7 +784,7 @@ mod tests {
         let report = InvestigationReport::builder("alice", &[low_found]).build();
         let json = serde_json::to_value(&report).unwrap();
 
-        assert_eq!(json["schema_version"], 3);
+        assert_eq!(json["schema_version"], 4);
         assert_eq!(json["limitations"][0]["kind"], "low_confidence_found");
         assert_eq!(json["found_accounts"][0]["confidence"]["label"], "low");
     }
