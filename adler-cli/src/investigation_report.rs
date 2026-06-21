@@ -219,8 +219,8 @@ mod tests {
 
 ## Summary
 
-- Schema version: 4
-- Report model: 4
+- Schema version: 5
+- Report model: 5
 - Outcomes: 2 total, 2 found, 0 not found, 0 uncertain
 - Evidence: 2 found with profile evidence, 2 evidence items
 - Identity clusters: 1 total, 0 uncertain, 2 clustered profiles
@@ -354,7 +354,7 @@ No limitations recorded.
         write_report(&report, ReportFormat::Json, &mut out).unwrap();
         let json: serde_json::Value = serde_json::from_slice(&out).unwrap();
 
-        assert_eq!(json["schema_version"], 4);
+        assert_eq!(json["schema_version"], 5);
         assert_eq!(json["username"], "alice");
         assert_eq!(json["summary"]["found"], 2);
         assert_eq!(json["found_accounts"].as_array().unwrap().len(), 2);

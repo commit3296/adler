@@ -306,6 +306,7 @@ fn apply_uncertain_reason_rules(signals: &ConfidenceSignals, score: &mut Confide
             score.add_reason(ConfidenceReason::SessionRequired);
         }
         UncertainReason::CloudflareChallenge
+        | UncertainReason::CloudfrontChallenge
         | UncertainReason::ClientChallenge
         | UncertainReason::Captcha
         | UncertainReason::RateLimited

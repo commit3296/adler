@@ -13,10 +13,12 @@ pre-1.0 bump rules.
 - *(registry)* classify generic browser client challenges as
   `client_challenge` and add structured `client-challenge` protection
   metadata for PyPI.
+- *(registry)* classify CloudFront edge blocks as
+  `cloudfront_challenge`.
 
 ### Changed
 - *(contracts)* bump persisted scan and investigation report schema
-  versions for the new client-challenge enum value.
+  versions for the new challenge enum values.
 
 ## [0.16.0](https://github.com/commit3296/adler/compare/v0.15.1...v0.16.0) - 2026-06-18
 

@@ -169,6 +169,8 @@ Research order after TikTok:
   `protection: ["client-challenge"]` and `Uncertain(client_challenge)`.
 - [x] Add targeted tests proving PyPI's client-challenge shell does not
   create false `Found` results for random usernames.
+- [x] Classify DeviantArt's CloudFront edge block as
+  `Uncertain(cloudfront_challenge)` rather than generic uncertainty.
 - [x] Repair Replit's false-positive signature by requiring the named
   `replit` session and exact username evidence instead of `200 == Found`.
 - [x] Add targeted tests proving a missing Replit session skips the

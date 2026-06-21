@@ -1450,7 +1450,7 @@ mod tests {
         let identity_clusters = adler_core::build_identity_clusters(username, outcomes);
         let scan = serde_json::json!({
             "scan_id": scan_id,
-            "schema_version": 4,
+            "schema_version": 5,
             "username": username,
             "site_count": outcomes.len(),
             "created_at_ms": created_at_ms,

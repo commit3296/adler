@@ -4,7 +4,7 @@ assertion_line: 1300
 expression: pretty_json(&value)
 ---
 {
-  "schema_version": 4,
+  "schema_version": 5,
   "username": "alice",
   "summary": {
     "total": 3,

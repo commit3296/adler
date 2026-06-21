@@ -1154,7 +1154,7 @@ fn report_scan_renders_json_from_persisted_scan() {
     let stdout = String::from_utf8(assert.get_output().stdout.clone()).unwrap();
     let report: serde_json::Value = serde_json::from_str(&stdout).expect("valid report JSON");
 
-    assert_eq!(report["schema_version"], 4);
+    assert_eq!(report["schema_version"], 5);
     assert_eq!(report["username"], "alice");
     assert_eq!(report["summary"]["found"], 2);
     assert!(
