@@ -105,8 +105,14 @@ Research order after TikTok:
    - [x] Treat API HTTP 404 as NotFound.
    - [x] Keep the canonical probe on the raw HTTP session API path
      rather than routing it as `bot-protected`.
-5. **X / Twitter** — no false NotFound, no
-   CAPTCHA solving, no fragile hydrated-page scraping as a default signal.
+5. **X / Twitter** — use the username-availability API and avoid fragile
+   hydrated-page scraping as a default signal.
+   - [x] Move `X` to the API `reason` markers.
+   - [x] Move legacy `Twitter` to the same API model while keeping the
+     old site name compatible.
+   - [x] Remove browser routing from the API probes.
+   - [x] Drop `jack` from API smoke candidates because the endpoint now
+     rejects usernames shorter than five characters.
 6. **Threads** — revisit only if a stable public profile endpoint appears
    or an operator-session path can be modeled without leaking secrets.
 
@@ -193,5 +199,10 @@ Research order after TikTok:
   path with exact `/data/user/username` evidence and `X-IG-App-ID`.
 - [x] Refresh the direct top-set doctor baseline after the Instagram
   session API model.
+- [x] Move legacy Twitter to the X username-availability API without
+  losing the WMN `X` API probe during registry merge.
+- [x] Remove `bot-protected` routing from the X/Twitter API probes.
+- [x] Refresh the direct top-set doctor baseline after the X/Twitter API
+  alias cleanup.
 - [ ] Keep CodePen as a protection-metadata candidate unless targeted
   research finds a stable exact evidence endpoint.
