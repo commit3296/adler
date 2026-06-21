@@ -425,6 +425,58 @@ Triage notes:
 - DeviantArt profile, oEmbed, and RSS-style endpoints still return
   CloudFront blocks from this egress.
 
+## 2026-06-22 Direct Top-50 Snapshot After CloudFront Challenge Classification
+
+Command:
+
+```bash
+cargo run -q -p adler-cli -- \
+  --doctor --top 50 --no-progress --no-cache \
+  --max-retries 0 --timeout 8 --concurrency 12 \
+  --format json
+```
+
+Scope:
+
+- Same direct local-egress scope as the earlier 2026-06-22 snapshot.
+- Run after classifying HTTP 403 CloudFront edge blocks as
+  `Uncertain(cloudfront_challenge)`.
+- No proxy pool, no browser backend, no operator sessions.
+
+Summary:
+
+- Total: 40 sites.
+- Healthy: 32.
+- Unhealthy: 8.
+
+Changed since the previous direct snapshot:
+
+- DeviantArt now reports `Uncertain(cloudfront_challenge)` instead of an
+  unclassified `Uncertain` from its CloudFront edge block.
+- `last.fm` returned to healthy in this run, matching its observed
+  flapping behavior across direct local-egress snapshots.
+
+Unhealthy entries:
+
+| Site | Observed issue | Current bucket |
+| --- | --- | --- |
+| Instagram | `Uncertain(session_required)` without operator credentials | expected session-gated |
+| Reddit | `Uncertain(session_required)` without operator credentials | expected session-gated |
+| Weibo | `Uncertain(session_required)` without operator credentials | expected session-gated |
+| DeviantArt | known-present users hit `cloudfront_challenge` | CloudFront/browser research |
+| Ko-Fi | known-present users hit `cloudflare_challenge` | Cloudflare/browser research |
+| pypi | known-present users reported `Uncertain(client_challenge)` behind the client challenge | fixed false-positive class; access/protection research remains |
+| Replit | `Uncertain(session_required)` without operator credentials | expected session-gated |
+| CodePen | known-present users hit `cloudflare_challenge` | protection metadata candidate |
+
+Triage notes:
+
+- This is also a diagnostics improvement, not a recall increase:
+  DeviantArt remains blocked from this egress, but downstream consumers
+  can now distinguish CloudFront blocks from generic uncertainty.
+- The remaining non-session protected surfaces are now explicitly
+  classified as Cloudflare, CloudFront, or generic client challenge.
+
 ## 2026-06-19 Persisted Scan Protection Telemetry
 
 Command:

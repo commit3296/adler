@@ -21,6 +21,7 @@ export interface SitesResponse {
 export type UncertainReason =
     | "rate_limited"
     | "cloudflare_challenge"
+    | "cloudfront_challenge"
     | "client_challenge"
     | "captcha"
     | "robots_disallowed"
