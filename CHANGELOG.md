@@ -22,6 +22,11 @@ pre-1.0 bump rules.
 - *(registry)* remove CodePen's status-only `Found` rule after endpoint
   research confirmed no stable public exact-evidence profile API.
 
+### Fixed
+- *(browser)* use an isolated temporary Chrome profile for each local
+  browser backend instance, avoiding `SingletonLock` conflicts during
+  parallel protected-service doctor/research runs.
+
 ## [0.16.0](https://github.com/commit3296/adler/compare/v0.15.1...v0.16.0) - 2026-06-18
 
 ### Added
