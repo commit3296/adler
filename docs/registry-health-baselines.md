@@ -545,6 +545,10 @@ Notes:
   this egress. Future recall work should use Browserbase/residential,
   FlareSolverr for Cloudflare-specific paths, or operator sessions where
   the access policy already requires them.
+- Use `adler --doctor --browser-matrix` for protected-site follow-up. It
+  compares the configured access path against a raw/no-browser baseline for
+  primary `known_present` users, without treating rendered challenge shells
+  as profile matches.
 
 ## 2026-06-19 Persisted Scan Protection Telemetry
 

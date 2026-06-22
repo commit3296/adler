@@ -47,7 +47,7 @@ the dimensions that matter when sites push back:
 | ---------------------------- | :---: | :---: | :---: | :---: | :---: |
 | Approx. sites                | 400 | 3,000 | 600 | 5,400 | 2,600 [^cmp-1] |
 | Verdict model                | Found / NotFound | Found / NotFound | Found / NotFound | Found / NotFound | **Found / NotFound / Uncertain(reason)** |
-| Bot-protected sites (Ko-Fi, CodePen, …) | — | — | — | — | **headless Chrome via `--browser-backend`** |
+| Bot-protected sites (Ko-Fi, CodePen, …) | — | — | — | — | **operator browser backends via `--browser-backend`** |
 | TLS-fingerprint blocking     | — | — | — | — | **Chrome 134 handshake via `--features impersonate`** |
 | Proxy routing                | one global | one global + Tor + I2P | — | — | one global **or** per-site policy via `--proxy-pool` |
 | Cookies / sessions           | — | global `cookies.txt` | — | — | **per-site named sessions** via `--sessions` |
@@ -68,9 +68,9 @@ the dimensions that matter when sites push back:
 `NotFound` from a Python-HTTP-only tool on a Cloudflare-walled, TLS-
 fingerprinted, geo-restricted, or login-walled site is often just "I gave up
 at the first wall." Adler reports `Uncertain(reason)` when it couldn't verify,
-and ships the transports you need to break the wall yourself — headless
-browser, Chrome handshake emulation, per-site geo / IP-type egress, operator-
-supplied sessions. We do not solve CAPTCHAs or evade human-verification (see
+and ships configured access paths you can opt into — headless browser,
+Chrome handshake emulation, per-site geo / IP-type egress, operator-supplied
+sessions. We do not solve CAPTCHAs or evade human-verification (see
 [*Ethics & responsible use*](#ethics--responsible-use)).
 
 ## Evidence, confidence, and reports
@@ -379,10 +379,12 @@ Adler ships a transport ladder for sites a plain HTTP client can't see —
 that's the whole reason it scores ahead of Sherlock / Maigret on the
 hard subset of the registry:
 
-- **Browser backend** (`--browser-backend local` / `browserbase`) — real
-  headless Chrome for sites tagged `bot-protected` (Ko-Fi, CodePen,
-  DeviantArt, and similar surfaces today). Bounded by
-  `--browser-budget` so a misconfigured flag can't burn a quota.
+- **Browser backend** (`--browser-backend local` / `browserbase` /
+  `flaresolverr`) — operator-provided browser execution for sites tagged
+  `bot-protected` (Ko-Fi, CodePen, DeviantArt, and similar surfaces today).
+  Bounded by `--browser-budget` so a misconfigured flag can't burn a quota.
+  Challenge shells still classify as `Uncertain(reason)` unless the rendered
+  page exposes strict profile evidence.
 - **TLS-fingerprint impersonation** (`cargo install --features
   impersonate`) — in-process Chrome 134 BoringSSL handshake for sites
   tagged `protection: tls-fingerprint`. Much cheaper than a real
@@ -410,6 +412,11 @@ hard subset of the registry:
   verdict. `adler --doctor --suggest-protection` (since v0.13) reads
   that telemetry across runs and flags sites that consistently
   escalate as candidates for adding `protection: cloudflare` up front.
+- **Browser matrix diagnostics** (`adler --doctor --browser-matrix`) —
+  compares protected sites' primary `known_present` user through the
+  configured access path and a raw/no-browser baseline. Use it to decide
+  whether `local`, `browserbase`, `flaresolverr`, egress, or a session is
+  actually improving detection.
 
 → Full guide with the TOML formats, guardrails, and trade-offs lives at
 [**Access engine**](https://adler-docs.pages.dev/access-engine/).

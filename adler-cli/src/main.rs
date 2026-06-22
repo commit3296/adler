@@ -56,6 +56,7 @@ const AFTER_HELP: &str = concat!(
     "    adler --doctor --fix --suggest-known-present\n",
     "    adler --doctor --fix --apply --sites overrides.json --yes\n",
     "    adler --doctor --suggest-protection         # telemetry-fed tagging\n",
+    "    adler --doctor --browser-matrix            # compare protected access paths\n",
     "\n",
     "  Batch and watch:\n",
     "    adler --input users.txt --format ndjson > batch.ndjson\n",
@@ -415,6 +416,13 @@ pub(crate) struct Cli {
     /// anything.
     #[arg(long, requires = "doctor", help_heading = "Doctor")]
     suggest_protection: bool,
+
+    /// With `--doctor`: compare each protected site's primary
+    /// `known_present` user through the configured access path and a
+    /// raw/no-browser baseline. This is diagnostic only; it does not patch
+    /// the registry.
+    #[arg(long, requires = "doctor", help_heading = "Doctor")]
+    browser_matrix: bool,
 
     /// Directory holding persisted scan JSON files for doctor telemetry and
     /// report generation. Defaults to `$XDG_CACHE_HOME/adler/scans/` (then
@@ -810,6 +818,7 @@ async fn run(cli: Cli) -> Result<ExitCode> {
             suggest_known_present: cli.suggest_known_present,
             suggest_extract: cli.suggest_extract,
             suggest_protection: cli.suggest_protection,
+            browser_matrix: cli.browser_matrix,
             sites_path: cli.sites.as_deref(),
             scans_dir: cli.scans_dir.as_deref(),
             color,

@@ -11,7 +11,9 @@ use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 
-use adler_core::browser::{BrowserbaseBackend, BrowserbaseConfig, LocalBackend, LocalConfig};
+use adler_core::browser::{
+    BrowserbaseBackend, BrowserbaseConfig, FlareSolverrBackend, LocalBackend, LocalConfig,
+};
 use adler_core::{BrowserBackend, Client, EgressSpec, Session, SessionStore};
 use anyhow::{Context as _, Result};
 
@@ -271,8 +273,20 @@ async fn build_browser_backend(
                         "--browser-backend flaresolverr requires --flaresolverr <URL> or ADLER_FLARESOLVERR_URL env var"
                     )
                 })?;
-            let backend = adler_core::browser::FlareSolverrBackend::new(&endpoint)
-                .context("connecting to FlareSolverr")?;
+            let backend =
+                FlareSolverrBackend::new(&endpoint).context("connecting to FlareSolverr")?;
+            match backend.health().await {
+                Ok(health) => {
+                    let version = health.version.as_deref().unwrap_or("unknown");
+                    eprintln!(
+                        "adler: FlareSolverr health ok (version: {version}, active sessions: {})",
+                        health.session_count,
+                    );
+                }
+                Err(err) => {
+                    eprintln!("adler: warning: FlareSolverr health check failed: {err}");
+                }
+            }
             eprintln!(
                 "adler: routing bot-protected sites through FlareSolverr at {endpoint} (budget: {})",
                 cli.browser_budget,

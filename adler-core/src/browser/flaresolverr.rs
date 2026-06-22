@@ -17,8 +17,13 @@
 //!   maintains warm browser sessions and answers HTTP requests in
 //!   seconds. Self-hosted, free, no residential IP. Suitable for
 //!   the Cloudflare-WAF subset (`protection: ["cloudflare"]`)
-//!   where the challenge is JS-only; for CF Firewall /
-//!   TLS-fingerprint sites you still want the residential backend.
+//!   where operator-provided browser execution is enough; for CF
+//!   Firewall / TLS-fingerprint sites you still want the residential
+//!   backend.
+//!
+//! Adler treats `FlareSolverr` as an operator-provided browser backend.
+//! It does not embed stealth scripts, CAPTCHA solving, or fingerprint
+//! evasion logic in core.
 //!
 //! ## Setup
 //!
@@ -105,11 +110,74 @@ impl FlareSolverrBackend {
         })
     }
 
+    /// Lightweight health/capability probe for diagnostics.
+    ///
+    /// Uses `FlareSolverr`'s `sessions.list` command and returns only a
+    /// session count, not session IDs. Failing health checks should be
+    /// reported to the operator but do not imply every later fetch must
+    /// fail — callers may choose to warn and continue.
+    ///
+    /// # Errors
+    /// Returns [`Error::BrowserSetup`] if the service is unreachable,
+    /// returns non-2xx HTTP, or reports a non-`ok` API status.
+    pub async fn health(&self) -> Result<FlareSolverrHealth> {
+        let resp = self
+            .client
+            .post(self.v1_endpoint()?)
+            .json(&FlareCommand {
+                cmd: "sessions.list",
+            })
+            .send()
+            .await
+            .map_err(|e| Error::BrowserSetup {
+                message: format!("flaresolverr health POST: {e}"),
+            })?;
+        if !resp.status().is_success() {
+            return Err(Error::BrowserSetup {
+                message: format!(
+                    "flaresolverr health returned HTTP {}",
+                    resp.status().as_u16()
+                ),
+            });
+        }
+        let body: FlareHealthResponse = resp.json().await.map_err(|e| Error::BrowserSetup {
+            message: format!("flaresolverr health body parse: {e}"),
+        })?;
+        let status = body.status.unwrap_or_else(|| "ok".to_owned());
+        if status != "ok" {
+            return Err(Error::BrowserSetup {
+                message: format!(
+                    "flaresolverr health non-ok status: {status} ({})",
+                    body.message
+                ),
+            });
+        }
+        Ok(FlareSolverrHealth {
+            status,
+            message: body.message,
+            version: body.version,
+            session_count: body.sessions.len(),
+        })
+    }
+
     fn v1_endpoint(&self) -> Result<Url> {
         self.endpoint.join("v1").map_err(|e| Error::BrowserSetup {
             message: format!("flaresolverr v1 URL join failed: {e}"),
         })
     }
+}
+
+/// Sanitized `FlareSolverr` health data safe to log or show in CLI output.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FlareSolverrHealth {
+    /// `FlareSolverr` API status, normally `ok`.
+    pub status: String,
+    /// Optional service message. Usually empty on success.
+    pub message: String,
+    /// `FlareSolverr` version when the service includes it.
+    pub version: Option<String>,
+    /// Number of active sessions. Session IDs are intentionally not exposed.
+    pub session_count: usize,
 }
 
 #[async_trait]
@@ -179,6 +247,11 @@ impl BrowserBackend for FlareSolverrBackend {
 }
 
 #[derive(Serialize)]
+struct FlareCommand<'a> {
+    cmd: &'a str,
+}
+
+#[derive(Serialize)]
 struct FlareRequest<'a> {
     cmd: &'a str,
     url: &'a str,
@@ -193,6 +266,18 @@ struct FlareResponse {
     message: String,
     #[serde(default)]
     solution: Option<FlareSolution>,
+}
+
+#[derive(Deserialize)]
+struct FlareHealthResponse {
+    #[serde(default)]
+    status: Option<String>,
+    #[serde(default)]
+    message: String,
+    #[serde(default)]
+    version: Option<String>,
+    #[serde(default)]
+    sessions: Vec<serde_json::Value>,
 }
 
 #[derive(Deserialize)]
@@ -268,6 +353,50 @@ mod tests {
             Error::BrowserSetup { message } => {
                 assert!(message.contains("non-ok"), "got: {message}");
                 assert!(message.contains("Could not solve"), "got: {message}");
+            }
+            other => panic!("expected Error::BrowserSetup, got {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn health_reports_version_and_sanitized_session_count() {
+        let mock = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/v1"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "status": "ok",
+                "message": "",
+                "version": "test-version",
+                "sessions": ["session-a", "session-b"]
+            })))
+            .mount(&mock)
+            .await;
+
+        let backend = FlareSolverrBackend::new(&mock.uri()).unwrap();
+        let health = backend.health().await.unwrap();
+        assert_eq!(health.status, "ok");
+        assert_eq!(health.version.as_deref(), Some("test-version"));
+        assert_eq!(health.session_count, 2);
+    }
+
+    #[tokio::test]
+    async fn health_surfaces_non_ok_status_as_error() {
+        let mock = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/v1"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "status": "error",
+                "message": "service is warming up"
+            })))
+            .mount(&mock)
+            .await;
+
+        let backend = FlareSolverrBackend::new(&mock.uri()).unwrap();
+        let err = backend.health().await.unwrap_err();
+        match err {
+            Error::BrowserSetup { message } => {
+                assert!(message.contains("health non-ok"), "got: {message}");
+                assert!(message.contains("warming up"), "got: {message}");
             }
             other => panic!("expected Error::BrowserSetup, got {other:?}"),
         }

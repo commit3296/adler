@@ -7,11 +7,15 @@
 //! perspective the response looks identical for an existing account and a
 //! missing one, so the verdict is always `Uncertain`.
 //!
-//! This module adds a thin abstraction over a *real* browser that can
-//! execute JS, accept cookies, present a residential / mobile IP, and
-//! return the final post-JS DOM. The existing detection signals
-//! (`status_found`, `body_*`, `redirect_absent`) then work on the rendered
-//! page exactly as they do on a raw HTTP response.
+//! This module adds a thin abstraction over operator-provided browser
+//! execution that can run JS and return the final post-JS DOM. The existing
+//! detection signals (`status_found`, `body_*`, `redirect_absent`) then work
+//! on the rendered page exactly as they do on a raw HTTP response.
+//!
+//! Adler deliberately does not embed stealth patches, CAPTCHA solving, or
+//! fingerprint-evasion scripts in core. If a rendered page is still a WAF,
+//! CAPTCHA, or generic client challenge, the transport reports
+//! `Uncertain(reason)` before site signals can turn that shell into `Found`.
 //!
 //! ## Backends
 //!
@@ -22,6 +26,10 @@
 //!   <https://browserbase.com> and connects to it via the CDP WebSocket
 //!   the service exposes. Pays per session-minute, no local setup, comes
 //!   with a residential / mobile proxy pool out of the box.
+//! - [`flaresolverr::FlareSolverrBackend`] connects to a self-hosted
+//!   `FlareSolverr` service over HTTP. It is useful for diagnostics and
+//!   Cloudflare-specific operator setups, with a lightweight health probe
+//!   for `--browser-backend flaresolverr`.
 //!
 //! Both backends drive Chrome through the same chromiumoxide [`Browser`]
 //! handle — only the transport (process vs. WebSocket) differs.
@@ -47,7 +55,7 @@ use crate::Result;
 
 pub use browserbase::{BrowserbaseBackend, BrowserbaseConfig};
 pub use budget::BrowserBudget;
-pub use flaresolverr::FlareSolverrBackend;
+pub use flaresolverr::{FlareSolverrBackend, FlareSolverrHealth};
 pub use local::{LocalBackend, LocalConfig};
 
 /// Page state captured after the backend finished loading and JS

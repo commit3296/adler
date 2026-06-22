@@ -15,17 +15,25 @@ pre-1.0 bump rules.
   metadata for PyPI.
 - *(registry)* classify CloudFront edge blocks as
   `cloudfront_challenge`.
+- *(doctor)* add `--browser-matrix` to compare protected known-present
+  probes through the configured access path and a raw/no-browser baseline.
+- *(browser)* add a sanitized FlareSolverr health probe used by CLI
+  diagnostics.
 
 ### Changed
 - *(contracts)* bump persisted scan and investigation report schema
   versions for the new challenge enum values.
 - *(registry)* remove CodePen's status-only `Found` rule after endpoint
   research confirmed no stable public exact-evidence profile API.
+- *(docs)* clarify that protected-service browser support uses
+  operator-provided backends and does not embed stealth/CAPTCHA bypass logic.
 
 ### Fixed
 - *(browser)* use an isolated temporary Chrome profile for each local
   browser backend instance, avoiding `SingletonLock` conflicts during
   parallel protected-service doctor/research runs.
+- *(browser)* classify rendered challenge shells before registry signals run,
+  preventing WAF/CAPTCHA pages from becoming status-only `Found` results.
 
 ## [0.16.0](https://github.com/commit3296/adler/compare/v0.15.1...v0.16.0) - 2026-06-18
 
@@ -275,7 +283,7 @@ pre-1.0 bump rules.
 ## [0.8.0](https://github.com/commit3296/adler/compare/v0.7.0...v0.8.0) - 2026-05-27
 
 ### Added
-- *(browser)* FlareSolverr backend for free Cloudflare bypass (R4)
+- *(browser)* FlareSolverr backend for operator-provided Cloudflare browser paths (R4)
 - *(cli)* --top N ranking with curated popularity seed (R11)
 - *(site)* disabled flag + source field for mirrors (R8)
 

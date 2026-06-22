@@ -140,6 +140,64 @@ impl Client {
             escalation_enabled: self.escalation_enabled,
         }
     }
+
+    /// Returns a diagnostic client that keeps the same configured access
+    /// path but resets browser/escalation counters.
+    ///
+    /// Doctor probes can call this to compare transports without consuming
+    /// the main run's per-scan budgets.
+    #[must_use]
+    pub fn with_fresh_budgets_for_diagnostics(&self) -> Self {
+        Self {
+            http: Arc::clone(&self.http),
+            egress: Arc::clone(&self.egress),
+            sessions: Arc::clone(&self.sessions),
+            throttle: self.throttle.clone(),
+            global_throttle: self.global_throttle.clone(),
+            retry: self.retry.clone(),
+            user_agents: Arc::clone(&self.user_agents),
+            enrich: self.enrich,
+            robots: self.robots.clone(),
+            browser: self.browser.clone(),
+            #[cfg(feature = "impersonate")]
+            impersonate: self.impersonate.clone(),
+            browser_budget: Arc::new(BrowserBudget::new(self.browser_budget.cap())),
+            escalation_budget: Arc::new(crate::escalation::EscalationBudget::new(
+                self.escalation_budget.cap(),
+            )),
+            escalation_enabled: self.escalation_enabled,
+        }
+    }
+
+    /// Returns a diagnostic client that keeps the same HTTP client,
+    /// sessions, egress pool, throttling and retry policy, but disables
+    /// browser routing and HTTP→browser escalation.
+    ///
+    /// This is intended for doctor-style comparisons where Adler needs a
+    /// raw/no-browser baseline beside the configured access path. It is not
+    /// used by normal scans.
+    #[must_use]
+    pub fn without_browser_for_diagnostics(&self) -> Self {
+        Self {
+            http: Arc::clone(&self.http),
+            egress: Arc::clone(&self.egress),
+            sessions: Arc::clone(&self.sessions),
+            throttle: self.throttle.clone(),
+            global_throttle: self.global_throttle.clone(),
+            retry: self.retry.clone(),
+            user_agents: Arc::clone(&self.user_agents),
+            enrich: self.enrich,
+            robots: self.robots.clone(),
+            browser: None,
+            #[cfg(feature = "impersonate")]
+            impersonate: self.impersonate.clone(),
+            browser_budget: Arc::new(BrowserBudget::new(self.browser_budget.cap())),
+            escalation_budget: Arc::new(crate::escalation::EscalationBudget::new(
+                self.escalation_budget.cap(),
+            )),
+            escalation_enabled: false,
+        }
+    }
 }
 
 /// Raw response data returned by [`Client::fetch`] for diagnostics.
@@ -1557,6 +1615,69 @@ mod tests {
         let outcome = client.check(&site_bot_protected(&server), &user()).await;
         assert_eq!(outcome.kind, MatchKind::Found);
         assert_eq!(backend.call_count(), 1, "browser invoked exactly once");
+    }
+
+    #[tokio::test]
+    async fn browser_challenge_body_stays_uncertain_not_found() {
+        // A rendered Cloudflare/JS challenge can return HTTP 200. The
+        // transport must classify that shell before the status_found signal
+        // sees it, otherwise a protected site can produce a false Found.
+        let server = MockServer::start().await;
+        let backend = Arc::new(RecordingBackend::with_page(RenderedPage {
+            status: 200,
+            final_url: url::Url::parse("https://example.com/alice").unwrap(),
+            body: "<html><title>Just a moment...</title></html>".into(),
+            elapsed_ms: 42,
+        }));
+        let client = Client::builder()
+            .min_request_interval(Duration::ZERO)
+            .max_retries(0)
+            .browser(backend.clone())
+            .build()
+            .unwrap();
+        let outcome = client.check(&site_bot_protected(&server), &user()).await;
+        assert_eq!(outcome.kind, MatchKind::Uncertain);
+        assert!(matches!(
+            outcome.reason,
+            Some(UncertainReason::CloudflareChallenge)
+        ));
+        assert_eq!(
+            outcome.transport,
+            Some(crate::escalation::TransportTier::Browser)
+        );
+        assert_eq!(backend.call_count(), 1, "browser invoked exactly once");
+    }
+
+    #[tokio::test]
+    async fn diagnostics_client_disables_browser_routing() {
+        let server = MockServer::start().await;
+        Mock::given(any())
+            .and(path("/alice"))
+            .respond_with(ResponseTemplate::new(404))
+            .mount(&server)
+            .await;
+        let backend = Arc::new(RecordingBackend::with_page(RenderedPage {
+            status: 200,
+            final_url: url::Url::parse("https://example.com/alice").unwrap(),
+            body: String::new(),
+            elapsed_ms: 42,
+        }));
+        let client = Client::builder()
+            .min_request_interval(Duration::ZERO)
+            .max_retries(0)
+            .browser(backend.clone())
+            .build()
+            .unwrap();
+        let diagnostic = client.without_browser_for_diagnostics();
+        let outcome = diagnostic
+            .check(&site_bot_protected(&server), &user())
+            .await;
+        assert_ne!(outcome.kind, MatchKind::Found);
+        assert_eq!(
+            backend.call_count(),
+            0,
+            "diagnostic clone must skip browser"
+        );
     }
 
     #[tokio::test]
