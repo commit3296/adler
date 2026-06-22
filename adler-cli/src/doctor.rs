@@ -14,8 +14,12 @@ use std::io::{self, Write as _};
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
-use adler_core::{CheckOutcome, Client, DoctorReport, Site, doctor};
+use adler_core::{
+    BOT_PROTECTED_TAG, CheckOutcome, Client, DoctorReport, MatchKind, ProtectionKind, Site,
+    TransportTier, Username, doctor,
+};
 use anyhow::{Context as _, Result};
+use serde::Serialize;
 
 use crate::OutputFormat;
 
@@ -29,6 +33,7 @@ pub(crate) struct DoctorOpts<'a> {
     pub(crate) suggest_known_present: bool,
     pub(crate) suggest_extract: bool,
     pub(crate) suggest_protection: bool,
+    pub(crate) browser_matrix: bool,
     pub(crate) sites_path: Option<&'a Path>,
     pub(crate) scans_dir: Option<&'a Path>,
     pub(crate) color: bool,
@@ -42,6 +47,7 @@ impl DoctorOpts<'_> {
             && !self.apply
             && !self.suggest_known_present
             && !self.suggest_extract
+            && !self.browser_matrix
     }
 }
 
@@ -78,12 +84,25 @@ pub(crate) async fn run_doctor(
         suggest_known_present = opts.suggest_known_present,
         suggest_extract = opts.suggest_extract,
         suggest_protection = opts.suggest_protection,
+        browser_matrix = opts.browser_matrix,
         format = ?opts.format,
         "starting doctor"
     );
 
     let walk = walk_doctor_sites(client, sites, opts.format, opts.color).await?;
-    render_doctor_summary(opts.format, sites.len(), &walk)?;
+    let browser_matrix = if opts.browser_matrix {
+        collect_browser_matrix(client, sites).await?
+    } else {
+        Vec::new()
+    };
+    render_browser_matrix(opts.format, opts.browser_matrix, &browser_matrix)?;
+    render_doctor_summary(
+        opts.format,
+        sites.len(),
+        &walk,
+        opts.browser_matrix,
+        &browser_matrix,
+    )?;
     run_doctor_suggestions(client, &opts, &walk).await?;
 
     // `--apply` is meaningless without something to apply: clap allows
@@ -193,7 +212,13 @@ async fn walk_doctor_sites<'a>(
 
 /// Emit the trailing summary line (text), tagged summary record
 /// (ndjson) or the full `{sites, summary}` envelope (json).
-fn render_doctor_summary(format: OutputFormat, total: usize, walk: &DoctorWalk<'_>) -> Result<()> {
+fn render_doctor_summary(
+    format: OutputFormat,
+    total: usize,
+    walk: &DoctorWalk<'_>,
+    browser_matrix_enabled: bool,
+    browser_matrix: &[BrowserMatrixRow],
+) -> Result<()> {
     let summary = serde_json::json!({
         "total": total,
         "healthy": walk.healthy_sites.len(),
@@ -220,10 +245,14 @@ fn render_doctor_summary(format: OutputFormat, total: usize, walk: &DoctorWalk<'
             );
         }
         OutputFormat::Json => {
-            let envelope = serde_json::json!({
+            let mut envelope = serde_json::json!({
                 "sites": walk.records,
                 "summary": summary,
             });
+            if browser_matrix_enabled {
+                envelope["browser_matrix"] = serde_json::to_value(browser_matrix)
+                    .context("serialising browser matrix for doctor json")?;
+            }
             println!(
                 "{}",
                 serde_json::to_string_pretty(&envelope)
@@ -233,6 +262,162 @@ fn render_doctor_summary(format: OutputFormat, total: usize, walk: &DoctorWalk<'
         OutputFormat::Csv | OutputFormat::Html => unreachable!("rejected at function entry"),
     }
     Ok(())
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct BrowserMatrixRow {
+    site: String,
+    username: String,
+    raw: BrowserMatrixOutcome,
+    configured: BrowserMatrixOutcome,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct BrowserMatrixOutcome {
+    kind: &'static str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    reason: Option<adler_core::UncertainReason>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    transport: Option<TransportTier>,
+    #[serde(skip_serializing_if = "is_zero_u8")]
+    escalations: u8,
+}
+
+#[allow(clippy::trivially_copy_pass_by_ref)]
+fn is_zero_u8(value: &u8) -> bool {
+    *value == 0
+}
+
+impl BrowserMatrixOutcome {
+    fn from_outcome(outcome: &CheckOutcome) -> Self {
+        Self {
+            kind: match_kind_label(outcome.kind),
+            reason: outcome.reason.clone(),
+            transport: outcome.transport,
+            escalations: outcome.escalations,
+        }
+    }
+}
+
+async fn collect_browser_matrix(client: &Client, sites: &[Site]) -> Result<Vec<BrowserMatrixRow>> {
+    let raw_client = client.without_browser_for_diagnostics();
+    let configured_client = client.with_fresh_budgets_for_diagnostics();
+    let mut rows = Vec::new();
+
+    for site in sites
+        .iter()
+        .filter(|site| routes_through_browser_like(site))
+    {
+        let Some(username) = site.known_present.as_ref().and_then(|kp| kp.primary()) else {
+            continue;
+        };
+        let user = match Username::new(username.to_owned()) {
+            Ok(user) => user,
+            Err(err) => {
+                tracing::warn!(
+                    site = %site.name,
+                    username,
+                    error = %err,
+                    "skipping invalid known_present in browser matrix"
+                );
+                continue;
+            }
+        };
+        let raw = raw_client.check(site, &user).await;
+        let configured = configured_client.check(site, &user).await;
+        rows.push(BrowserMatrixRow {
+            site: site.name.clone(),
+            username: username.to_owned(),
+            raw: BrowserMatrixOutcome::from_outcome(&raw),
+            configured: BrowserMatrixOutcome::from_outcome(&configured),
+        });
+    }
+
+    Ok(rows)
+}
+
+fn render_browser_matrix(
+    format: OutputFormat,
+    browser_matrix_enabled: bool,
+    rows: &[BrowserMatrixRow],
+) -> Result<()> {
+    if !browser_matrix_enabled {
+        return Ok(());
+    }
+    match format {
+        OutputFormat::Text => {
+            println!();
+            println!("Browser matrix (protected known-present sites):");
+            if rows.is_empty() {
+                println!("  no protected sites with known_present were eligible");
+                return Ok(());
+            }
+            for row in rows {
+                println!(
+                    "  {} / {}: raw={} configured={}",
+                    row.site,
+                    row.username,
+                    matrix_outcome_text(&row.raw),
+                    matrix_outcome_text(&row.configured)
+                );
+            }
+        }
+        OutputFormat::Ndjson => {
+            for row in rows {
+                let record = serde_json::json!({
+                    "type": "browser_matrix",
+                    "site": &row.site,
+                    "username": &row.username,
+                    "raw": &row.raw,
+                    "configured": &row.configured,
+                });
+                println!(
+                    "{}",
+                    serde_json::to_string(&record)
+                        .context("serialising browser matrix record as ndjson")?
+                );
+            }
+        }
+        OutputFormat::Json => {}
+        OutputFormat::Csv | OutputFormat::Html => unreachable!("rejected at function entry"),
+    }
+    Ok(())
+}
+
+fn matrix_outcome_text(outcome: &BrowserMatrixOutcome) -> String {
+    let mut text = outcome.kind.to_owned();
+    if let Some(reason) = &outcome.reason {
+        text.push('(');
+        text.push_str(&reason.to_string());
+        text.push(')');
+    }
+    if let Some(transport) = outcome.transport {
+        text.push_str(" via ");
+        text.push_str(transport.as_str());
+    }
+    if outcome.escalations > 0 {
+        text.push_str(" escalations=");
+        text.push_str(&outcome.escalations.to_string());
+    }
+    text
+}
+
+fn match_kind_label(kind: MatchKind) -> &'static str {
+    match kind {
+        MatchKind::Found => "found",
+        MatchKind::NotFound => "not_found",
+        MatchKind::Uncertain => "uncertain",
+    }
+}
+
+fn routes_through_browser_like(site: &Site) -> bool {
+    site.tags
+        .iter()
+        .any(|tag| tag.eq_ignore_ascii_case(BOT_PROTECTED_TAG))
+        || site
+            .protection
+            .iter()
+            .any(|kind| !matches!(kind, ProtectionKind::UserAuth))
 }
 
 /// Dispatch the three suggestion modes (`--fix`,

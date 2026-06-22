@@ -130,8 +130,8 @@ pub struct Site {
     /// Specific anti-bot mechanisms the site is known to deploy. A
     /// richer alternative to the flat `bot-protected` tag — knowing
     /// *which* protection a site uses lets future routing pick the
-    /// right backend (`Cloudflare` → cloudscraper-style bypass,
-    /// `CfFirewall` → full browser, `UserAuth` → skip, …) instead
+    /// right access path (`Cloudflare` → operator-provided browser
+    /// service, `CfFirewall` → full browser, `UserAuth` → skip, …) instead
     /// of the all-or-nothing `bot-protected` decision.
     ///
     /// Independent of [`Site::tags`]: the existing `bot-protected`
@@ -190,15 +190,15 @@ pub struct Site {
 }
 
 /// A specific anti-bot mechanism a site is known to deploy. Used to
-/// route probes to the right backend (raw HTTP, cloudscraper, full
-/// browser) and to inform users what blocks reliable detection.
+/// route probes to the right backend (raw HTTP, browser-capable service,
+/// full browser) and to inform users what blocks reliable detection.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 #[non_exhaustive]
 pub enum ProtectionKind {
     /// Standard Cloudflare WAF — challenge pages, `cf_clearance`
-    /// cookie. Bypassable by cloudscraper-style HTTP-level solvers
-    /// (e.g. `FlareSolverr`) without a full browser.
+    /// cookie. May be reachable through an operator-provided browser
+    /// service (e.g. `FlareSolverr`) without a local full-browser launch.
     Cloudflare,
     /// AWS `CloudFront` edge protection. Often UA-strictness only.
     Cloudfront,
@@ -224,7 +224,7 @@ pub enum ProtectionKind {
     /// always blocking — `Uncertain` is the honest answer.
     Captcha,
     /// Trivial UA-strictness: rejects unknown User-Agent strings
-    /// but lets through a real-browser UA. Cheapest to bypass.
+    /// but lets through a real-browser UA.
     UserAgent,
     /// Endpoint requires authentication; no anonymous probe path
     /// exists. Practically unscrapable for OSINT.

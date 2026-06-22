@@ -10,8 +10,8 @@
 //! Phase 1 ships two transports — [`HttpFetcher`] (raw `reqwest`, the
 //! default) and [`BrowserFetcher`] (adapts a
 //! [`BrowserBackend`](crate::browser::BrowserBackend)). The seam exists
-//! so later phases can add fingerprint-impersonating and
-//! challenge-solving transports, and an egress (proxy) dimension,
+//! so later phases can add fingerprint-impersonating transports,
+//! operator-provided browser services, and an egress (proxy) dimension
 //! without growing the router into a monster.
 
 use std::collections::BTreeMap;
@@ -215,11 +215,17 @@ impl Fetcher for BrowserFetcher {
             .fetch(&parsed, req.headers, BROWSER_TIMEOUT)
             .await
         {
-            Ok(page) => Ok(FetchResponse {
-                status: page.status,
-                final_url: page.final_url.as_str().to_owned(),
-                body: page.body,
-            }),
+            Ok(page) => {
+                if let Some(reason) = ban::detect_in_body(&page.body) {
+                    tracing::warn!(url = %req.url, %reason, "ban-like browser body");
+                    return Err(FetchError(reason));
+                }
+                Ok(FetchResponse {
+                    status: page.status,
+                    final_url: page.final_url.as_str().to_owned(),
+                    body: page.body,
+                })
+            }
             Err(err) => {
                 tracing::warn!(url = %req.url, error = %err, "browser fetch failed");
                 Err(FetchError(UncertainReason::BrowserFailed(err.to_string())))

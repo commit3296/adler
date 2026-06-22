@@ -414,6 +414,56 @@ async fn doctor_format_json_emits_structured_envelope() {
     assert_eq!(parsed["summary"]["total"], 1);
     assert_eq!(parsed["summary"]["healthy"], 1);
     assert_eq!(parsed["summary"]["failing"], 0);
+    assert!(
+        parsed.get("browser_matrix").is_none(),
+        "default doctor JSON must not grow matrix fields"
+    );
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn doctor_browser_matrix_json_reports_configured_and_raw_paths() {
+    let server = MockServer::start().await;
+    Mock::given(any())
+        .and(path("/alice"))
+        .respond_with(ResponseTemplate::new(200))
+        .mount(&server)
+        .await;
+    Mock::given(any())
+        .respond_with(ResponseTemplate::new(404))
+        .mount(&server)
+        .await;
+    let json = format!(
+        r#"{{"sites":[
+            {{"name":"Protected","url":"{0}/{{username}}","tags":["bot-protected"],"signals":[
+                {{"kind":"status_found","codes":[200]}},
+                {{"kind":"status_not_found","codes":[404]}}
+            ],"known_present":"alice"}}
+        ]}}"#,
+        server.uri()
+    );
+    let sites = sites_file(&json);
+    let assert = adler()
+        .args([
+            "--sites",
+            sites.path().to_str().unwrap(),
+            "--no-progress",
+            "--doctor",
+            "--browser-matrix",
+            "--format",
+            "json",
+        ])
+        .assert()
+        .success();
+    let stdout = String::from_utf8(assert.get_output().stdout.clone()).unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&stdout).expect("valid JSON envelope");
+    let matrix = parsed["browser_matrix"].as_array().expect("matrix array");
+    assert_eq!(matrix.len(), 1);
+    assert_eq!(matrix[0]["site"], "Protected");
+    assert_eq!(matrix[0]["username"], "alice");
+    assert_eq!(matrix[0]["raw"]["kind"], "found");
+    assert_eq!(matrix[0]["raw"]["transport"], "http");
+    assert_eq!(matrix[0]["configured"]["kind"], "found");
+    assert_eq!(matrix[0]["configured"]["transport"], "http");
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -831,6 +881,60 @@ async fn doctor_format_ndjson_emits_line_delimited_records_plus_summary() {
     assert_eq!(summary["type"], "summary");
     assert_eq!(summary["total"], 1);
     assert_eq!(summary["failing"], 1);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn doctor_browser_matrix_ndjson_emits_matrix_record_before_summary() {
+    let server = MockServer::start().await;
+    Mock::given(any())
+        .and(path("/alice"))
+        .respond_with(ResponseTemplate::new(200))
+        .mount(&server)
+        .await;
+    Mock::given(any())
+        .respond_with(ResponseTemplate::new(404))
+        .mount(&server)
+        .await;
+    let json = format!(
+        r#"{{"sites":[
+            {{"name":"Protected","url":"{0}/{{username}}","protection":["cloudflare"],"signals":[
+                {{"kind":"status_found","codes":[200]}},
+                {{"kind":"status_not_found","codes":[404]}}
+            ],"known_present":"alice"}}
+        ]}}"#,
+        server.uri()
+    );
+    let sites = sites_file(&json);
+    let assert = adler()
+        .args([
+            "--sites",
+            sites.path().to_str().unwrap(),
+            "--no-progress",
+            "--doctor",
+            "--browser-matrix",
+            "--format",
+            "ndjson",
+        ])
+        .assert()
+        .success();
+    let stdout = String::from_utf8(assert.get_output().stdout.clone()).unwrap();
+    let lines: Vec<&str> = stdout.lines().filter(|l| !l.is_empty()).collect();
+    assert_eq!(
+        lines.len(),
+        3,
+        "expected site record + matrix record + summary: {lines:?}"
+    );
+
+    let matrix: serde_json::Value =
+        serde_json::from_str(lines[1]).expect("browser matrix record JSON");
+    assert_eq!(matrix["type"], "browser_matrix");
+    assert_eq!(matrix["site"], "Protected");
+    assert_eq!(matrix["raw"]["kind"], "found");
+    assert_eq!(matrix["configured"]["transport"], "http");
+
+    let summary: serde_json::Value = serde_json::from_str(lines[2]).expect("summary JSON");
+    assert_eq!(summary["type"], "summary");
+    assert_eq!(summary["failing"], 0);
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

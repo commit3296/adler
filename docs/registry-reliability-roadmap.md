@@ -214,3 +214,9 @@ Research order after TikTok:
 - [x] Run a bounded local-browser smoke for CodePen, Ko-Fi, DeviantArt,
   and Replit; keep them parked unless a browser/residential/session path
   produces strict username evidence.
+- [x] Add `--doctor --browser-matrix` for protected known-present users so
+  raw/no-browser and configured access paths can be compared without
+  weakening strict evidence rules.
+- [x] Classify rendered browser challenge shells before registry signals run,
+  so status-only or generic body signals cannot turn WAF/CAPTCHA pages into
+  `Found`.
