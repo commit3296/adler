@@ -1082,6 +1082,150 @@ mod tests {
     }
 
     #[test]
+    fn kaggle_requires_exact_profile_username_marker() {
+        for (label, registry) in [
+            ("default", Registry::default_embedded().unwrap()),
+            (
+                "default+wmn",
+                Registry::default_embedded_with_wmn().unwrap(),
+            ),
+        ] {
+            let entries: Vec<&Site> = registry
+                .sites()
+                .iter()
+                .filter(|s| s.name == "Kaggle")
+                .collect();
+
+            assert_eq!(entries.len(), 1, "{label} should keep one Kaggle probe");
+            let kaggle = entries[0];
+            assert!(
+                !kaggle.disabled,
+                "{label} Kaggle probe should remain enabled"
+            );
+            assert_eq!(kaggle.url.as_str(), "https://www.kaggle.com/{username}");
+            assert!(
+                kaggle.signals.iter().any(|signal| matches!(
+                    signal,
+                    super::super::site::Signal::BodyUsername { text }
+                        if text == "property=\"og:username\" content=\"{username}\""
+                )),
+                "{label} Kaggle should require exact og:username evidence"
+            );
+            assert!(
+                kaggle.signals.iter().any(|signal| matches!(
+                    signal,
+                    super::super::site::Signal::BodyAbsent { text }
+                        if text == "<title>Kaggle: Your Home for Data Science</title>"
+                )),
+                "{label} Kaggle should classify the public home shell as NotFound"
+            );
+            assert!(
+                kaggle.signals.iter().all(|signal| !matches!(
+                    signal,
+                    super::super::site::Signal::StatusFound { .. }
+                        | super::super::site::Signal::BodyPresent { .. }
+                )),
+                "{label} Kaggle must not infer Found from HTTP 200 or generic body markers"
+            );
+        }
+    }
+
+    #[test]
+    fn roblox_uses_public_username_validation_api() {
+        for (label, registry) in [
+            ("default", Registry::default_embedded().unwrap()),
+            (
+                "default+wmn",
+                Registry::default_embedded_with_wmn().unwrap(),
+            ),
+        ] {
+            let entries: Vec<&Site> = registry
+                .sites()
+                .iter()
+                .filter(|s| s.name == "Roblox")
+                .collect();
+
+            assert_eq!(entries.len(), 1, "{label} should keep one Roblox probe");
+            let roblox = entries[0];
+            assert!(
+                !roblox.disabled,
+                "{label} Roblox probe should remain enabled"
+            );
+            assert_eq!(
+                roblox.url.as_str(),
+                "https://auth.roblox.com/v1/usernames/validate?username={username}&birthday=2019-12-31T23:00:00.000Z"
+            );
+            assert_eq!(
+                roblox.regex_check.as_deref(),
+                Some("^[A-Za-z0-9_]{3,20}$"),
+                "{label} Roblox should skip usernames the validation API rejects structurally"
+            );
+            assert!(
+                roblox.signals.iter().any(|signal| matches!(
+                    signal,
+                    super::super::site::Signal::BodyPresent { text }
+                        if text == "Username is already in use"
+                )),
+                "{label} Roblox should treat the availability API's in-use response as Found"
+            );
+            assert!(
+                roblox.signals.iter().any(|signal| matches!(
+                    signal,
+                    super::super::site::Signal::BodyAbsent { text }
+                        if text == "Username is valid"
+                )),
+                "{label} Roblox should treat available usernames as NotFound"
+            );
+            assert!(
+                roblox.signals.iter().all(|signal| !matches!(
+                    signal,
+                    super::super::site::Signal::StatusFound { .. }
+                        | super::super::site::Signal::StatusNotFound { .. }
+                )),
+                "{label} Roblox must not depend on profile-page status codes"
+            );
+        }
+    }
+
+    #[test]
+    fn wmn_bluesky_duplicate_is_parked() {
+        let registry = Registry::default_embedded_with_wmn().unwrap();
+        let bluesky_entries: Vec<&Site> = registry
+            .sites()
+            .iter()
+            .filter(|s| s.name == "Bluesky")
+            .collect();
+        assert_eq!(
+            bluesky_entries.len(),
+            1,
+            "canonical Bluesky probe stays enabled"
+        );
+        assert!(!bluesky_entries[0].disabled);
+
+        let duplicate = registry
+            .sites()
+            .iter()
+            .find(|s| s.name == "Bluesky 1")
+            .expect("WMN duplicate remains documented for provenance");
+        assert!(duplicate.disabled, "WMN duplicate should not be scanned");
+        assert_eq!(
+            duplicate.disabled_reason.as_deref(),
+            Some("duplicate of Bluesky")
+        );
+
+        let scanned = registry.filter(&["Bluesky".into()], &[], &[], &[], true);
+        assert_eq!(
+            scanned.iter().filter(|s| s.name == "Bluesky").count(),
+            1,
+            "filter should return the canonical Bluesky probe"
+        );
+        assert!(
+            scanned.iter().all(|s| s.name != "Bluesky 1"),
+            "disabled WMN duplicate must stay out of scan filters"
+        );
+    }
+
+    #[test]
     fn replit_requires_session_and_exact_username_marker() {
         let registry = Registry::default_embedded_with_wmn().unwrap();
         let replit_entries: Vec<&Site> = registry

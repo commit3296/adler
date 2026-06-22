@@ -13087,16 +13087,18 @@
       "url": "https://www.kaggle.com/{username}",
       "signals": [
         {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
+          "kind": "body_username",
+          "text": "property=\"og:username\" content=\"{username}\""
         },
         {
           "kind": "status_not_found",
           "codes": [
             404
           ]
+        },
+        {
+          "kind": "body_absent",
+          "text": "<title>Kaggle: Your Home for Data Science</title>"
         }
       ],
       "known_present": "dansbecker"
@@ -22617,21 +22619,18 @@
     },
     {
       "name": "Roblox",
-      "url": "https://www.roblox.com/user.aspx?username={username}",
+      "url": "https://auth.roblox.com/v1/usernames/validate?username={username}&birthday=2019-12-31T23:00:00.000Z",
       "signals": [
         {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
+          "kind": "body_present",
+          "text": "Username is already in use"
         },
         {
-          "kind": "status_not_found",
-          "codes": [
-            404
-          ]
+          "kind": "body_absent",
+          "text": "Username is valid"
         }
       ],
+      "regex_check": "^[A-Za-z0-9_]{3,20}$",
       "known_present": "bluewolfekiller"
     },
     {

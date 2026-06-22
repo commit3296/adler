@@ -2106,6 +2106,8 @@
         "bsky.app",
         "safety.bsky.app"
       ],
+      "disabled": true,
+      "disabled_reason": "duplicate of Bluesky",
       "tags": [
         "social",
         "source:wmn"
