@@ -477,6 +477,36 @@ Triage notes:
 - The remaining non-session protected surfaces are now explicitly
   classified as Cloudflare, CloudFront, or generic client challenge.
 
+## 2026-06-22 CodePen Endpoint Research
+
+Command samples:
+
+```bash
+curl -sS -L --max-time 12 -D - https://codepen.io/good88gorg
+curl -sS -L --max-time 12 -D - https://codepen.io/RayyanDonut
+curl -sS -L --max-time 12 -D - https://codepen.io/good88gorg.json
+curl -sS -L --max-time 12 -D - https://codepen.io/api/users/good88gorg
+curl -sS -L --max-time 12 -D - https://codepen.io/good88gorg/public/feed
+curl -sS -L --max-time 12 -D - 'https://codepen.io/api/oembed?url=https://codepen.io/good88gorg'
+```
+
+Observed result:
+
+- Known-present users, a synthetic missing username, `.json`, `api/users`,
+  public feed, public pens, and oEmbed probes all returned the same
+  `HTTP 403` Cloudflare challenge from this direct local egress.
+- CodePen's own API documentation says there is no public REST or GraphQL
+  data API for CodePen profiles. The documented API-like surface is
+  oEmbed/prefill oriented, not a username lookup endpoint.
+
+Decision:
+
+- Do not add an unofficial third-party API dependency.
+- Do not infer `Found` from HTTP `200` if CodePen becomes reachable
+  through a generic shell or challenge page.
+- Keep CodePen tagged as Cloudflare/browser-protected and require profile
+  metadata before producing `Found`.
+
 ## 2026-06-19 Persisted Scan Protection Telemetry
 
 Command:

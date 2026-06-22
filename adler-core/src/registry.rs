@@ -1413,6 +1413,48 @@ mod tests {
     }
 
     #[test]
+    fn codepen_requires_profile_marker_not_status_only() {
+        let registry = Registry::default_embedded_with_wmn().unwrap();
+        let codepen_entries: Vec<&Site> = registry
+            .sites()
+            .iter()
+            .filter(|s| s.name == "CodePen")
+            .collect();
+
+        assert_eq!(
+            codepen_entries.len(),
+            1,
+            "WMN merge must keep one CodePen probe"
+        );
+        let codepen = codepen_entries[0];
+        assert!(!codepen.disabled, "CodePen probe should remain enabled");
+        assert_eq!(codepen.url.as_str(), "https://codepen.io/{username}");
+        assert!(
+            codepen.signals.iter().any(|signal| matches!(
+                signal,
+                super::super::site::Signal::BodyPresent { text }
+                    if text == "property=\"og:url\""
+            )),
+            "CodePen should require profile metadata rather than status only"
+        );
+        assert!(
+            codepen
+                .signals
+                .iter()
+                .all(|signal| !matches!(signal, super::super::site::Signal::StatusFound { .. })),
+            "CodePen must not infer Found from a generic HTTP 200 or challenge shell"
+        );
+        assert!(
+            codepen
+                .protection
+                .iter()
+                .any(|p| matches!(p, super::super::site::ProtectionKind::Cloudflare))
+                && codepen.tags.iter().any(|t| t == "bot-protected"),
+            "CodePen should stay routed as a Cloudflare-protected profile surface"
+        );
+    }
+
+    #[test]
     fn deviantart_is_classified_as_cloudfront_protected() {
         let registry = Registry::default_embedded_with_wmn().unwrap();
         let deviantart_entries: Vec<&Site> = registry

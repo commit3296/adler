@@ -19,6 +19,8 @@ pre-1.0 bump rules.
 ### Changed
 - *(contracts)* bump persisted scan and investigation report schema
   versions for the new challenge enum values.
+- *(registry)* remove CodePen's status-only `Found` rule after endpoint
+  research confirmed no stable public exact-evidence profile API.
 
 ## [0.16.0](https://github.com/commit3296/adler/compare/v0.15.1...v0.16.0) - 2026-06-18
 
