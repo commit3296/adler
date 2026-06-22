@@ -6701,10 +6701,8 @@
       "url": "https://hub.docker.com/v2/users/{username}/",
       "signals": [
         {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
+          "kind": "json_username",
+          "pointer": "/username"
         },
         {
           "kind": "status_not_found",
@@ -13189,19 +13187,15 @@
     },
     {
       "name": "Keybase",
-      "url": "https://keybase.io/{username}",
+      "url": "https://keybase.io/_/api/1.0/user/lookup.json?usernames={username}",
       "signals": [
         {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
+          "kind": "json_username",
+          "pointer": "/them/0/basics/username"
         },
         {
-          "kind": "status_not_found",
-          "codes": [
-            404
-          ]
+          "kind": "body_absent",
+          "text": "\"them\":[null]"
         }
       ],
       "known_present": "blue",

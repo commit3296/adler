@@ -226,3 +226,7 @@ Research order after TikTok:
   username syntax instead of the legacy profile redirect route.
 - [x] Park the stale WMN `Bluesky 1` duplicate so the canonical public API
   probe is the only enabled Bluesky service entry.
+- [x] Require exact JSON username evidence for Docker Hub's public user API.
+- [x] Move Keybase to its public lookup API and remove the status-only
+  false-positive path for HTTP-200 lookup misses.
+- [x] Require exact JSON username evidence for the WMN dev.to API probe.
