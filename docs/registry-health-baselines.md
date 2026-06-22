@@ -550,6 +550,35 @@ Notes:
   primary `known_present` users, without treating rendered challenge shells
   as profile matches.
 
+## 2026-06-22 Kaggle / Roblox / Bluesky Service Sweep
+
+Command:
+
+```bash
+cargo run -q -p adler-cli -- \
+  --doctor --only Kaggle --only Roblox --only Bluesky \
+  --format json --no-progress --no-cache --max-retries 0 \
+  --timeout 12 --concurrency 4
+```
+
+Observed before repair:
+
+| Site | Problem | Decision |
+| --- | --- | --- |
+| Kaggle | known-present `dansbecker` was classified `NotFound` by the stale WMN `og:username`/home-shell body logic | require exact `og:username` marker and keep the home shell as explicit NotFound |
+| Roblox | main registry still used the legacy `user.aspx` profile route while WMN had a better public validation API | move canonical entry to `auth.roblox.com/v1/usernames/validate` and add username-shape bounds |
+| Bluesky 1 | WMN duplicate of the canonical public API probe failed on stale known-present handles | park as `duplicate of Bluesky` so scans use the canonical `public.api.bsky.app` probe |
+
+Post-repair result:
+
+- `Bluesky`, `Kaggle`, and `Roblox` all returned healthy in the bounded
+  live doctor run above.
+- Kaggle now produces exact username evidence from the profile metadata
+  marker rather than trusting `HTTP 200`.
+- Roblox remains a username-availability signal, not identity-clustering
+  evidence; it does not emit exact profile evidence because the API does
+  not echo the queried username.
+
 ## 2026-06-19 Persisted Scan Protection Telemetry
 
 Command:

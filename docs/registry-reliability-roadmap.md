@@ -220,3 +220,9 @@ Research order after TikTok:
 - [x] Classify rendered browser challenge shells before registry signals run,
   so status-only or generic body signals cannot turn WAF/CAPTCHA pages into
   `Found`.
+- [x] Repair Kaggle's stale profile signal with an exact `og:username`
+  marker and explicit home-shell NotFound marker.
+- [x] Move Roblox to its public username-validation endpoint with bounded
+  username syntax instead of the legacy profile redirect route.
+- [x] Park the stale WMN `Bluesky 1` duplicate so the canonical public API
+  probe is the only enabled Bluesky service entry.

@@ -25,6 +25,8 @@ pre-1.0 bump rules.
   versions for the new challenge enum values.
 - *(registry)* remove CodePen's status-only `Found` rule after endpoint
   research confirmed no stable public exact-evidence profile API.
+- *(registry)* move Roblox to the public username-validation endpoint and
+  bound usernames to the API's accepted shape.
 - *(docs)* clarify that protected-service browser support uses
   operator-provided backends and does not embed stealth/CAPTCHA bypass logic.
 
@@ -34,6 +36,10 @@ pre-1.0 bump rules.
   parallel protected-service doctor/research runs.
 - *(browser)* classify rendered challenge shells before registry signals run,
   preventing WAF/CAPTCHA pages from becoming status-only `Found` results.
+- *(registry)* require Kaggle's exact `og:username` marker instead of weak
+  status-only profile detection.
+- *(registry)* park the stale WMN `Bluesky 1` duplicate so `--only Bluesky`
+  scans only the canonical public API probe.
 
 ## [0.16.0](https://github.com/commit3296/adler/compare/v0.15.1...v0.16.0) - 2026-06-18
 
