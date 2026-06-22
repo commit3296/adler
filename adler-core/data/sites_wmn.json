@@ -3453,12 +3453,6 @@
       "url": "https://codepen.io/{username}",
       "signals": [
         {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
           "kind": "body_present",
           "text": "property=\"og:url\""
         },

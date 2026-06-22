@@ -208,5 +208,6 @@ Research order after TikTok:
 - [x] Remove `bot-protected` routing from the X/Twitter API probes.
 - [x] Refresh the direct top-set doctor baseline after the X/Twitter API
   alias cleanup.
-- [ ] Keep CodePen as a protection-metadata candidate unless targeted
-  research finds a stable exact evidence endpoint.
+- [x] Keep CodePen Cloudflare-protected and remove its status-only Found
+  rule after targeted research found no stable public exact-evidence
+  endpoint.
