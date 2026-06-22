@@ -9,6 +9,17 @@ pre-1.0 bump rules.
 
 ## [Unreleased]
 
+## [0.17.0](https://github.com/commit3296/adler/compare/adler-mcp-v0.16.0...adler-mcp-v0.17.0) - 2026-06-22
+
+### Added
+- harden protected browser diagnostics ([#155](https://github.com/commit3296/adler/pull/155))
+
+### Fixed
+- classify cloudfront challenge blocks ([#152](https://github.com/commit3296/adler/pull/152))
+- classify pypi client challenge ([#151](https://github.com/commit3296/adler/pull/151))
+- route twitter through availability api ([#150](https://github.com/commit3296/adler/pull/150))
+- model instagram through session api ([#149](https://github.com/commit3296/adler/pull/149))
+
 ### Added
 - *(registry)* classify generic browser client challenges as
   `client_challenge` and add structured `client-challenge` protection
