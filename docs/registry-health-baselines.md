@@ -507,6 +507,45 @@ Decision:
 - Keep CodePen tagged as Cloudflare/browser-protected and require profile
   metadata before producing `Found`.
 
+## 2026-06-22 Local Browser Protected-Service Smoke
+
+Command shape:
+
+```bash
+cargo run -q -p adler-cli -- \
+  --doctor --only <SITE> --browser-backend local --browser-budget 4 \
+  --no-progress --no-cache --max-retries 0 --timeout 20 \
+  --concurrency 1 --format json
+```
+
+Scope:
+
+- Local Chrome backend only, direct local egress.
+- No Browserbase residential session, no FlareSolverr, no operator
+  sessions.
+- Targeted at the protected top-set services that direct HTTP cannot
+  classify as Found: CodePen, Ko-Fi, DeviantArt, and Replit.
+
+Results:
+
+| Site | Local browser result | Decision |
+| --- | --- | --- |
+| CodePen | known-present users still returned `Uncertain` | keep Cloudflare-protected; no exact evidence signal |
+| Ko-Fi | known-present users still returned `Uncertain` | keep Cloudflare-protected; no exact evidence signal |
+| DeviantArt | known-present users still returned `Uncertain` | keep CloudFront-protected; no exact evidence signal |
+| Replit | known-present users returned `Uncertain(session_required)` | keep named session requirement |
+
+Notes:
+
+- Parallel local-browser doctor runs previously contended on
+  Chromium's default `/tmp/chromiumoxide-runner` profile lock. Adler now
+  creates an isolated temporary Chrome profile per local browser backend
+  instance so protected-service research can run concurrently.
+- Local Chrome alone does not satisfy these WAF/login-wall cases from
+  this egress. Future recall work should use Browserbase/residential,
+  FlareSolverr for Cloudflare-specific paths, or operator sessions where
+  the access policy already requires them.
+
 ## 2026-06-19 Persisted Scan Protection Telemetry
 
 Command:

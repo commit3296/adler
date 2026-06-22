@@ -211,3 +211,6 @@ Research order after TikTok:
 - [x] Keep CodePen Cloudflare-protected and remove its status-only Found
   rule after targeted research found no stable public exact-evidence
   endpoint.
+- [x] Run a bounded local-browser smoke for CodePen, Ko-Fi, DeviantArt,
+  and Replit; keep them parked unless a browser/residential/session path
+  produces strict username evidence.

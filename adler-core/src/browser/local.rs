@@ -14,6 +14,7 @@ use chromiumoxide::browser::{Browser, BrowserConfig};
 use chromiumoxide::cdp::browser_protocol::network::{Headers, SetExtraHttpHeadersParams};
 use futures::StreamExt as _;
 use serde_json::Value as JsonValue;
+use tempfile::TempDir;
 use tokio::task::JoinHandle;
 use url::Url;
 
@@ -32,6 +33,7 @@ pub struct LocalConfig {
 /// [`fetch`](Self::fetch) calls until dropped.
 pub struct LocalBackend {
     browser: Browser,
+    _profile_dir: TempDir,
     // Kept alive for the lifetime of the backend — chromiumoxide commands
     // deadlock if this stream isn't drained.
     handler: JoinHandle<()>,
@@ -44,14 +46,13 @@ impl LocalBackend {
     /// Returns [`Error::BrowserSetup`] if Chrome can't be located or the
     /// process fails to start.
     pub async fn launch(cfg: LocalConfig) -> Result<Self> {
-        // Default builder is already headless; just add proxy if present.
-        let mut builder = BrowserConfig::builder();
-        if let Some(proxy) = cfg.proxy_url.as_deref() {
-            builder = builder.arg(format!("--proxy-server={proxy}"));
-        }
-        let config = builder
-            .build()
-            .map_err(|e| Error::BrowserSetup { message: e })?;
+        let profile_dir = tempfile::Builder::new()
+            .prefix("adler-chrome-")
+            .tempdir()
+            .map_err(|e| Error::BrowserSetup {
+                message: format!("create temporary Chrome profile: {e}"),
+            })?;
+        let config = browser_config(&cfg, profile_dir.path())?;
         let (browser, mut handler) =
             Browser::launch(config)
                 .await
@@ -69,9 +70,22 @@ impl LocalBackend {
         });
         Ok(Self {
             browser,
+            _profile_dir: profile_dir,
             handler: handler_task,
         })
     }
+}
+
+fn browser_config(cfg: &LocalConfig, profile_dir: &std::path::Path) -> Result<BrowserConfig> {
+    // Default builder is already headless; use an isolated profile so
+    // repeated or parallel Adler runs never contend on Chrome SingletonLock.
+    let mut builder = BrowserConfig::builder().user_data_dir(profile_dir);
+    if let Some(proxy) = cfg.proxy_url.as_deref() {
+        builder = builder.arg(format!("--proxy-server={proxy}"));
+    }
+    builder
+        .build()
+        .map_err(|e| Error::BrowserSetup { message: e })
 }
 
 impl Drop for LocalBackend {
@@ -180,5 +194,29 @@ impl BrowserBackend for LocalBackend {
             .map_err(|_| Error::BrowserSetup {
                 message: format!("browser fetch timeout after {}s", timeout.as_secs()),
             })?
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn browser_config_uses_supplied_isolated_profile_dir() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = browser_config(&LocalConfig::default(), dir.path()).unwrap();
+
+        assert_eq!(config.user_data_dir.as_deref(), Some(dir.path()));
+    }
+
+    #[test]
+    fn browser_config_accepts_proxy_with_isolated_profile_dir() {
+        let dir = tempfile::tempdir().unwrap();
+        let cfg = LocalConfig {
+            proxy_url: Some("socks5://127.0.0.1:9050".into()),
+        };
+        let config = browser_config(&cfg, dir.path()).unwrap();
+
+        assert_eq!(config.user_data_dir.as_deref(), Some(dir.path()));
     }
 }
