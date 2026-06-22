@@ -27,6 +27,8 @@ pre-1.0 bump rules.
   research confirmed no stable public exact-evidence profile API.
 - *(registry)* move Roblox to the public username-validation endpoint and
   bound usernames to the API's accepted shape.
+- *(registry)* require exact JSON username evidence for Docker Hub,
+  Keybase, and dev.to API probes.
 - *(docs)* clarify that protected-service browser support uses
   operator-provided backends and does not embed stealth/CAPTCHA bypass logic.
 
@@ -38,6 +40,9 @@ pre-1.0 bump rules.
   preventing WAF/CAPTCHA pages from becoming status-only `Found` results.
 - *(registry)* require Kaggle's exact `og:username` marker instead of weak
   status-only profile detection.
+- *(registry)* replace Keybase's status-only profile probe with exact lookup
+  API username evidence, avoiding HTTP-200 lookup misses being treated as
+  positive if checked by status alone.
 - *(registry)* park the stale WMN `Bluesky 1` duplicate so `--only Bluesky`
   scans only the canonical public API probe.
 

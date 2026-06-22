@@ -579,6 +579,32 @@ Post-repair result:
   evidence; it does not emit exact profile evidence because the API does
   not echo the queried username.
 
+## 2026-06-22 Docker Hub / Keybase / dev.to API Evidence Sweep
+
+Command:
+
+```bash
+cargo run -q -p adler-cli -- \
+  --doctor --only "Docker Hub" --only Keybase --only dev.to \
+  --format json --no-progress --no-cache --max-retries 0 \
+  --timeout 12 --concurrency 4
+```
+
+Observed before repair:
+
+| Site | Problem | Decision |
+| --- | --- | --- |
+| Docker Hub | public API returned `username`, but registry still trusted status-only `200` | require JSON pointer `/username` and keep `404` NotFound |
+| Keybase | legacy status-only profile probing lacked exact account evidence; the safer lookup API returns HTTP `200` for both hits and misses | move canonical entry to `/_/api/1.0/user/lookup.json` and require `/them/0/basics/username`; classify `"them":[null]` as NotFound |
+| dev.to | public API returned `username`, but WMN entry used generic `"id":` body marker | require JSON pointer `/username` and keep `404` NotFound |
+
+Post-repair expectations:
+
+- Docker Hub, Keybase, and dev.to should emit exact username evidence for
+  Found API responses.
+- Keybase misses should no longer be able to become `Found` solely because
+  the API returned HTTP `200`.
+
 ## 2026-06-19 Persisted Scan Protection Telemetry
 
 Command:

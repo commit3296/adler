@@ -4274,14 +4274,8 @@
       "url": "https://dev.to/api/users/by_username?url={username}",
       "signals": [
         {
-          "kind": "status_found",
-          "codes": [
-            200
-          ]
-        },
-        {
-          "kind": "body_present",
-          "text": "\"id\":"
+          "kind": "json_username",
+          "pointer": "/username"
         },
         {
           "kind": "status_not_found",

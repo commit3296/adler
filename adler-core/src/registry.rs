@@ -1082,6 +1082,136 @@ mod tests {
     }
 
     #[test]
+    fn docker_hub_uses_user_api_with_exact_username_signal() {
+        for (label, registry) in [
+            ("default", Registry::default_embedded().unwrap()),
+            (
+                "default+wmn",
+                Registry::default_embedded_with_wmn().unwrap(),
+            ),
+        ] {
+            let entries: Vec<&Site> = registry
+                .sites()
+                .iter()
+                .filter(|s| s.name == "Docker Hub")
+                .collect();
+
+            assert_eq!(entries.len(), 1, "{label} should keep one Docker Hub probe");
+            let docker = entries[0];
+            assert!(
+                docker.signals.iter().any(|signal| matches!(
+                    signal,
+                    super::super::site::Signal::JsonUsername { pointer }
+                        if pointer == "/username"
+                )),
+                "{label} Docker Hub should require exact username evidence"
+            );
+            assert!(
+                docker.signals.iter().any(|signal| matches!(
+                    signal,
+                    super::super::site::Signal::StatusNotFound { codes } if codes == &[404]
+                )),
+                "{label} Docker Hub should preserve 404 NotFound"
+            );
+            assert!(
+                docker.signals.iter().all(|signal| !matches!(
+                    signal,
+                    super::super::site::Signal::StatusFound { .. }
+                        | super::super::site::Signal::BodyPresent { .. }
+                )),
+                "{label} Docker Hub must not infer Found from HTTP 200 or generic body markers"
+            );
+        }
+    }
+
+    #[test]
+    fn keybase_uses_lookup_api_with_exact_username_signal() {
+        for (label, registry) in [
+            ("default", Registry::default_embedded().unwrap()),
+            (
+                "default+wmn",
+                Registry::default_embedded_with_wmn().unwrap(),
+            ),
+        ] {
+            let entries: Vec<&Site> = registry
+                .sites()
+                .iter()
+                .filter(|s| s.name == "Keybase")
+                .collect();
+
+            assert_eq!(entries.len(), 1, "{label} should keep one Keybase probe");
+            let keybase = entries[0];
+            assert_eq!(
+                keybase.url.as_str(),
+                "https://keybase.io/_/api/1.0/user/lookup.json?usernames={username}"
+            );
+            assert!(
+                keybase.signals.iter().any(|signal| matches!(
+                    signal,
+                    super::super::site::Signal::JsonUsername { pointer }
+                        if pointer == "/them/0/basics/username"
+                )),
+                "{label} Keybase should require exact username evidence"
+            );
+            assert!(
+                keybase.signals.iter().any(|signal| matches!(
+                    signal,
+                    super::super::site::Signal::BodyAbsent { text } if text == "\"them\":[null]"
+                )),
+                "{label} Keybase should classify lookup misses as NotFound"
+            );
+            assert!(
+                keybase.signals.iter().all(|signal| !matches!(
+                    signal,
+                    super::super::site::Signal::StatusFound { .. }
+                        | super::super::site::Signal::StatusNotFound { .. }
+                        | super::super::site::Signal::BodyPresent { .. }
+                )),
+                "{label} Keybase must not infer Found from API HTTP 200"
+            );
+        }
+    }
+
+    #[test]
+    fn devto_uses_public_api_with_exact_username_signal() {
+        let registry = Registry::default_embedded_with_wmn().unwrap();
+        let entries: Vec<&Site> = registry
+            .sites()
+            .iter()
+            .filter(|s| s.name == "dev.to")
+            .collect();
+
+        assert_eq!(entries.len(), 1, "WMN merge should keep one dev.to probe");
+        let devto = entries[0];
+        assert_eq!(
+            devto.url.as_str(),
+            "https://dev.to/api/users/by_username?url={username}"
+        );
+        assert!(
+            devto.signals.iter().any(|signal| matches!(
+                signal,
+                super::super::site::Signal::JsonUsername { pointer } if pointer == "/username"
+            )),
+            "dev.to should require exact username evidence"
+        );
+        assert!(
+            devto.signals.iter().any(|signal| matches!(
+                signal,
+                super::super::site::Signal::StatusNotFound { codes } if codes == &[404]
+            )),
+            "dev.to should preserve 404 NotFound"
+        );
+        assert!(
+            devto.signals.iter().all(|signal| !matches!(
+                signal,
+                super::super::site::Signal::StatusFound { .. }
+                    | super::super::site::Signal::BodyPresent { .. }
+            )),
+            "dev.to must not infer Found from HTTP 200 or generic id markers"
+        );
+    }
+
+    #[test]
     fn kaggle_requires_exact_profile_username_marker() {
         for (label, registry) in [
             ("default", Registry::default_embedded().unwrap()),
