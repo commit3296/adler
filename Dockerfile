@@ -3,7 +3,7 @@
 # Run:    docker run --rm adler alice
 
 # Builder and runtime must share a Debian release so glibc versions match.
-FROM rust:1-slim-bookworm@sha256:c8a94a78f67ec8c4d474ec7f71e0720f21eb7e584e158daec0874cafa7c30e4d AS builder
+FROM rust:1-slim-bookworm@sha256:4732ca96fd086cb9be682050c3f0176288eebaac2b80aa2bcefccfaf198e1950 AS builder
 WORKDIR /src
 # Copy the whole workspace; .dockerignore keeps target/ and the cache out.
 COPY . .
