@@ -114,7 +114,7 @@ mime_guess = { version = "2", default-features = false }
 # `adler --mcp` is discoverable without an extra feature flag.
 # `schemars` derives JSON Schema for tool argument structs so agents
 # get typed parameter descriptions.
-rmcp = { version = "1", features = [
+rmcp = { version = "2", features = [
     "server",
     "transport-io",
     "transport-streamable-http-server",
